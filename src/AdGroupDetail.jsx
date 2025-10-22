@@ -34,7 +34,6 @@ import {
   FiMessageSquare,
   FiAlertTriangle,
   FiPlay,
-  FiExternalLink,
 } from "react-icons/fi";
 import { Bubbles } from "lucide-react";
 import { FaMagic } from "react-icons/fa";
@@ -67,7 +66,6 @@ import {
 import { deleteObject, ref } from "firebase/storage";
 import { auth, db, storage } from "./firebase/config";
 import useUserRole from "./useUserRole";
-import useIntegrations from "./useIntegrations";
 import createArchiveTicket from "./utils/createArchiveTicket";
 import { uploadFile } from "./uploadFile";
 import ShareLinkModal from "./components/ShareLinkModal.jsx";
@@ -114,74 +112,6 @@ const PlaceholderIcon = ({ ext }) => {
       <Icon size={32} />
     </div>
   );
-};
-
-const hasOwn = (target, property) =>
-  Object.prototype.hasOwnProperty.call(target, property);
-
-const INTEGRATION_TONE_STYLES = {
-  info: {
-    container:
-      "border-indigo-200 bg-indigo-50 text-indigo-700 hover:border-indigo-300 hover:bg-indigo-100 focus:ring-indigo-500/40",
-    dot: "bg-indigo-500",
-    accent: "text-indigo-600",
-  },
-  success: {
-    container:
-      "border-emerald-200 bg-emerald-50 text-emerald-700 hover:border-emerald-300 hover:bg-emerald-100 focus:ring-emerald-500/40",
-    dot: "bg-emerald-500",
-    accent: "text-emerald-600",
-  },
-  error: {
-    container:
-      "border-rose-200 bg-rose-50 text-rose-700 hover:border-rose-300 hover:bg-rose-100 focus:ring-rose-500/40",
-    dot: "bg-rose-500",
-    accent: "text-rose-600",
-  },
-};
-
-const resolveDate = (value) => {
-  if (!value) return null;
-  if (value instanceof Date) {
-    return Number.isNaN(value.getTime()) ? null : value;
-  }
-  if (typeof value === "object" && typeof value.toDate === "function") {
-    try {
-      const date = value.toDate();
-      return Number.isNaN(date.getTime()) ? null : date;
-    } catch (err) {
-      return null;
-    }
-  }
-  const parsed = new Date(value);
-  return Number.isNaN(parsed.getTime()) ? null : parsed;
-};
-
-const formatIntegrationDate = (value) => {
-  const date = resolveDate(value);
-  if (!date) return "";
-  try {
-    return date.toLocaleString();
-  } catch (err) {
-    return date.toISOString();
-  }
-};
-
-const formatJsonValue = (value) => {
-  if (value === undefined) {
-    return null;
-  }
-  if (value === null) {
-    return "null";
-  }
-  if (typeof value === "string") {
-    return value;
-  }
-  try {
-    return JSON.stringify(value, null, 2);
-  } catch (err) {
-    return String(value);
-  }
 };
 
 const ExpandableText = ({ value, maxLength = 40, isLink = false }) => {
@@ -588,20 +518,6 @@ const AdGroupDetail = () => {
     () => assets.some((a) => a.scrubbedFrom),
     [assets],
   );
-  const { integrations } = useIntegrations();
-  const integrationById = useMemo(() => {
-    const map = {};
-    integrations.forEach((integration) => {
-      if (integration?.id) {
-        map[integration.id] = integration;
-      }
-    });
-    return map;
-  }, [integrations]);
-  const activeIntegrations = useMemo(
-    () => integrations.filter((integration) => integration?.active),
-    [integrations],
-  );
   const [metadataRecipe, setMetadataRecipe] = useState(null);
   const [metadataForm, setMetadataForm] = useState({
     copy: "",
@@ -652,7 +568,6 @@ const AdGroupDetail = () => {
   const [uploadSummary, setUploadSummary] = useState(null);
   const [menuRecipe, setMenuRecipe] = useState(null);
   const [inspectRecipe, setInspectRecipe] = useState(null);
-  const [integrationDetail, setIntegrationDetail] = useState(null);
   const menuRef = useRef(null);
   const allFeedbackLoadedRef = useRef(false);
   const autoSummaryTriggeredRef = useRef(false);
@@ -685,147 +600,12 @@ const AdGroupDetail = () => {
     isProjectManager;
   const canManageStaff = isAdmin || (isManager && !isEditor);
   const isAgency = userRole === "agency";
-  const isClientPortalUser = ["client", "ops"].includes(userRole) || isProjectManager;
-  const canManageIntegrations = isAdmin || isOps;
+  const isClientPortalUser = isOps || userRole === "client" || isProjectManager;
   const usesTabs = isAdmin || isDesigner || isManager || isClientPortalUser;
   const canEditBriefNote = isAdmin || isClientPortalUser;
   const canAddBriefAssets = isAdmin || isClientPortalUser;
   const canManageCopy = isAdmin || isManager || isClientPortalUser;
   const canUploadAds = isAdmin || isDesigner || isAgency;
-  const assignedIntegrationId =
-    typeof group?.assignedIntegrationId === "string"
-      ? group.assignedIntegrationId
-      : "";
-  const assignedIntegration = assignedIntegrationId
-    ? integrationById[assignedIntegrationId] || null
-    : null;
-  const assignedIntegrationName = assignedIntegration?.name ||
-    (typeof group?.assignedIntegrationName === "string"
-      ? group.assignedIntegrationName
-      : "");
-  const getIntegrationBadgeDetails = useCallback(
-    (asset) => {
-      if (!assignedIntegrationId || !asset || typeof asset !== "object") {
-        return null;
-      }
-
-      const rawStatuses =
-        (asset.integrationStatuses &&
-          typeof asset.integrationStatuses === "object"
-          ? asset.integrationStatuses
-          : null) ||
-        (asset.integrationStatus &&
-          typeof asset.integrationStatus === "object"
-          ? asset.integrationStatus
-          : null);
-
-      if (!rawStatuses || typeof rawStatuses !== "object") {
-        return null;
-      }
-
-      const statusEntry = rawStatuses[assignedIntegrationId];
-      if (!statusEntry || typeof statusEntry !== "object") {
-        return null;
-      }
-
-      const state =
-        typeof statusEntry.state === "string"
-          ? statusEntry.state.toLowerCase()
-          : "";
-      const integrationDisplayName =
-        statusEntry.integrationName || assignedIntegrationName || "";
-      const resolvedName = integrationDisplayName
-        ? `"${integrationDisplayName}"`
-        : "integration";
-      const errorMessage =
-        typeof statusEntry.errorMessage === "string"
-          ? statusEntry.errorMessage.trim()
-          : "";
-
-      let text = "";
-      let className = "";
-      let tone = "info";
-      let title = "";
-
-      if (["sending", "sent", "in_progress", "queued", "pending"].includes(state)) {
-        text = `Sent to ${resolvedName}`;
-        className = "bg-indigo-600 text-white";
-        tone = "info";
-      } else if (
-        ["received", "succeeded", "completed", "delivered"].includes(state)
-      ) {
-        text = `Received by ${resolvedName}`;
-        className = "bg-emerald-600 text-white";
-        tone = "success";
-      } else if (["error", "failed", "rejected"].includes(state)) {
-        text = "Error";
-        className = "bg-red-600 text-white";
-        tone = "error";
-        title = errorMessage;
-      } else {
-        return null;
-      }
-
-      const normalizedEntry = {
-        ...statusEntry,
-        state,
-        errorMessage,
-      };
-
-      if (hasOwn(statusEntry, "requestPayload")) {
-        normalizedEntry.requestPayload = statusEntry.requestPayload;
-      }
-      if (hasOwn(statusEntry, "responsePayload")) {
-        normalizedEntry.responsePayload = statusEntry.responsePayload;
-      }
-      if (hasOwn(statusEntry, "responseStatus")) {
-        normalizedEntry.responseStatus = statusEntry.responseStatus;
-      }
-      if (hasOwn(statusEntry, "responseHeaders")) {
-        normalizedEntry.responseHeaders = statusEntry.responseHeaders;
-      }
-
-      return {
-        text,
-        className,
-        title,
-        tone,
-        state,
-        integrationDisplayName,
-        statusEntry: normalizedEntry,
-      };
-    },
-    [assignedIntegrationId, assignedIntegrationName],
-  );
-  const previewBadge = useMemo(
-    () => getIntegrationBadgeDetails(previewAsset),
-    [getIntegrationBadgeDetails, previewAsset],
-  );
-  const integrationDetailBadge = integrationDetail?.badge || null;
-  const integrationDetailStatus = integrationDetailBadge?.statusEntry || null;
-  const integrationDetailAsset = integrationDetail?.asset || null;
-  const integrationDetailRequest = formatJsonValue(
-    integrationDetailStatus?.requestPayload,
-  );
-  const integrationDetailResponse = formatJsonValue(
-    integrationDetailStatus?.responsePayload,
-  );
-  const integrationDetailHeaders = formatJsonValue(
-    integrationDetailStatus?.responseHeaders,
-  );
-  const integrationDetailUpdatedAt = formatIntegrationDate(
-    integrationDetailStatus?.updatedAt,
-  );
-  const integrationDetailResponseStatus =
-    integrationDetailStatus &&
-    integrationDetailStatus.responseStatus !== undefined &&
-    integrationDetailStatus.responseStatus !== null
-      ? integrationDetailStatus.responseStatus
-      : null;
-  const integrationDetailErrorMessage =
-    typeof integrationDetailStatus?.errorMessage === "string"
-      ? integrationDetailStatus.errorMessage.trim()
-      : "";
   const tableVisible = usesTabs ? tab === "ads" : showTable;
   const recipesTableVisible = usesTabs ? tab === "brief" : showRecipesTable;
   const brandNotesVisible = usesTabs ? tab === "brandNotes" : false;
@@ -1384,27 +1164,12 @@ const AdGroupDetail = () => {
 
   useEffect(() => {
     const load = async () => {
-      const groupRef = doc(db, "adGroups", id);
-      const snap = await getDoc(groupRef);
+      const snap = await getDoc(doc(db, "adGroups", id));
       if (snap.exists()) {
         setGroup({ id: snap.id, ...snap.data() });
       }
     };
     load();
-    const groupRef = doc(db, "adGroups", id);
-    const unsubGroup = onSnapshot(
-      groupRef,
-      (snap) => {
-        if (snap.exists()) {
-          setGroup({ id: snap.id, ...snap.data() });
-        } else {
-          setGroup(null);
-        }
-      },
-      (error) => {
-        console.error("Failed to subscribe to ad group", error);
-      },
-    );
     const unsub = onSnapshot(
       collection(db, "adGroups", id, "assets"),
       (snap) => {
@@ -1420,7 +1185,6 @@ const AdGroupDetail = () => {
       },
     );
     return () => {
-      unsubGroup();
       unsub();
       unsubBrief();
     };
@@ -2275,7 +2039,6 @@ const AdGroupDetail = () => {
     setMenuRecipe(null);
     setInspectRecipe(null);
     setPreviewAsset(null);
-    setIntegrationDetail(null);
   };
 
   const deleteHistoryEntry = async (assetId, entryId) => {
@@ -3575,32 +3338,6 @@ const AdGroupDetail = () => {
       .replace(/\s+/g, " ")
       .trim() || "unknown";
 
-  const handleIntegrationChange = async (event) => {
-    if (!id) return;
-    const value = event.target.value;
-    const integrationId = value === "none" ? null : value;
-    const integrationName = integrationId
-      ? integrationById[integrationId]?.name || ""
-      : "";
-    try {
-      await updateDoc(doc(db, "adGroups", id), {
-        assignedIntegrationId: integrationId,
-        assignedIntegrationName: integrationName,
-      });
-      setGroup((prev) =>
-        prev
-          ? {
-              ...prev,
-              assignedIntegrationId: integrationId,
-              assignedIntegrationName: integrationName,
-            }
-          : prev,
-      );
-    } catch (err) {
-      console.error("Failed to update integration", err);
-    }
-  };
-
   const computeExportGroups = () => {
     const approved = assets.filter((a) => a.status === "approved");
     return approved.map((a) => {
@@ -3840,12 +3577,6 @@ const AdGroupDetail = () => {
     );
 
     const activeAds = g.assets.filter((a) => a.status !== "archived");
-    const integrationSummaries = activeAds
-      .map((asset) => {
-        const badge = getIntegrationBadgeDetails(asset);
-        return badge ? { asset, badge } : null;
-      })
-      .filter(Boolean);
 
     const normalizedRecipe = normalizeRecipeCode(g.recipeCode);
     const storedAssignmentId = normalizedRecipe
@@ -3992,57 +3723,14 @@ const AdGroupDetail = () => {
             <StatusBadge status={getRecipeStatus(g.assets)} />
           </td>
           <td className="text-sm">
-            {integrationSummaries.length > 0 ? (
-              <div className="flex flex-col items-start gap-2">
-                {integrationSummaries.map(({ asset, badge }) => {
-                  const toneKey =
-                    badge?.tone && INTEGRATION_TONE_STYLES[badge.tone]
-                      ? badge.tone
-                      : "info";
-                  const toneStyles =
-                    INTEGRATION_TONE_STYLES[toneKey] ||
-                    INTEGRATION_TONE_STYLES.info;
-                  const assetLabel = asset.filename || "Unnamed asset";
-                  return (
-                    <button
-                      type="button"
-                      key={asset.id || `${asset.filename || "asset"}-${badge.state}`}
-                      onClick={() => setIntegrationDetail({ asset, badge })}
-                      className={`group inline-flex w-full max-w-[260px] items-start gap-2 rounded-lg border px-3 py-2 text-left text-xs font-semibold shadow-sm transition focus:outline-none focus:ring-2 ${toneStyles.container}`}
-                      title={`View integration delivery details for ${assetLabel}`}
-                    >
-                      <span
-                        className={`mt-1 h-2 w-2 rounded-full ${toneStyles.dot}`}
-                        aria-hidden="true"
-                      />
-                      <span className="flex min-w-0 flex-col">
-                        <span className="truncate text-xs font-semibold leading-tight">
-                          {badge.text}
-                        </span>
-                        <span className="mt-0.5 truncate text-[11px] font-medium leading-tight opacity-80">
-                          {assetLabel}
-                        </span>
-                        <span
-                          className={`mt-1 inline-flex items-center gap-1 text-[11px] font-medium leading-tight opacity-90 ${toneStyles.accent}`}
-                        >
-                          View payload & response
-                          <FiExternalLink className="h-3 w-3" aria-hidden="true" />
-                        </span>
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            ) : (
-              editAsset && (
-                <>
-                  {editAsset.comment && (
-                    <span className="block italic">{editAsset.comment}</span>
-                  )}
-                  {editAsset.copyEdit &&
-                    renderCopyEditDiff(g.recipeCode, editAsset.copyEdit)}
-                </>
-              )
+            {editAsset && (
+              <>
+                {editAsset.comment && (
+                  <span className="block italic">{editAsset.comment}</span>
+                )}
+                {editAsset.copyEdit &&
+                  renderCopyEditDiff(g.recipeCode, editAsset.copyEdit)}
+              </>
             )}
           </td>
           <td className="relative text-right">
@@ -4471,9 +4159,16 @@ const AdGroupDetail = () => {
                       <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
                         Brand
                       </span>
-                      <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                        {group.brandCode}
-                      </span>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                          {brandName || group.brandCode || '—'}
+                        </span>
+                        {group.brandCode ? (
+                          <span className="inline-flex items-center rounded-full bg-gray-200 px-2 py-0.5 text-xs font-semibold uppercase tracking-wide text-gray-700 dark:bg-[var(--dark-sidebar-bg)] dark:text-gray-200">
+                            {group.brandCode}
+                          </span>
+                        ) : null}
+                      </div>
                     </div>
                     <div className="flex flex-col gap-1">
                       <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
@@ -4723,73 +4418,77 @@ const AdGroupDetail = () => {
                       </div>
                     )}
                   </div>
-                  <div className="flex flex-col gap-1">
-                    <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                      Designer
-                    </span>
-                    {canManageStaff ? (
-                      <select
-                        aria-label="Designer Assignment"
-                        value={group.designerId || ''}
-                        onChange={async (e) => {
-                          const value = e.target.value || null;
-                          try {
-                            await updateDoc(doc(db, 'adGroups', id), { designerId: value });
-                            setGroup((p) => ({ ...p, designerId: value }));
-                          } catch (err) {
-                            console.error('Failed to update designer', err);
-                          }
-                        }}
-                        className="rounded border p-1"
-                      >
-                        <option value="">Unassigned</option>
-                        {designers.map((d) => (
-                          <option key={d.id} value={d.id}>
-                            {d.name}
-                          </option>
-                        ))}
-                      </select>
-                    ) : (
-                      <span>{designerName || 'Unassigned'}</span>
-                    )}
-                  </div>
-                  <div className="flex flex-col gap-1">
-                    <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                      Designer Due Date
-                    </span>
-                    {canManageStaff ? (
-                      <input
-                        type="date"
-                        value={
-                          group.designDueDate
-                            ? (group.designDueDate.toDate
-                                ? group.designDueDate.toDate().toISOString().slice(0, 10)
-                                : new Date(group.designDueDate).toISOString().slice(0, 10))
-                            : ''
-                        }
-                        onChange={async (e) => {
-                          const date = e.target.value
-                            ? Timestamp.fromDate(new Date(e.target.value))
-                            : null;
-                          try {
-                            await updateDoc(doc(db, 'adGroups', id), { designDueDate: date });
-                            setGroup((p) => ({ ...p, designDueDate: date }));
-                          } catch (err) {
-                            console.error('Failed to update design due date', err);
-                          }
-                        }}
-                        className="border tag-pill px-2 py-1 text-sm"
-                      />
-                    ) : (
-                      <span>
-                        {group.designDueDate
-                          ? (group.designDueDate.toDate
-                              ? group.designDueDate.toDate().toLocaleDateString()
-                              : new Date(group.designDueDate).toLocaleDateString())
-                          : 'N/A'}
+                  {!isOps && (
+                    <div className="flex flex-col gap-1">
+                      <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                        Designer
                       </span>
-                    )}
-                  </div>
+                      {canManageStaff ? (
+                        <select
+                          aria-label="Designer Assignment"
+                          value={group.designerId || ''}
+                          onChange={async (e) => {
+                            const value = e.target.value || null;
+                            try {
+                              await updateDoc(doc(db, 'adGroups', id), { designerId: value });
+                              setGroup((p) => ({ ...p, designerId: value }));
+                            } catch (err) {
+                              console.error('Failed to update designer', err);
+                            }
+                          }}
+                          className="rounded border p-1"
+                        >
+                          <option value="">Unassigned</option>
+                          {designers.map((d) => (
+                            <option key={d.id} value={d.id}>
+                              {d.name}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <span>{designerName || 'Unassigned'}</span>
+                      )}
+                    </div>
+                  )}
+                  {!isOps && (
+                    <div className="flex flex-col gap-1">
+                      <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                        Designer Due Date
+                      </span>
+                      {canManageStaff ? (
+                        <input
+                          type="date"
+                          value={
+                            group.designDueDate
+                              ? (group.designDueDate.toDate
+                                  ? group.designDueDate.toDate().toISOString().slice(0, 10)
+                                  : new Date(group.designDueDate).toISOString().slice(0, 10))
+                              : ''
+                          }
+                          onChange={async (e) => {
+                            const date = e.target.value
+                              ? Timestamp.fromDate(new Date(e.target.value))
+                              : null;
+                            try {
+                              await updateDoc(doc(db, 'adGroups', id), { designDueDate: date });
+                              setGroup((p) => ({ ...p, designDueDate: date }));
+                            } catch (err) {
+                              console.error('Failed to update design due date', err);
+                            }
+                          }}
+                          className="border tag-pill px-2 py-1 text-sm"
+                        />
+                      ) : (
+                        <span>
+                          {group.designDueDate
+                            ? (group.designDueDate.toDate
+                                ? group.designDueDate.toDate().toLocaleDateString()
+                                : new Date(group.designDueDate).toLocaleDateString())
+                            : 'N/A'}
+                        </span>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -5530,31 +5229,9 @@ const AdGroupDetail = () => {
                   const hasPreview = Boolean(
                     a.firebaseUrl || a.thumbnailUrl || a.cdnUrl,
                   );
-                  const badge = getIntegrationBadgeDetails(a);
                   return (
                     <tr key={a.id}>
-                      <td className="break-all">
-                        <div className="flex flex-col items-start gap-1">
-                          <span>{a.filename}</span>
-                          {badge?.text && (
-                            <button
-                              type="button"
-                              onClick={() => setIntegrationDetail({ asset: a, badge })}
-                              className={`inline-flex items-center gap-1 rounded border px-2 py-1 text-[11px] font-semibold uppercase tracking-wide transition focus:outline-none focus:ring-2 ${
-                                INTEGRATION_TONE_STYLES[
-                                  badge.tone && INTEGRATION_TONE_STYLES[badge.tone]
-                                    ? badge.tone
-                                    : "info"
-                                ]?.container || INTEGRATION_TONE_STYLES.info.container
-                              }`}
-                              title={badge.title || undefined}
-                            >
-                              <span>{badge.text}</span>
-                              <FiExternalLink className="h-3 w-3" aria-hidden="true" />
-                            </button>
-                          )}
-                        </div>
-                      </td>
+                      <td className="break-all">{a.filename}</td>
                       <td className="text-center">
                         {isAdmin || designerEditable ? (
                           <select
@@ -5621,19 +5298,9 @@ const AdGroupDetail = () => {
           <h3 className="mb-2 font-semibold break-all">
             {previewAsset.filename || "Ad Preview"}
           </h3>
-          {(previewAsset.status || previewBadge?.text) && (
-            <div className="mb-3 flex flex-wrap items-center gap-2">
-              {previewAsset.status && (
-                <StatusBadge status={previewAsset.status} />
-              )}
-              {previewBadge?.text && (
-                <span
-                  className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide shadow-sm ${previewBadge.className}`}
-                  title={previewBadge.title || undefined}
-                >
-                  {previewBadge.text}
-                </span>
-              )}
+          {previewAsset.status && (
+            <div className="mb-3">
+              <StatusBadge status={previewAsset.status} />
             </div>
           )}
           <div className="flex justify-center bg-gray-100 rounded-lg p-4">
@@ -5657,85 +5324,6 @@ const AdGroupDetail = () => {
           </div>
           <div className="mt-3 flex justify-end">
             <IconButton onClick={() => setPreviewAsset(null)}>Close</IconButton>
-          </div>
-        </Modal>
-      )}
-
-      {integrationDetail && (
-        <Modal sizeClass="max-w-3xl w-full">
-          <h3 className="text-lg font-semibold">Integration delivery details</h3>
-          <p className="mt-1 text-sm text-gray-600">
-            {integrationDetailAsset?.filename || "Unnamed asset"}
-            {integrationDetailBadge?.integrationDisplayName
-              ? ` • ${integrationDetailBadge.integrationDisplayName}`
-              : ""}
-          </p>
-          <dl className="mt-4 grid gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
-            <div>
-              <dt className="font-medium text-gray-500">Status</dt>
-              <dd className="text-gray-900">
-                {integrationDetailBadge?.text || "Status unavailable"}
-              </dd>
-            </div>
-            {integrationDetailUpdatedAt && (
-              <div>
-                <dt className="font-medium text-gray-500">Last updated</dt>
-                <dd className="text-gray-900">{integrationDetailUpdatedAt}</dd>
-              </div>
-            )}
-            {integrationDetailResponseStatus !== null && (
-              <div>
-                <dt className="font-medium text-gray-500">Response status</dt>
-                <dd className="text-gray-900">
-                  {integrationDetailResponseStatus}
-                </dd>
-              </div>
-            )}
-            {integrationDetailErrorMessage && (
-              <div className="sm:col-span-2">
-                <dt className="font-medium text-gray-500">Error</dt>
-                <dd className="text-gray-900">{integrationDetailErrorMessage}</dd>
-              </div>
-            )}
-          </dl>
-          <div className="mt-4 grid gap-4 md:grid-cols-2">
-            <section>
-              <h4 className="text-sm font-semibold text-gray-700">Request payload</h4>
-              {integrationDetailRequest ? (
-                <pre className="mt-2 max-h-72 overflow-auto rounded border border-gray-200 bg-gray-50 p-3 text-xs leading-relaxed text-gray-800">
-                  {integrationDetailRequest}
-                </pre>
-              ) : (
-                <p className="mt-2 text-xs text-gray-500">
-                  No payload captured for this delivery.
-                </p>
-              )}
-            </section>
-            <section>
-              <h4 className="text-sm font-semibold text-gray-700">Response</h4>
-              {integrationDetailResponse ? (
-                <pre className="mt-2 max-h-72 overflow-auto rounded border border-gray-200 bg-gray-50 p-3 text-xs leading-relaxed text-gray-800">
-                  {integrationDetailResponse}
-                </pre>
-              ) : (
-                <p className="mt-2 text-xs text-gray-500">
-                  No response body was recorded.
-                </p>
-              )}
-              {integrationDetailHeaders && (
-                <div className="mt-3">
-                  <h5 className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                    Headers
-                  </h5>
-                  <pre className="mt-1 max-h-48 overflow-auto rounded border border-gray-200 bg-gray-50 p-3 text-xs leading-relaxed text-gray-800">
-                    {integrationDetailHeaders}
-                  </pre>
-                </div>
-              )}
-            </section>
-          </div>
-          <div className="mt-4 flex justify-end">
-            <IconButton onClick={() => setIntegrationDetail(null)}>Close</IconButton>
           </div>
         </Modal>
       )}

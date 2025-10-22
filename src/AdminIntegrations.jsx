@@ -1,348 +1,512 @@
-import React, { useEffect, useMemo, useState } from "react";
-import Editor from "@monaco-editor/react";
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   collection,
+  collectionGroup,
   doc,
+  getDoc,
   getDocs,
-  onSnapshot,
-  setDoc,
-} from "firebase/firestore";
-import {
-  FiPlus,
-  FiSave,
-  FiPlay,
-  FiSend,
-  FiSearch,
-} from "react-icons/fi";
-import { db } from "./firebase/config";
+  limit,
+  query,
+  where,
+} from 'firebase/firestore';
+import useExporterIntegrations from './useExporterIntegrations';
+import Button from './components/Button.jsx';
+import { db } from './firebase/config';
 
-const HTTP_METHODS = ["POST", "PUT", "PATCH", "DELETE", "GET"];
-const AUTH_STRATEGIES = ["none", "api_key", "basic", "oauth2", "signed_payload"];
-const AUTH_LOCATIONS = ["header", "query", "body"];
+const SAMPLE_AD_GROUP_LIMIT = 5;
 
-const DEFAULT_RETRY_POLICY = {
-  maxAttempts: 3,
-  initialIntervalMs: 1000,
-  maxIntervalMs: 60000,
-  backoffMultiplier: 2,
-  jitter: true,
+const STATIC_DATA_FIELDS = [
+  { key: 'storeId', label: 'Store ID' },
+  { key: 'groupName', label: 'Ad Group' },
+  { key: 'recipeNo', label: 'Recipe #' },
+  { key: 'status', label: 'Status' },
+  { key: 'primary', label: 'Primary' },
+  { key: 'headline', label: 'Headline' },
+  { key: 'description', label: 'Description' },
+  { key: '1x1', label: '1×1 Asset URL' },
+  { key: '9x16', label: '9×16 Asset URL' },
+];
+
+const formatLabel = (s) =>
+  (s || '')
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .replace(/[_.-]+/g, ' ')
+    .replace(/\b\w/g, (c) => c.toUpperCase())
+    .trim();
+
+const BASE_COLUMN_KEYS = new Set([
+  'storeId',
+  'groupName',
+  'recipeNo',
+  'status',
+  'primary',
+  'headline',
+  'description',
+  '1x1',
+  '9x16',
+]);
+
+const STRUCTURAL_META_KEYS = new Set([
+  'components',
+  'metadata',
+  'assets',
+  'type',
+  'selected',
+  'brandCode',
+]);
+
+const DATE_FORMAT_OPTIONS = [
+  { value: 'yyyy-MM-dd', label: 'YYYY-MM-DD (ISO)' },
+  { value: 'MM/dd/yyyy', label: 'MM/DD/YYYY' },
+  { value: 'dd/MM/yyyy', label: 'DD/MM/YYYY' },
+  { value: 'yyyy-MM-dd HH:mm', label: 'YYYY-MM-DD HH:mm (ISO with time)' },
+];
+
+const DEFAULT_DATE_FORMAT = DATE_FORMAT_OPTIONS[0].value;
+
+const extractMetadataType = (field) => {
+  if (!field || typeof field !== 'object') {
+    return '';
+  }
+
+  const candidates = [
+    typeof field.metadata?.type === 'string' ? field.metadata.type : '',
+    typeof field.type === 'string' ? field.type : '',
+    typeof field.fieldType === 'string' ? field.fieldType : '',
+    typeof field.dataType === 'string' ? field.dataType : '',
+  ];
+
+  for (const candidate of candidates) {
+    if (candidate && typeof candidate === 'string') {
+      const trimmed = candidate.trim();
+      if (trimmed) {
+        return trimmed;
+      }
+    }
+  }
+
+  return '';
 };
 
-function toIsoString(value, fallback = "") {
-  if (!value) return fallback;
-  if (typeof value === "string") return value;
-  if (value instanceof Date) return value.toISOString();
-  if (typeof value === "object" && typeof value.toDate === "function") {
-    return value.toDate().toISOString();
+const determineIsDateField = ({ key = '', label = '', metadataType = '' }) => {
+  const type = (metadataType || '').toLowerCase();
+  if (type === 'date' || type === 'datetime' || type === 'timestamp') {
+    return true;
   }
-  return fallback;
-}
 
-function cloneRetryPolicy(policy = {}) {
-  return {
-    maxAttempts: Number(policy.maxAttempts ?? DEFAULT_RETRY_POLICY.maxAttempts) || 0,
-    initialIntervalMs:
-      Number(policy.initialIntervalMs ?? DEFAULT_RETRY_POLICY.initialIntervalMs) || 0,
-    maxIntervalMs: Number(policy.maxIntervalMs ?? DEFAULT_RETRY_POLICY.maxIntervalMs) || 0,
-    backoffMultiplier:
-      Number(policy.backoffMultiplier ?? DEFAULT_RETRY_POLICY.backoffMultiplier) || 0,
-    jitter:
-      typeof policy.jitter === "boolean"
-        ? policy.jitter
-        : Boolean(DEFAULT_RETRY_POLICY.jitter),
-  };
-}
-
-function normalizeLatestExportAttempt(attempt) {
-  if (!attempt || typeof attempt !== "object") {
-    return undefined;
+  const normalizedKey = (key || '').toLowerCase();
+  if (normalizedKey.includes('date') || normalizedKey.includes('timestamp')) {
+    return true;
   }
-  return {
-    ...attempt,
-    startedAt: toIsoString(attempt.startedAt),
-    completedAt: toIsoString(attempt.completedAt, undefined),
-  };
-}
 
-function normalizeIntegration(docId, raw) {
-  const now = new Date().toISOString();
-  const mapping = raw?.mapping ?? {
-    type: "jsonata",
-    version: "1.0.0",
-    expression: "",
-  };
-
-  return {
-    id: raw?.id || docId,
-    version: raw?.version || "1.0.0",
-    name: raw?.name || "",
-    slug: raw?.slug || docId,
-    description: raw?.description || "",
-    active: Boolean(raw?.active ?? true),
-    baseUrl: raw?.baseUrl || "",
-    endpointPath: raw?.endpointPath || "",
-    method: raw?.method || "POST",
-    timeoutMs: typeof raw?.timeoutMs === "number" ? raw.timeoutMs : undefined,
-    idempotencyKeyPrefix: raw?.idempotencyKeyPrefix || "",
-    auth: {
-      strategy: raw?.auth?.strategy || "none",
-      location: raw?.auth?.location,
-      keyName: raw?.auth?.keyName || "",
-      secret: raw?.auth?.secret,
-      scopes: Array.isArray(raw?.auth?.scopes) ? raw.auth.scopes : undefined,
-      metadata:
-        raw?.auth?.metadata && typeof raw.auth.metadata === "object"
-          ? raw.auth.metadata
-          : undefined,
-    },
-    mapping: {
-      type: mapping.type || "jsonata",
-      version: mapping.version || "1.0.0",
-      sourceUri: mapping.sourceUri || "",
-      expression: mapping.expression || "",
-      template: mapping.template,
-      partials: mapping.partials,
-      helpers: mapping.helpers,
-      allowUndefined: Boolean(mapping.allowUndefined),
-      delimiters: mapping.delimiters,
-    },
-    schemaRef: raw?.schemaRef ?? "",
-    recipeTypeId:
-      typeof raw?.recipeTypeId === "string"
-        ? raw.recipeTypeId
-        : raw?.recipeTypeId
-        ? String(raw.recipeTypeId)
-        : "",
-    retryPolicy: cloneRetryPolicy(raw?.retryPolicy),
-    headers:
-      raw?.headers && typeof raw.headers === "object"
-        ? Object.fromEntries(
-            Object.entries(raw.headers).map(([key, value]) => [key, String(value)])
-          )
-        : {},
-    latestExportAttempt: normalizeLatestExportAttempt(raw?.latestExportAttempt),
-    createdAt: toIsoString(raw?.createdAt, now),
-    updatedAt: toIsoString(raw?.updatedAt, now),
-  };
-}
-
-function createNewIntegration() {
-  const now = new Date().toISOString();
-  return {
-    id: "",
-    version: "1.0.0",
-    name: "",
-    slug: "",
-    description: "",
-    active: true,
-    baseUrl: "",
-    endpointPath: "",
-    method: "POST",
-    timeoutMs: 30000,
-    idempotencyKeyPrefix: "",
-    auth: {
-      strategy: "none",
-      location: "header",
-      keyName: "",
-      secret: undefined,
-      scopes: undefined,
-      metadata: undefined,
-    },
-    mapping: {
-      type: "jsonata",
-      version: "1.0.0",
-      sourceUri: "",
-      expression: "",
-      allowUndefined: false,
-    },
-    schemaRef: "",
-    recipeTypeId: "",
-    retryPolicy: { ...DEFAULT_RETRY_POLICY },
-    headers: {},
-    latestExportAttempt: undefined,
-    createdAt: now,
-    updatedAt: now,
-  };
-}
-
-function rowsFromHeaders(headers = {}) {
-  const entries = Object.entries(headers).filter(([key]) => key);
-  if (entries.length === 0) {
-    return [{ key: "", value: "" }];
+  const normalizedLabel = (label || '').toLowerCase();
+  if (normalizedLabel.includes('date') || normalizedLabel.includes('timestamp')) {
+    return true;
   }
-  return [...entries.map(([key, value]) => ({ key, value })), { key: "", value: "" }];
-}
 
-function rowsToHeaders(rows) {
-  const result = {};
-  rows.forEach(({ key, value }) => {
-    const trimmedKey = key.trim();
-    if (!trimmedKey) return;
-    result[trimmedKey] = value ?? "";
-  });
-  return result;
-}
+  return false;
+};
 
-function pruneUndefined(value) {
-  if (Array.isArray(value)) {
-    const pruned = value.map(pruneUndefined).filter((item) => item !== undefined);
-    return pruned.length ? pruned : undefined;
+const normalizeMappingEntry = (entry) => {
+  if (!entry) {
+    return { target: '', format: '' };
   }
-  if (value && typeof value === "object") {
-    const result = {};
-    Object.entries(value).forEach(([key, val]) => {
-      const pruned = pruneUndefined(val);
-      if (pruned !== undefined) {
-        result[key] = pruned;
+
+  if (typeof entry === 'string') {
+    const target = entry.trim();
+    return { target, format: '' };
+  }
+
+  if (typeof entry === 'object') {
+    const target =
+      typeof entry.target === 'string'
+        ? entry.target.trim()
+        : typeof entry.partner === 'string'
+        ? entry.partner.trim()
+        : '';
+    const format = typeof entry.format === 'string' ? entry.format.trim() : '';
+    return { target, format };
+  }
+
+  return { target: '', format: '' };
+};
+
+const convertPartnerMappingToUi = (mapping) => {
+  if (!mapping || typeof mapping !== 'object') {
+    return {};
+  }
+
+  const uiMapping = {};
+
+  Object.entries(mapping).forEach(([rawPartnerKey, rawValue]) => {
+    const partnerKey = typeof rawPartnerKey === 'string' ? rawPartnerKey.trim() : '';
+    if (!partnerKey) {
+      return;
+    }
+
+    if (typeof rawValue === 'string') {
+      const source = rawValue.trim();
+      if (!source) {
+        return;
       }
-    });
-    return Object.keys(result).length ? result : undefined;
+      uiMapping[source] = { target: partnerKey };
+      return;
+    }
+
+    if (rawValue && typeof rawValue === 'object') {
+      const source =
+        typeof rawValue.source === 'string'
+          ? rawValue.source.trim()
+          : typeof rawValue.campfire === 'string'
+          ? rawValue.campfire.trim()
+          : typeof rawValue.field === 'string'
+          ? rawValue.field.trim()
+          : '';
+      const format = typeof rawValue.format === 'string' ? rawValue.format.trim() : '';
+
+      if (source) {
+        uiMapping[source] = format ? { target: partnerKey, format } : { target: partnerKey };
+      }
+    }
+  });
+
+  Object.entries(mapping).forEach(([rawCampfireKey, rawValue]) => {
+    const campfireKey =
+      typeof rawCampfireKey === 'string' ? rawCampfireKey.trim() : '';
+    if (!campfireKey || uiMapping[campfireKey]) {
+      return;
+    }
+
+    if (typeof rawValue === 'string') {
+      const partner = rawValue.trim();
+      if (!partner) {
+        return;
+      }
+      uiMapping[campfireKey] = { target: partner };
+      return;
+    }
+
+    if (rawValue && typeof rawValue === 'object') {
+      const partner =
+        typeof rawValue.partner === 'string'
+          ? rawValue.partner.trim()
+          : typeof rawValue.target === 'string'
+          ? rawValue.target.trim()
+          : '';
+      const format = typeof rawValue.format === 'string' ? rawValue.format.trim() : '';
+      if (partner) {
+        uiMapping[campfireKey] = format
+          ? { target: partner, format }
+          : { target: partner };
+      }
+    }
+  });
+
+  return uiMapping;
+};
+
+const convertUiMappingToPartner = (mapping, isDateFieldKey = () => false) => {
+  if (!mapping || typeof mapping !== 'object') {
+    return {};
   }
-  return value === undefined ? undefined : value;
-}
 
-function buildIntegrationPayload(form, headerRows) {
-  const now = new Date().toISOString();
-  const headers = rowsToHeaders(headerRows);
-  const authSecretName = form.auth?.secret?.name?.trim();
-  const authSecretVersion = form.auth?.secret?.version?.trim();
-  const recipeTypeId = form.recipeTypeId?.trim();
+  const persisted = {};
 
-  const payload = {
-    id: form.id.trim(),
-    version: form.version?.trim() || "1.0.0",
-    name: form.name.trim(),
-    slug: form.slug?.trim() || form.id.trim(),
-    description: form.description?.trim() || "",
-    active: Boolean(form.active),
-    baseUrl: form.baseUrl.trim(),
-    endpointPath: form.endpointPath.trim(),
-    method: form.method || "POST",
-    timeoutMs:
-      form.timeoutMs && Number(form.timeoutMs) > 0
-        ? Number(form.timeoutMs)
-        : undefined,
-    idempotencyKeyPrefix: form.idempotencyKeyPrefix?.trim() || undefined,
-    auth: {
-      strategy: form.auth?.strategy || "none",
-      location: form.auth?.location || undefined,
-      keyName: form.auth?.keyName?.trim() || undefined,
-      secret: authSecretName
-        ? {
-            name: authSecretName,
-            ...(authSecretVersion ? { version: authSecretVersion } : {}),
+  Object.entries(mapping).forEach(([rawCampfireKey, entry]) => {
+    const campfireKey =
+      typeof rawCampfireKey === 'string' ? rawCampfireKey.trim() : '';
+    if (!campfireKey) {
+      return;
+    }
+
+    const { target, format } = normalizeMappingEntry(entry);
+    if (!target) {
+      return;
+    }
+
+    const isDate = !!isDateFieldKey(campfireKey);
+
+    if (isDate) {
+      const appliedFormat = format || DEFAULT_DATE_FORMAT;
+      persisted[target] = appliedFormat
+        ? { source: campfireKey, format: appliedFormat }
+        : { source: campfireKey };
+    } else {
+      persisted[target] = campfireKey;
+    }
+  });
+
+  return persisted;
+};
+
+const shouldOmitKey = (key) => {
+  if (!key) {
+    return true;
+  }
+  const matchBase = Array.from(BASE_COLUMN_KEYS).some(
+    (baseKey) => key === baseKey || key.startsWith(`${baseKey}.`),
+  );
+  if (matchBase) {
+    return true;
+  }
+  return Array.from(STRUCTURAL_META_KEYS).some((structuralKey) => {
+    if (structuralKey === 'components') {
+      return key === structuralKey;
+    }
+    return key === structuralKey || key.startsWith(`${structuralKey}.`);
+  });
+};
+
+const flattenMeta = (obj, prefix = '', res = {}) => {
+  Object.entries(obj || {}).forEach(([k, v]) => {
+    const key = prefix ? `${prefix}.${k}` : k;
+    if (v && typeof v === 'object') {
+      if (Array.isArray(v)) {
+        v.forEach((item, idx) => {
+          if (item && typeof item === 'object') {
+            flattenMeta(item, `${key}.${idx}`, res);
+          } else {
+            res[`${key}.${idx}`] = item;
           }
-        : undefined,
-      scopes:
-        form.auth?.scopes && form.auth.scopes.length ? [...form.auth.scopes] : undefined,
-      metadata:
-        form.auth?.metadata && Object.keys(form.auth.metadata).length
-          ? form.auth.metadata
-          : undefined,
-    },
-    mapping: form.mapping,
-    schemaRef: form.schemaRef?.trim() ? form.schemaRef.trim() : null,
-    recipeTypeId: recipeTypeId ? recipeTypeId : null,
-    retryPolicy: {
-      maxAttempts: Number(form.retryPolicy?.maxAttempts ?? 0) || 0,
-      initialIntervalMs: Number(form.retryPolicy?.initialIntervalMs ?? 0) || 0,
-      maxIntervalMs: Number(form.retryPolicy?.maxIntervalMs ?? 0) || 0,
-      backoffMultiplier: Number(form.retryPolicy?.backoffMultiplier ?? 0) || 0,
-      jitter: Boolean(form.retryPolicy?.jitter),
-    },
-    headers: Object.keys(headers).length ? headers : undefined,
-    latestExportAttempt: form.latestExportAttempt || undefined,
-    createdAt: form.createdAt || now,
-    updatedAt: now,
-  };
+        });
+      } else {
+        flattenMeta(v, key, res);
+      }
+    } else {
+      res[key] = v;
+    }
+  });
 
-  const sanitized = pruneUndefined(payload) || {};
-  sanitized.schemaRef = sanitized.schemaRef ?? null;
-  return sanitized;
-}
+  return res;
+};
 
-function formatRelative(date) {
-  if (!date) return "Never";
+const normalizeFieldEntry = (field) => {
+  const key = typeof field?.key === 'string' ? field.key.trim() : '';
+  const label = typeof field?.label === 'string' ? field.label.trim() : key;
+  const required = !!field?.required;
+  const metadataType = extractMetadataType(field);
+  const isDate = determineIsDateField({ key, label, metadataType });
+  return key
+    ? {
+        key,
+        label,
+        required,
+        metadataType,
+        isDate,
+      }
+    : null;
+};
+
+const expandFieldWithCarousel = (field, carouselSlots = 1) => {
+  if (!field || !field.key) {
+    return [];
+  }
+
+  if (/^image[_]?1x1$/i.test(field.key)) {
+    if (carouselSlots <= 1) {
+      return [field];
+    }
+    return Array.from({ length: carouselSlots }, (_, index) => ({
+      key: `${field.key.replace(/[_]?1x1$/i, '_1x1')}_${index + 1}`.replace('__', '_'),
+      label: `${field.label || field.key} #${index + 1}`,
+      metadataType: field.metadataType,
+      isDate: field.isDate,
+    }));
+  }
+
+  return [field];
+};
+
+const arraysShallowEqual = (a, b) => {
+  if (a === b) {
+    return true;
+  }
+  if (!Array.isArray(a) || !Array.isArray(b)) {
+    return false;
+  }
+  if (a.length !== b.length) {
+    return false;
+  }
+  for (let index = 0; index < a.length; index += 1) {
+    if (a[index] !== b[index]) {
+      return false;
+    }
+  }
+  return true;
+};
+
+const parseNumeric = (value) => {
+  if (value === undefined || value === null) {
+    return NaN;
+  }
+  const asNumber = Number(value);
+  if (Number.isFinite(asNumber)) {
+    return asNumber;
+  }
+  const parsed = parseInt(value, 10);
+  return Number.isFinite(parsed) ? parsed : NaN;
+};
+
+const inferCarouselAssetCount = (recipeType) => {
+  if (!recipeType || typeof recipeType !== 'object') {
+    return 1;
+  }
+
+  const fields = Array.isArray(recipeType.writeInFields)
+    ? recipeType.writeInFields
+    : [];
+
+  let inferredMax = 1;
+
+  fields.forEach((field) => {
+    const normalized = normalizeFieldEntry(field);
+    if (!normalized) {
+      return;
+    }
+
+    const match = normalized.key.match(/^image[_]?1x1_(\d+)$/i);
+    if (match) {
+      const index = parseNumeric(match[1]);
+      if (Number.isFinite(index)) {
+        inferredMax = Math.max(inferredMax, index);
+      }
+      return;
+    }
+
+    if (/^image[_]?1x1$/i.test(normalized.key)) {
+      const numericHints = [
+        parseNumeric(field?.maxItems),
+        parseNumeric(field?.maxCount),
+        parseNumeric(field?.limit),
+        parseNumeric(field?.count),
+        parseNumeric(field?.total),
+        parseNumeric(field?.max),
+        parseNumeric(field?.maxAssets),
+        parseNumeric(field?.carouselLength),
+      ];
+      numericHints.forEach((hint) => {
+        if (Number.isFinite(hint)) {
+          inferredMax = Math.max(inferredMax, hint);
+        }
+      });
+      if (field?.multiple || field?.allowMultiple || field?.enableCarousel) {
+        inferredMax = Math.max(inferredMax, 2);
+      }
+    }
+  });
+
+  const topLevelHints = [
+    parseNumeric(recipeType?.carouselAssetCount),
+    parseNumeric(recipeType?.carouselImageCount),
+    parseNumeric(recipeType?.squareAssetCount),
+    parseNumeric(recipeType?.squareAssets),
+    parseNumeric(recipeType?.assetCarouselLength),
+    parseNumeric(recipeType?.carouselLength),
+  ];
+
+  topLevelHints.forEach((hint) => {
+    if (Number.isFinite(hint)) {
+      inferredMax = Math.max(inferredMax, hint);
+    }
+  });
+
+  return Number.isFinite(inferredMax) && inferredMax > 0 ? inferredMax : 1;
+};
+
+const EMPTY_FORM = {
+  id: '',
+  name: '',
+  partnerKey: '',
+  baseUrl: '',
+  apiKey: '',
+  enabled: true,
+  notes: '',
+  supportedFormatsText: '',
+  recipeTypeId: '',
+  fieldMapping: {},
+};
+
+const createEmptyForm = () => ({ ...EMPTY_FORM, fieldMapping: {} });
+
+const maskSecret = (value) => {
+  if (!value) {
+    return '—';
+  }
+  if (value.length <= 4) {
+    return '•'.repeat(value.length);
+  }
+  const visible = value.slice(-4);
+  const masked = '•'.repeat(Math.max(0, value.length - 4));
+  return `${masked}${visible}`;
+};
+
+const formatDateTime = (value) => {
+  if (!value) {
+    return null;
+  }
   try {
-    const target = new Date(date);
-    if (Number.isNaN(target.getTime())) return date;
-    const diffMs = Date.now() - target.getTime();
-    const diffMinutes = Math.round(diffMs / 60000);
-    if (diffMinutes < 1) return "Just now";
-    if (diffMinutes < 60) return `${diffMinutes}m ago`;
-    const diffHours = Math.round(diffMinutes / 60);
-    if (diffHours < 24) return `${diffHours}h ago`;
-    const diffDays = Math.round(diffHours / 24);
-    if (diffDays < 7) return `${diffDays}d ago`;
-    return target.toLocaleString();
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      return null;
+    }
+    return date.toLocaleString();
   } catch (err) {
-    return date;
+    return null;
   }
-}
-
-function formatJson(value, fallback = "") {
-  if (value === undefined) {
-    return fallback;
-  }
-  try {
-    return JSON.stringify(value, null, 2);
-  } catch (error) {
-    return fallback || String(value);
-  }
-}
+};
 
 const AdminIntegrations = () => {
-  const [integrations, setIntegrations] = useState([]);
-  const [selectedId, setSelectedId] = useState(null);
-  const [form, setForm] = useState(null);
+  const {
+    integrations,
+    loading,
+    error,
+    saveIntegration,
+    deleteIntegration,
+  } = useExporterIntegrations();
+
+  const [formState, setFormState] = useState(() => createEmptyForm());
+  const [editingId, setEditingId] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState('');
+  const [showApiKey, setShowApiKey] = useState(false);
+  const [validationError, setValidationError] = useState('');
   const [recipeTypes, setRecipeTypes] = useState([]);
   const [recipeTypesLoading, setRecipeTypesLoading] = useState(true);
-  const [recipeTypesError, setRecipeTypesError] = useState(null);
-  const [headerRows, setHeaderRows] = useState([{ key: "", value: "" }]);
-  const [mappingDrafts, setMappingDrafts] = useState({
-    jsonata: "",
-    handlebars: "",
-    literal: "{}",
-  });
-  const [literalError, setLiteralError] = useState(null);
-  const [partialsInput, setPartialsInput] = useState("");
-  const [partialsError, setPartialsError] = useState(null);
-  const [helpersInput, setHelpersInput] = useState("");
-  const [helpersError, setHelpersError] = useState(null);
-  const [metadataInput, setMetadataInput] = useState("");
-  const [metadataError, setMetadataError] = useState(null);
-  const [scopesInput, setScopesInput] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [saveError, setSaveError] = useState(null);
-  const [validationError, setValidationError] = useState(null);
-  const [sampleReviewId, setSampleReviewId] = useState("");
-  const [sampleData, setSampleData] = useState(null);
-  const [sampleLoading, setSampleLoading] = useState(false);
-  const [sampleError, setSampleError] = useState(null);
-  const [testResult, setTestResult] = useState(null);
-  const [testError, setTestError] = useState(null);
-  const [previewLoading, setPreviewLoading] = useState(false);
-  const [liveLoading, setLiveLoading] = useState(false);
+  const [recipeTypesError, setRecipeTypesError] = useState('');
+  const [extraCampfireFieldKeys, setExtraCampfireFieldKeys] = useState([]);
+  const [campfireFieldSearch, setCampfireFieldSearch] = useState('');
+  const [sampleMetaKeys, setSampleMetaKeys] = useState(() => new Set());
 
   useEffect(() => {
     let active = true;
-    const loadRecipeTypes = async () => {
+
+    const fetchRecipeTypes = async () => {
+      setRecipeTypesLoading(true);
+      setRecipeTypesError('');
       try {
-        const snapshot = await getDocs(collection(db, "recipeTypes"));
-        if (!active) return;
-        const items = snapshot.docs.map((docSnap) => ({
-          id: docSnap.id,
-          ...(docSnap.data() || {}),
-        }));
-        items.sort((a, b) => (a.name || a.id).localeCompare(b.name || b.id));
-        setRecipeTypes(items);
-        setRecipeTypesError(null);
-      } catch (error) {
-        if (!active) return;
-        setRecipeTypes([]);
-        setRecipeTypesError(
-          error instanceof Error ? error.message : String(error)
+        const snap = await getDocs(collection(db, 'recipeTypes'));
+        if (!active) {
+          return;
+        }
+        setRecipeTypes(
+          snap.docs.map((docSnap) => {
+            const data = docSnap.data() || {};
+            return {
+              id: docSnap.id,
+              name: data.name || docSnap.id,
+              writeInFields: Array.isArray(data.writeInFields)
+                ? data.writeInFields
+                : [],
+            };
+          }),
         );
+      } catch (err) {
+        console.error('Failed to fetch recipe types', err);
+        if (!active) {
+          return;
+        }
+        setRecipeTypes([]);
+        setRecipeTypesError('Failed to load recipe types.');
       } finally {
         if (active) {
           setRecipeTypesLoading(false);
@@ -350,1359 +514,1127 @@ const AdminIntegrations = () => {
       }
     };
 
-    loadRecipeTypes();
+    fetchRecipeTypes();
 
     return () => {
       active = false;
     };
   }, []);
 
-  useEffect(() => {
-    const unsubscribe = onSnapshot(collection(db, "integrations"), (snapshot) => {
-      const items = snapshot.docs.map((docSnap) => {
-        const data = docSnap.data();
-        return normalizeIntegration(docSnap.id, data);
-      });
-      items.sort((a, b) => (a.name || a.id).localeCompare(b.name || b.id));
-      setIntegrations(items);
-      if (selectedId) {
-        const current = items.find((item) => item.id === selectedId);
-        if (current) {
-          setForm(current);
-        }
+  const recipeTypeMap = useMemo(() => {
+    const map = {};
+    recipeTypes.forEach((type) => {
+      if (type && type.id) {
+        map[type.id] = type;
       }
     });
-    return () => unsubscribe();
-  }, [selectedId]);
+    return map;
+  }, [recipeTypes]);
+
+  const currentRecipeType = formState.recipeTypeId
+    ? recipeTypeMap[formState.recipeTypeId]
+    : null;
 
   useEffect(() => {
-    if (!form) return;
-    setHeaderRows(rowsFromHeaders(form.headers || {}));
-    setMappingDrafts({
-      jsonata: form.mapping?.type === "jsonata" ? form.mapping.expression || "" : form.mapping?.expression || "",
-      handlebars: form.mapping?.type === "handlebars" ? form.mapping.template || "" : form.mapping?.template || "",
-      literal: form.mapping?.type === "literal"
-        ? formatJson(form.mapping.template, "{}")
-        : formatJson(form.mapping?.template || {}, "{}"),
-    });
-    setLiteralError(null);
-    setPartialsInput(
-      form.mapping?.partials && Object.keys(form.mapping.partials).length
-        ? JSON.stringify(form.mapping.partials, null, 2)
-        : ""
-    );
-    setPartialsError(null);
-    setHelpersInput(
-      form.mapping?.helpers && Object.keys(form.mapping.helpers).length
-        ? JSON.stringify(form.mapping.helpers, null, 2)
-        : ""
-    );
-    setHelpersError(null);
-    setScopesInput(Array.isArray(form.auth?.scopes) ? form.auth.scopes.join("\n") : "");
-    setMetadataInput(
-      form.auth?.metadata && Object.keys(form.auth.metadata).length
-        ? JSON.stringify(form.auth.metadata, null, 2)
-        : ""
-    );
-    setMetadataError(null);
-  }, [form?.id]);
+    let active = true;
+    setSampleMetaKeys(new Set());
 
-  const selectedIntegration = useMemo(() => {
-    if (!selectedId) return null;
-    return integrations.find((integration) => integration.id === selectedId) || null;
-  }, [integrations, selectedId]);
-
-  const handleSelectIntegration = (integration) => {
-    setSelectedId(integration?.id || null);
-    setForm(integration ? { ...integration } : null);
-    setTestResult(null);
-    setTestError(null);
-    setValidationError(null);
-  };
-
-  const handleCreateNew = () => {
-    const fresh = createNewIntegration();
-    setSelectedId(null);
-    setForm(fresh);
-    setHeaderRows(rowsFromHeaders({}));
-    setMappingDrafts({ jsonata: "", handlebars: "", literal: "{}" });
-    setLiteralError(null);
-    setPartialsInput("");
-    setHelpersInput("");
-    setMetadataInput("");
-    setScopesInput("");
-    setTestResult(null);
-    setTestError(null);
-    setValidationError(null);
-  };
-
-  const ensureTrailingBlankRow = (rows) => {
-    if (rows.length === 0 || rows[rows.length - 1].key || rows[rows.length - 1].value) {
-      return [...rows, { key: "", value: "" }];
-    }
-    return rows;
-  };
-
-  const updateHeaderRow = (index, field, value) => {
-    setHeaderRows((prev) => {
-      const next = prev.map((row, rowIndex) =>
-        rowIndex === index ? { ...row, [field]: value } : row
-      );
-      const trimmed = next.filter((row, idx) => idx === next.length - 1 || row.key || row.value);
-      const normalized = ensureTrailingBlankRow(trimmed);
-      setForm((current) =>
-        current
-          ? {
-              ...current,
-              headers: rowsToHeaders(normalized),
-            }
-          : current
-      );
-      return normalized;
-    });
-  };
-
-  const removeHeaderRow = (index) => {
-    setHeaderRows((prev) => {
-      const next = prev.filter((_, rowIndex) => rowIndex !== index);
-      const normalized = ensureTrailingBlankRow(next);
-      setForm((current) =>
-        current
-          ? {
-              ...current,
-              headers: rowsToHeaders(normalized),
-            }
-          : current
-      );
-      return normalized;
-    });
-  };
-
-  const handleMappingTypeChange = (type) => {
-    if (!form) return;
-    setForm((current) => {
-      if (!current) return current;
-      const base = {
-        version: current.mapping?.version || "1.0.0",
-        sourceUri: current.mapping?.sourceUri || "",
+    const recipeTypeId = formState.recipeTypeId;
+    if (!recipeTypeId) {
+      return () => {
+        active = false;
       };
-      if (type === "jsonata") {
-        return {
-          ...current,
-          mapping: {
-            type,
-            version: base.version,
-            sourceUri: base.sourceUri,
-            expression: mappingDrafts.jsonata || "",
-            allowUndefined: Boolean(current.mapping?.allowUndefined),
-          },
-        };
-      }
-      if (type === "handlebars") {
-        return {
-          ...current,
-          mapping: {
-            type,
-            version: base.version,
-            sourceUri: base.sourceUri,
-            template: mappingDrafts.handlebars || "",
-            partials: current.mapping?.type === "handlebars" ? current.mapping.partials : undefined,
-            helpers: current.mapping?.type === "handlebars" ? current.mapping.helpers : undefined,
-          },
-        };
-      }
-      if (type === "literal") {
-        let template = {};
-        try {
-          template = mappingDrafts.literal ? JSON.parse(mappingDrafts.literal) : {};
-          setLiteralError(null);
-        } catch (error) {
-          setLiteralError(
-            error instanceof Error ? error.message : "Literal template must be valid JSON"
-          );
-          template = current.mapping?.type === "literal" ? current.mapping.template || {} : {};
-        }
-        return {
-          ...current,
-          mapping: {
-            type,
-            version: base.version,
-            sourceUri: base.sourceUri,
-            template,
-            delimiters:
-              current.mapping?.type === "literal" ? current.mapping.delimiters : undefined,
-          },
-        };
-      }
-      return current;
-    });
-  };
+    }
 
-  const handleMappingEditorChange = (value) => {
-    if (!form) return;
-    const content = value ?? "";
-    const type = form.mapping?.type || "jsonata";
-    setMappingDrafts((prev) => ({ ...prev, [type]: content }));
-    setForm((current) => {
-      if (!current) return current;
-      if (type === "jsonata") {
-        return {
-          ...current,
-          mapping: {
-            ...current.mapping,
-            type,
-            expression: content,
-          },
-        };
-      }
-      if (type === "handlebars") {
-        return {
-          ...current,
-          mapping: {
-            ...current.mapping,
-            type,
-            template: content,
-          },
-        };
-      }
-      if (type === "literal") {
-        try {
-          const parsed = content ? JSON.parse(content) : {};
-          setLiteralError(null);
-          return {
-            ...current,
-            mapping: {
-              ...current.mapping,
-              type,
-              template: parsed,
-            },
-          };
-        } catch (error) {
-          setLiteralError(
-            error instanceof Error ? error.message : "Literal template must be valid JSON"
-          );
-          return current;
-        }
-      }
-      return current;
-    });
-  };
+    const loadSampleMetaKeys = async () => {
+      try {
+        const aggregatedKeys = new Set();
 
-  const handleScopesChange = (value) => {
-    setScopesInput(value);
-    const scopes = value
-      .split(/\r?\n|,/)
-      .map((scope) => scope.trim())
-      .filter(Boolean);
-    setForm((current) =>
-      current
-        ? {
-            ...current,
-            auth: {
-              ...current.auth,
-              scopes: scopes.length ? scopes : undefined,
-            },
+        const addKeysFromObject = (value) => {
+          if (!value || typeof value !== 'object') {
+            return;
           }
-        : current
+          const flattened = flattenMeta(value || {});
+          Object.keys(flattened || {}).forEach((rawKey) => {
+            if (typeof rawKey !== 'string') {
+              return;
+            }
+            const trimmed = rawKey.trim();
+            if (trimmed && !shouldOmitKey(trimmed)) {
+              aggregatedKeys.add(trimmed);
+            }
+          });
+        };
+
+        const processAdGroupDocs = (docs) => {
+          docs.forEach((docSnap) => {
+            if (!docSnap) {
+              return;
+            }
+            const exists =
+              typeof docSnap.exists === 'function' ? docSnap.exists() : true;
+            if (!exists) {
+              return;
+            }
+            const data = typeof docSnap.data === 'function' ? docSnap.data() : docSnap.data;
+            const payload = data || {};
+            addKeysFromObject(payload.metadata);
+            addKeysFromObject(payload.components);
+            addKeysFromObject(payload.recipe);
+          });
+        };
+
+        const adGroupQuery = query(
+          collection(db, 'adGroups'),
+          where('recipeTypeId', '==', recipeTypeId),
+          limit(SAMPLE_AD_GROUP_LIMIT),
+        );
+        const adGroupSnap = await getDocs(adGroupQuery);
+        processAdGroupDocs(adGroupSnap.docs);
+
+        if (aggregatedKeys.size === 0) {
+          const recipeQuery = query(
+            collectionGroup(db, 'recipes'),
+            where('recipeTypeId', '==', recipeTypeId),
+            limit(SAMPLE_AD_GROUP_LIMIT),
+          );
+          const recipeSnap = await getDocs(recipeQuery);
+          const adGroupIds = new Set();
+
+          recipeSnap.docs.forEach((recipeDoc) => {
+            if (!recipeDoc) {
+              return;
+            }
+            const recipeExists =
+              typeof recipeDoc.exists === 'function' ? recipeDoc.exists() : true;
+            if (!recipeExists) {
+              return;
+            }
+            const recipeData =
+              typeof recipeDoc.data === 'function' ? recipeDoc.data() : recipeDoc.data;
+            const payload = recipeData || {};
+            addKeysFromObject(payload.metadata);
+            addKeysFromObject(payload.components);
+            addKeysFromObject(payload.recipe);
+
+            const segments = recipeDoc.ref?.path?.split('/') || [];
+            const adGroupsIndex = segments.indexOf('adGroups');
+            if (adGroupsIndex !== -1 && adGroupsIndex + 1 < segments.length) {
+              adGroupIds.add(segments[adGroupsIndex + 1]);
+            }
+          });
+
+          if (adGroupIds.size > 0) {
+            const ids = Array.from(adGroupIds).slice(0, SAMPLE_AD_GROUP_LIMIT);
+            const groupDocs = await Promise.all(
+              ids.map((groupId) => getDoc(doc(db, 'adGroups', groupId))),
+            );
+            processAdGroupDocs(groupDocs);
+          }
+        }
+
+        if (!active) {
+          return;
+        }
+
+        setSampleMetaKeys(aggregatedKeys);
+      } catch (err) {
+        console.error('Failed to load sample ad group metadata', err);
+        if (active) {
+          setSampleMetaKeys(new Set());
+        }
+      }
+    };
+
+    loadSampleMetaKeys();
+
+    return () => {
+      active = false;
+    };
+  }, [formState.recipeTypeId]);
+
+  const sampleMetaKeyList = useMemo(() => {
+    return Array.from(sampleMetaKeys);
+  }, [sampleMetaKeys]);
+
+  const normalizedWriteInFields = useMemo(() => {
+    if (!Array.isArray(currentRecipeType?.writeInFields)) {
+      return [];
+    }
+    const map = new Map();
+    currentRecipeType.writeInFields
+      .map((field) => normalizeFieldEntry(field))
+      .filter(Boolean)
+      .forEach((field) => {
+        const label = field.label || formatLabel(field.key);
+        map.set(field.key, { ...field, label });
+      });
+    return Array.from(map.values());
+  }, [currentRecipeType]);
+
+  const availableCampfireFields = useMemo(() => {
+    const carouselSlots = inferCarouselAssetCount(currentRecipeType);
+    const merged = new Map();
+
+    const addField = (field) => {
+      if (!field || !field.key) {
+        return;
+      }
+      const existing = merged.get(field.key);
+      const label = field.label || existing?.label || formatLabel(field.key);
+      const metadataType = field.metadataType || existing?.metadataType || '';
+      const isDate =
+        typeof field.isDate === 'boolean'
+          ? field.isDate
+          : typeof existing?.isDate === 'boolean'
+          ? existing.isDate
+          : determineIsDateField({
+              key: field.key,
+              label,
+              metadataType,
+            });
+      merged.set(field.key, { key: field.key, label, metadataType, isDate });
+    };
+
+    const sampleFields = sampleMetaKeyList
+      .filter((key) => key && !shouldOmitKey(key))
+      .map((key) => {
+        const label = formatLabel(key);
+        return {
+          key,
+          label,
+          metadataType: '',
+          isDate: determineIsDateField({ key, label }),
+        };
+      });
+
+    const universalFields = STATIC_DATA_FIELDS.map(({ key, label }) => {
+      const resolvedKey = key || '';
+      if (!resolvedKey) {
+        return null;
+      }
+      const resolvedLabel = label || formatLabel(resolvedKey);
+      return {
+        key: resolvedKey,
+        label: resolvedLabel,
+        metadataType: '',
+        isDate: determineIsDateField({ key: resolvedKey, label: resolvedLabel }),
+      };
+    }).filter(Boolean);
+
+    const groups =
+      sampleFields.length > 0
+        ? [sampleFields, normalizedWriteInFields, universalFields]
+        : [normalizedWriteInFields, universalFields];
+
+    groups.forEach((group) => {
+      group.forEach((field) => {
+        if (!field?.key) {
+          return;
+        }
+        const fieldsToAdd =
+          group === normalizedWriteInFields
+            ? expandFieldWithCarousel(field, carouselSlots)
+            : [field];
+        fieldsToAdd.forEach(addField);
+      });
+    });
+
+    return Array.from(merged.values()).sort((a, b) => a.label.localeCompare(b.label));
+  }, [currentRecipeType, normalizedWriteInFields, sampleMetaKeyList]);
+
+  const availableCampfireFieldMap = useMemo(() => {
+    const map = new Map();
+    availableCampfireFields.forEach((field) => {
+      if (field?.key) {
+        map.set(field.key, field);
+      }
+    });
+    return map;
+  }, [availableCampfireFields]);
+
+  const allCampfireFieldOptions = useMemo(() => {
+    const merged = new Map();
+
+    const addOption = (field) => {
+      if (!field || !field.key) {
+        return;
+      }
+      const existing = merged.get(field.key);
+      const label = field.label || existing?.label || formatLabel(field.key);
+      const metadataType = field.metadataType || existing?.metadataType || '';
+      const isDate =
+        typeof field.isDate === 'boolean'
+          ? field.isDate
+          : typeof existing?.isDate === 'boolean'
+          ? existing.isDate
+          : determineIsDateField({
+              key: field.key,
+              label,
+              metadataType,
+            });
+      merged.set(field.key, { key: field.key, label, metadataType, isDate });
+    };
+
+    normalizedWriteInFields.forEach(addOption);
+    sampleMetaKeyList
+      .filter((key) => key && !shouldOmitKey(key))
+      .forEach((key) => addOption({ key, label: formatLabel(key) }));
+    STATIC_DATA_FIELDS.forEach(({ key, label }) => {
+      if (!key) {
+        return;
+      }
+      addOption({ key, label: label || formatLabel(key) });
+    });
+
+    return Array.from(merged.values()).sort((a, b) => a.label.localeCompare(b.label));
+  }, [normalizedWriteInFields, sampleMetaKeyList]);
+
+  const allCampfireFieldOptionMap = useMemo(() => {
+    const map = new Map();
+    allCampfireFieldOptions.forEach((field) => {
+      if (field?.key) {
+        map.set(field.key, field);
+      }
+    });
+    return map;
+  }, [allCampfireFieldOptions]);
+
+  const displayedCampfireFields = useMemo(() => {
+    const map = new Map();
+
+    const addKey = (key) => {
+      const trimmedKey = typeof key === 'string' ? key.trim() : '';
+      if (!trimmedKey || map.has(trimmedKey)) {
+        return;
+      }
+      const option =
+        allCampfireFieldOptionMap.get(trimmedKey) ||
+        availableCampfireFieldMap.get(trimmedKey) || {
+          key: trimmedKey,
+          label: formatLabel(trimmedKey),
+        };
+      const label = option.label || formatLabel(trimmedKey);
+      const metadataType = option.metadataType || '';
+      const isDate =
+        typeof option.isDate === 'boolean'
+          ? option.isDate
+          : determineIsDateField({
+              key: trimmedKey,
+              label,
+              metadataType,
+            });
+      map.set(trimmedKey, {
+        key: trimmedKey,
+        label,
+        metadataType,
+        isDate,
+      });
+    };
+
+    availableCampfireFields.forEach((field) => addKey(field.key));
+    extraCampfireFieldKeys.forEach(addKey);
+    Object.keys(formState.fieldMapping || {}).forEach(addKey);
+
+    return Array.from(map.values()).sort((a, b) => a.label.localeCompare(b.label));
+  }, [
+    allCampfireFieldOptionMap,
+    availableCampfireFieldMap,
+    availableCampfireFields,
+    extraCampfireFieldKeys,
+    formState.fieldMapping,
+  ]);
+
+  const displayedCampfireFieldMap = useMemo(() => {
+    const map = new Map();
+    displayedCampfireFields.forEach((field) => {
+      if (field?.key) {
+        map.set(field.key, field);
+      }
+    });
+    return map;
+  }, [displayedCampfireFields]);
+
+  const displayedCampfireFieldKeySet = useMemo(() => {
+    return new Set(displayedCampfireFields.map((field) => field.key));
+  }, [displayedCampfireFields]);
+
+  const filteredCampfireSuggestions = useMemo(() => {
+    const query = campfireFieldSearch.trim().toLowerCase();
+    if (!query) {
+      return [];
+    }
+
+    return allCampfireFieldOptions
+      .filter((field) => {
+        if (displayedCampfireFieldKeySet.has(field.key)) {
+          return false;
+        }
+        const keyMatch = field.key.toLowerCase().includes(query);
+        const labelMatch = (field.label || '').toLowerCase().includes(query);
+        return keyMatch || labelMatch;
+      })
+      .slice(0, 12);
+  }, [allCampfireFieldOptions, campfireFieldSearch, displayedCampfireFieldKeySet]);
+
+  const isDateFieldKey = useCallback(
+    (key) => {
+      const trimmed = typeof key === 'string' ? key.trim() : '';
+      if (!trimmed) {
+        return false;
+      }
+      const candidates = [
+        displayedCampfireFieldMap.get(trimmed),
+        availableCampfireFieldMap.get(trimmed),
+        allCampfireFieldOptionMap.get(trimmed),
+      ];
+      for (const candidate of candidates) {
+        if (candidate && typeof candidate.isDate === 'boolean') {
+          return candidate.isDate;
+        }
+      }
+      return determineIsDateField({ key: trimmed });
+    },
+    [
+      allCampfireFieldOptionMap,
+      availableCampfireFieldMap,
+      displayedCampfireFieldMap,
+    ],
+  );
+
+  useEffect(() => {
+    setExtraCampfireFieldKeys((prev) => {
+      const availableKeys = new Set(availableCampfireFields.map((field) => field.key));
+      const mappingKeys = Object.keys(formState.fieldMapping || {});
+      const next = [];
+
+      prev.forEach((key) => {
+        if (key && !availableKeys.has(key) && !next.includes(key)) {
+          next.push(key);
+        }
+      });
+
+      mappingKeys.forEach((key) => {
+        if (key && !availableKeys.has(key) && !next.includes(key)) {
+          next.push(key);
+        }
+      });
+
+      return arraysShallowEqual(prev, next) ? prev : next;
+    });
+  }, [availableCampfireFields, formState.fieldMapping]);
+
+  const sortedIntegrations = useMemo(() => {
+    return [...integrations].sort((a, b) => a.name.localeCompare(b.name));
+  }, [integrations]);
+
+  const updateFieldMapping = (campfireFieldKey, partnerFieldName, options = {}) => {
+    setFormState((prev) => {
+      const nextMapping = { ...(prev.fieldMapping || {}) };
+      const trimmedCampfire =
+        typeof campfireFieldKey === 'string' ? campfireFieldKey.trim() : '';
+      if (!trimmedCampfire) {
+        return prev;
+      }
+
+      const trimmedPartner =
+        typeof partnerFieldName === 'string' ? partnerFieldName.trim() : '';
+      const existing = normalizeMappingEntry(nextMapping[trimmedCampfire]);
+      const dateField =
+        typeof options.isDate === 'boolean'
+          ? options.isDate
+          : isDateFieldKey(trimmedCampfire);
+      let format = dateField ? existing.format : '';
+      const hadEntry = Object.prototype.hasOwnProperty.call(
+        nextMapping,
+        trimmedCampfire,
+      );
+
+      if (dateField && trimmedPartner && !format) {
+        format = DEFAULT_DATE_FORMAT;
+      }
+
+      if (!trimmedPartner) {
+        if (!dateField) {
+          if (!hadEntry) {
+            return prev;
+          }
+          delete nextMapping[trimmedCampfire];
+          return { ...prev, fieldMapping: nextMapping };
+        }
+
+        if (!format || existing.target) {
+          if (!hadEntry) {
+            return prev;
+          }
+          delete nextMapping[trimmedCampfire];
+        } else {
+          nextMapping[trimmedCampfire] = { format };
+        }
+      } else {
+        const entry = {};
+        if (trimmedPartner) {
+          entry.target = trimmedPartner;
+        }
+        if (format && dateField) {
+          entry.format = format;
+        }
+        nextMapping[trimmedCampfire] = entry;
+      }
+
+      return { ...prev, fieldMapping: nextMapping };
+    });
+  };
+
+  const updateFieldFormat = (campfireFieldKey, formatValue) => {
+    setFormState((prev) => {
+      const nextMapping = { ...(prev.fieldMapping || {}) };
+      const trimmedCampfire =
+        typeof campfireFieldKey === 'string' ? campfireFieldKey.trim() : '';
+      if (!trimmedCampfire) {
+        return prev;
+      }
+
+      const trimmedFormat =
+        typeof formatValue === 'string' ? formatValue.trim() : '';
+      const existing = normalizeMappingEntry(nextMapping[trimmedCampfire]);
+      const partner = existing.target;
+      const dateField = isDateFieldKey(trimmedCampfire);
+      const hadEntry = Object.prototype.hasOwnProperty.call(
+        nextMapping,
+        trimmedCampfire,
+      );
+
+      if ((!trimmedFormat || !dateField) && !partner) {
+        if (!hadEntry) {
+          return prev;
+        }
+        delete nextMapping[trimmedCampfire];
+      } else {
+        const entry = {};
+        if (partner) {
+          entry.target = partner;
+        }
+        if (trimmedFormat && dateField) {
+          entry.format = trimmedFormat;
+        }
+        nextMapping[trimmedCampfire] = entry;
+      }
+
+      return { ...prev, fieldMapping: nextMapping };
+    });
+  };
+
+  const handleAddCampfireField = (fieldKey) => {
+    const key = typeof fieldKey === 'string' ? fieldKey.trim() : '';
+    if (!key) {
+      return;
+    }
+    setExtraCampfireFieldKeys((prev) => {
+      if (prev.includes(key)) {
+        return prev;
+      }
+      return [...prev, key];
+    });
+    setCampfireFieldSearch('');
+  };
+
+  const handleCampfireFieldSearchKeyDown = (event) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      const trimmed = campfireFieldSearch.trim();
+      if (filteredCampfireSuggestions.length > 0) {
+        handleAddCampfireField(filteredCampfireSuggestions[0].key);
+      } else if (trimmed && !displayedCampfireFieldKeySet.has(trimmed)) {
+        handleAddCampfireField(trimmed);
+      }
+    } else if (event.key === 'Escape') {
+      setCampfireFieldSearch('');
+    }
+  };
+
+  const resetForm = () => {
+    setFormState(createEmptyForm());
+    setEditingId(null);
+    setShowApiKey(false);
+    setValidationError('');
+    setExtraCampfireFieldKeys([]);
+    setCampfireFieldSearch('');
+  };
+
+  const startCreate = () => {
+    setFormState(createEmptyForm());
+    setEditingId('new');
+    setShowApiKey(false);
+    setMessage('');
+    setValidationError('');
+    setExtraCampfireFieldKeys([]);
+    setCampfireFieldSearch('');
+  };
+
+  const startEdit = (integration) => {
+    setFormState({
+      id: integration.id,
+      name: integration.name || '',
+      partnerKey: integration.partnerKey || '',
+      baseUrl: integration.baseUrl || '',
+      apiKey: integration.apiKey || '',
+      enabled: integration.enabled !== false,
+      notes: integration.notes || '',
+      supportedFormatsText: Array.isArray(integration.supportedFormats)
+        ? integration.supportedFormats.join(', ')
+        : '',
+      recipeTypeId: integration.recipeTypeId || '',
+      fieldMapping: convertPartnerMappingToUi(integration.fieldMapping),
+    });
+    setEditingId(integration.id);
+    setShowApiKey(false);
+    setMessage('');
+    setValidationError('');
+    setExtraCampfireFieldKeys([]);
+    setCampfireFieldSearch('');
+  };
+
+  const handleDelete = async (integration) => {
+    const confirmed = window.confirm(
+      `Delete the \"${integration.name || integration.partnerKey}\" integration?` +
+        '\nThis cannot be undone.',
     );
-  };
-
-  const handleMetadataChange = (value) => {
-    setMetadataInput(value);
-    if (!value.trim()) {
-      setMetadataError(null);
-      setForm((current) =>
-        current
-          ? {
-              ...current,
-              auth: { ...current.auth, metadata: undefined },
-            }
-          : current
-      );
+    if (!confirmed) {
       return;
     }
     try {
-      const parsed = JSON.parse(value);
-      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-        throw new Error("Metadata must be a JSON object.");
+      await deleteIntegration(integration.id);
+      setMessage('Integration deleted');
+      if (editingId === integration.id) {
+        resetForm();
       }
-      setMetadataError(null);
-      setForm((current) =>
-        current
-          ? {
-              ...current,
-              auth: { ...current.auth, metadata: parsed },
-            }
-          : current
-      );
-    } catch (error) {
-      setMetadataError(error instanceof Error ? error.message : String(error));
+    } catch (err) {
+      console.error('Failed to delete integration', err);
+      setMessage('Failed to delete integration');
     }
   };
 
-  const handlePartialsChange = (value) => {
-    setPartialsInput(value);
-    if (!value.trim()) {
-      setPartialsError(null);
-      setForm((current) =>
-        current
-          ? {
-              ...current,
-              mapping: { ...current.mapping, partials: undefined },
-            }
-          : current
-      );
+  const handleChange = (field, value) => {
+    if (field === 'recipeTypeId') {
+      setFormState((prev) => ({
+        ...prev,
+        recipeTypeId: value,
+        fieldMapping: {},
+      }));
+      setExtraCampfireFieldKeys([]);
+      setCampfireFieldSearch('');
       return;
     }
-    try {
-      const parsed = JSON.parse(value);
-      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-        throw new Error("Partials must be a JSON object of string templates.");
-      }
-      setPartialsError(null);
-      setForm((current) =>
-        current
-          ? {
-              ...current,
-              mapping: { ...current.mapping, partials: parsed },
-            }
-          : current
-      );
-    } catch (error) {
-      setPartialsError(error instanceof Error ? error.message : String(error));
+    if (field === 'partnerKey') {
+      setFormState((prev) => ({ ...prev, [field]: value, fieldMapping: {} }));
+      setExtraCampfireFieldKeys([]);
+      setCampfireFieldSearch('');
+      return;
     }
+    setFormState((prev) => ({ ...prev, [field]: value }));
   };
 
-  const handleHelpersChange = (value) => {
-    setHelpersInput(value);
-    if (!value.trim()) {
-      setHelpersError(null);
-      setForm((current) =>
-        current
-          ? {
-              ...current,
-              mapping: { ...current.mapping, helpers: undefined },
-            }
-          : current
-      );
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    setMessage('');
+    setValidationError('');
+
+    const trimmedName = formState.name.trim();
+    const trimmedPartnerKey = formState.partnerKey.trim();
+    const trimmedBaseUrl = formState.baseUrl.trim();
+
+    if (!trimmedName) {
+      setValidationError('Name is required.');
       return;
     }
-    try {
-      const parsed = JSON.parse(value);
-      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-        throw new Error("Helpers must be a JSON object mapping helper names to context paths.");
+    if (!trimmedPartnerKey) {
+      setValidationError('Partner key is required.');
+      return;
+    }
+
+    const supportedFormats = (formState.supportedFormatsText || '')
+      .split(',')
+      .map((value) => value.trim())
+      .filter(Boolean);
+
+    const invalidFormattedFields = [];
+    Object.entries(formState.fieldMapping || {}).forEach(([campfireKey, entry]) => {
+      const trimmedKey = typeof campfireKey === 'string' ? campfireKey.trim() : '';
+      if (!trimmedKey) {
+        return;
       }
-      setHelpersError(null);
-      setForm((current) =>
-        current
-          ? {
-              ...current,
-              mapping: { ...current.mapping, helpers: parsed },
-            }
-          : current
+      const { target, format } = normalizeMappingEntry(entry);
+      if (isDateFieldKey(trimmedKey) && format && !target) {
+        invalidFormattedFields.push(trimmedKey);
+      }
+    });
+
+    if (invalidFormattedFields.length > 0) {
+      const labels = invalidFormattedFields
+        .map((key) => {
+          const fieldInfo =
+            availableCampfireFieldMap.get(key) ||
+            allCampfireFieldOptionMap.get(key);
+          return fieldInfo?.label || formatLabel(key);
+        })
+        .join(', ');
+      setValidationError(
+        `Provide partner field names for formatted date fields: ${labels}.`,
       );
-    } catch (error) {
-      setHelpersError(error instanceof Error ? error.message : String(error));
-    }
-  };
-  const handleSave = async () => {
-    if (!form) return;
-    setSaveError(null);
-    setValidationError(null);
-    if (!form.id.trim()) {
-      setValidationError("Integration ID is required.");
       return;
     }
-    if (!form.name.trim()) {
-      setValidationError("Integration name is required.");
-      return;
-    }
-    if (!form.baseUrl.trim()) {
-      setValidationError("Base URL is required.");
-      return;
-    }
-    if (form.mapping?.type === "jsonata" && !(form.mapping.expression || "").trim()) {
-      setValidationError("JSONata expression cannot be empty.");
-      return;
-    }
-    if (form.mapping?.type === "handlebars" && !(form.mapping.template || "").trim()) {
-      setValidationError("Handlebars template cannot be empty.");
-      return;
-    }
-    if (form.mapping?.type === "literal" && literalError) {
-      setValidationError("Resolve literal template errors before saving.");
-      return;
-    }
-    if (partialsError || helpersError || metadataError) {
-      setValidationError("Resolve JSON parsing errors before saving.");
-      return;
-    }
-    const payload = buildIntegrationPayload(form, headerRows);
+
+    const persistedFieldMapping = convertUiMappingToPartner(
+      formState.fieldMapping,
+      isDateFieldKey,
+    );
+
+    const payload = {
+      id: formState.id || undefined,
+      name: trimmedName,
+      partnerKey: trimmedPartnerKey,
+      baseUrl: trimmedBaseUrl,
+      apiKey: formState.apiKey.trim(),
+      enabled: !!formState.enabled,
+      notes: formState.notes.trim(),
+      supportedFormats,
+      recipeTypeId: formState.recipeTypeId || '',
+      fieldMapping: persistedFieldMapping,
+    };
+
+    setSaving(true);
     try {
-      setSaving(true);
-      await setDoc(doc(db, "integrations", payload.id), payload);
-      setValidationError(null);
-    } catch (error) {
-      setSaveError(error instanceof Error ? error.message : String(error));
+      await saveIntegration(payload);
+      setMessage('Integration saved');
+      resetForm();
+    } catch (err) {
+      console.error('Failed to save integration', err);
+      setMessage('Failed to save integration');
     } finally {
       setSaving(false);
     }
   };
 
-  const handleLoadSample = async () => {
-    const reviewId = sampleReviewId.trim();
-    if (!reviewId) {
-      setSampleError("Enter a review ID to load sample data.");
-      return;
-    }
-    setSampleError(null);
-    setSampleLoading(true);
-    try {
-      const response = await fetch("/api/integrations/sample-data", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ reviewId }),
-      });
-      if (!response.ok) {
-        const error = await response.json().catch(() => ({}));
-        throw new Error(error.error || `Failed to load review ${reviewId}`);
-      }
-      const data = await response.json();
-      setSampleData({ review: data.review, ads: data.ads, client: data.client });
-      setSampleError(null);
-    } catch (error) {
-      setSampleError(error instanceof Error ? error.message : String(error));
-      setSampleData(null);
-    } finally {
-      setSampleLoading(false);
-    }
-  };
-
-  const runIntegrationTest = async (mode) => {
-    if (!form) return;
-    const reviewId = sampleReviewId.trim();
-    if (!reviewId) {
-      setTestError("Enter a review ID before running tests.");
-      return;
-    }
-    if (form.mapping?.type === "literal" && literalError) {
-      setTestError("Resolve literal template JSON errors before testing.");
-      return;
-    }
-    if (partialsError || helpersError || metadataError) {
-      setTestError("Resolve JSON parsing errors before testing.");
-      return;
-    }
-    setTestError(null);
-    if (mode === "dry-run") {
-      setPreviewLoading(true);
-    } else {
-      setLiveLoading(true);
-    }
-    try {
-      const payload = buildIntegrationPayload(form, headerRows);
-      const response = await fetch("/api/integrations/test", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          integration: payload,
-          reviewId,
-          mode,
-        }),
-      });
-      if (!response.ok) {
-        const error = await response.json().catch(() => ({}));
-        throw new Error(error.error || `Integration test failed (${response.status})`);
-      }
-      const data = await response.json();
-      setTestResult({ mode, ...data });
-      setSampleData(data.context);
-      setTestError(null);
-    } catch (error) {
-      setTestError(error instanceof Error ? error.message : String(error));
-      setTestResult(null);
-    } finally {
-      setPreviewLoading(false);
-      setLiveLoading(false);
-    }
-  };
-
-  const mappingLanguage = form?.mapping?.type === "literal"
-    ? "json"
-    : form?.mapping?.type === "handlebars"
-    ? "handlebars"
-    : "javascript";
-
   return (
-    <div className="min-h-screen bg-slate-50 p-6">
-      <div className="flex flex-col gap-6 lg:flex-row">
-        <aside className="lg:w-80 w-full">
-          <div className="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200">
-              <h2 className="text-lg font-semibold">Integrations</h2>
-              <button
-                type="button"
-                onClick={handleCreateNew}
-                className="inline-flex items-center gap-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 px-3 py-1.5 rounded-md"
-              >
-                <FiPlus className="h-4 w-4" /> New
-              </button>
+    <div className="p-6 max-w-5xl mx-auto">
+      <div className="mb-6">
+        <h1 className="text-2xl font-semibold">Partner Integrations</h1>
+        <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">
+          Configure the API connections used by exporter jobs. Enable integrations to make
+          them available in the export flow.
+        </p>
+      </div>
+
+      {error && (
+        <div className="mb-4 rounded-md border border-red-300 bg-red-50 p-3 text-sm text-red-700 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-200">
+          Failed to load integrations. Please refresh the page.
+        </div>
+      )}
+      {recipeTypesError && (
+        <div className="mb-4 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-700 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200">
+          {recipeTypesError} Field mapping options may be incomplete.
+        </div>
+      )}
+      {message && (
+        <div className="mb-4 rounded-md border border-[var(--accent-color)]/40 bg-[var(--accent-color)]/10 p-3 text-sm text-[var(--accent-color)]">
+          {message}
+        </div>
+      )}
+
+      <div className="mb-8 flex items-center justify-between gap-4">
+        <h2 className="text-lg font-semibold">Configured partners</h2>
+        <Button
+          type="button"
+          variant="accent"
+          size="sm"
+          onClick={startCreate}
+          disabled={loading}
+        >
+          Add integration
+        </Button>
+      </div>
+
+      {loading ? (
+        <div className="rounded-lg border border-gray-200 bg-white p-6 text-center text-sm text-gray-500 shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-card-bg)]">
+          Loading integrations…
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {sortedIntegrations.length === 0 ? (
+            <div className="rounded-lg border border-dashed border-gray-300 bg-white p-8 text-center text-sm text-gray-500 shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-card-bg)]">
+              No integrations configured yet.
             </div>
-            <div className="max-h-[70vh] overflow-y-auto divide-y divide-slate-200">
-              {integrations.length === 0 ? (
-                <div className="px-4 py-6 text-sm text-slate-500">No integrations yet.</div>
-              ) : (
-                integrations.map((integration) => {
-                  const isActive = selectedId === integration.id;
-                  const latest = integration.latestExportAttempt;
-                  const statusLabel = latest
-                    ? `${latest.status ?? "unknown"} • ${formatRelative(latest.completedAt || latest.startedAt)}`
-                    : "Never ran";
-                  return (
-                    <button
-                      key={integration.id}
-                      type="button"
-                      onClick={() => handleSelectIntegration(integration)}
-                      className={`w-full text-left px-4 py-3 transition-colors ${
-                        isActive ? "bg-blue-50" : "hover:bg-slate-50"
-                      }`}
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <div>
-                          <div className="font-medium text-slate-900 truncate">
-                            {integration.name || integration.id}
-                          </div>
-                          <div className="text-xs text-slate-500 truncate">
-                            {integration.method} · {integration.baseUrl}
-                          </div>
-                        </div>
+          ) : (
+            sortedIntegrations.map((integration) => {
+              const lastUpdated = formatDateTime(integration.updatedAt);
+              return (
+                <div
+                  key={integration.id}
+                  className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm transition hover:border-[var(--accent-color)]/60 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-card-bg)]"
+                >
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                      <div className="flex flex-wrap items-center gap-3">
+                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                          {integration.name || 'Untitled integration'}
+                        </h3>
                         <span
-                          className={`text-xs font-medium ${
-                            integration.active
-                              ? "text-emerald-600 bg-emerald-100"
-                              : "text-slate-500 bg-slate-100"
-                          } px-2 py-0.5 rounded-full`}
+                          className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${
+                            integration.enabled
+                              ? 'bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-200'
+                              : 'bg-gray-200 text-gray-700 dark:bg-gray-600/30 dark:text-gray-300'
+                          }`}
                         >
-                          {integration.active ? "Enabled" : "Disabled"}
+                          {integration.enabled ? 'Enabled' : 'Disabled'}
                         </span>
                       </div>
-                      <div className="mt-1 text-xs text-slate-500">{statusLabel}</div>
-                    </button>
-                  );
-                })
-              )}
-            </div>
-          </div>
-        </aside>
-
-        <div className="flex-1 flex flex-col gap-6">
-          <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6">
-            <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-              <h1 className="text-xl font-semibold">Integration Details</h1>
-              <div className="flex items-center gap-2">
-                {saveError && <span className="text-sm text-red-600">{saveError}</span>}
-                {validationError && (
-                  <span className="text-sm text-red-600">{validationError}</span>
-                )}
-                <button
-                  type="button"
-                  onClick={handleSave}
-                  disabled={!form || saving}
-                  className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium text-white ${
-                    saving ? "bg-blue-400 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-700"
-                  }`}
-                >
-                  <FiSave className="h-4 w-4" />
-                  {saving ? "Saving..." : "Save"}
-                </button>
-              </div>
-            </div>
-
-            {form ? (
-              <div className="grid gap-6 lg:grid-cols-2">
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700">Integration ID</label>
-                    <input
-                      type="text"
-                      value={form.id}
-                      onChange={(event) =>
-                        setForm((current) => ({ ...current, id: event.target.value }))
-                      }
-                      className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring"
-                      placeholder="unique-integration-id"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700">Name</label>
-                    <input
-                      type="text"
-                      value={form.name}
-                      onChange={(event) =>
-                        setForm((current) => ({ ...current, name: event.target.value }))
-                      }
-                      className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring"
-                      placeholder="Integration name"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700">Slug</label>
-                    <input
-                      type="text"
-                      value={form.slug}
-                      onChange={(event) =>
-                        setForm((current) => ({ ...current, slug: event.target.value }))
-                      }
-                      className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring"
-                      placeholder="slug"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700">Description</label>
-                    <textarea
-                      value={form.description}
-                      onChange={(event) =>
-                        setForm((current) => ({ ...current, description: event.target.value }))
-                      }
-                      className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring"
-                      rows={3}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700">Recipe Type</label>
-                    <select
-                      value={form.recipeTypeId || ""}
-                      onChange={(event) =>
-                        setForm((current) =>
-                          current
-                            ? { ...current, recipeTypeId: event.target.value }
-                            : current
-                        )
-                      }
-                      disabled={recipeTypesLoading}
-                      className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500"
-                    >
-                      <option value="">Select a recipe type</option>
-                      {recipeTypes.map((type) => (
-                        <option key={type.id} value={type.id}>
-                          {type.name || type.id}
-                        </option>
-                      ))}
-                    </select>
-                    {recipeTypesError && (
-                      <p className="mt-1 text-xs text-red-600">{recipeTypesError}</p>
-                    )}
-                    {!recipeTypesLoading && !recipeTypesError && recipeTypes.length === 0 && (
-                      <p className="mt-1 text-xs text-slate-500">No recipe types found.</p>
-                    )}
-                    {form.recipeTypeId &&
-                      !recipeTypesLoading &&
-                      !recipeTypesError &&
-                      !recipeTypes.some((type) => type.id === form.recipeTypeId) && (
-                        <p className="mt-1 text-xs text-amber-600">
-                          Selected recipe type is no longer available.
+                      <p className="mt-1 text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                        Partner key: {integration.partnerKey || '—'}
+                      </p>
+                      {integration.baseUrl && (
+                        <p className="mt-2 text-sm text-gray-600 break-all dark:text-gray-300">
+                          Base URL: {integration.baseUrl}
                         </p>
                       )}
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <label className="inline-flex items-center gap-2 text-sm font-medium text-slate-700">
-                      <input
-                        type="checkbox"
-                        checked={form.active}
-                        onChange={(event) =>
-                          setForm((current) => ({ ...current, active: event.target.checked }))
-                        }
-                        className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                      />
-                      Enabled
-                    </label>
-                    <div>
-                      <label className="block text-sm font-medium text-slate-700">Version</label>
-                      <input
-                        type="text"
-                        value={form.version}
-                        onChange={(event) =>
-                          setForm((current) => ({ ...current, version: event.target.value }))
-                        }
-                        className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring"
-                      />
-                    </div>
-                  </div>
-                </div>
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700">Base URL</label>
-                    <input
-                      type="text"
-                      value={form.baseUrl}
-                      onChange={(event) =>
-                        setForm((current) => ({ ...current, baseUrl: event.target.value }))
-                      }
-                      className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring"
-                      placeholder="https://partner.example.com"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700">Endpoint Path</label>
-                    <input
-                      type="text"
-                      value={form.endpointPath}
-                      onChange={(event) =>
-                        setForm((current) => ({ ...current, endpointPath: event.target.value }))
-                      }
-                      className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring"
-                      placeholder="/api/export"
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-sm font-medium text-slate-700">Method</label>
-                      <select
-                        value={form.method}
-                        onChange={(event) =>
-                          setForm((current) => ({ ...current, method: event.target.value }))
-                        }
-                        className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring"
-                      >
-                        {HTTP_METHODS.map((method) => (
-                          <option key={method}>{method}</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-slate-700">Timeout (ms)</label>
-                      <input
-                        type="number"
-                        min={0}
-                        value={form.timeoutMs ?? ""}
-                        onChange={(event) => {
-                          const value = event.target.value;
-                          setForm((current) => ({
-                            ...current,
-                            timeoutMs: value ? Number(value) : undefined,
-                          }));
-                        }}
-                        className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring"
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700">Idempotency Key Prefix</label>
-                    <input
-                      type="text"
-                      value={form.idempotencyKeyPrefix || ""}
-                      onChange={(event) =>
-                        setForm((current) => ({
-                          ...current,
-                          idempotencyKeyPrefix: event.target.value,
-                        }))
-                      }
-                      className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring"
-                    />
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className="text-slate-500">Select or create an integration to begin.</div>
-            )}
-          </div>
-
-          <div className="grid gap-6 lg:grid-cols-2">
-            <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6">
-              <h2 className="text-lg font-semibold text-slate-900 mb-4">Headers</h2>
-              <div className="space-y-3">
-                {headerRows.map((row, index) => {
-                  const isLast = index === headerRows.length - 1;
-                  return (
-                    <div key={index} className="flex gap-2 items-center">
-                      <input
-                        type="text"
-                        value={row.key}
-                        onChange={(event) => updateHeaderRow(index, "key", event.target.value)}
-                        placeholder="Header name"
-                        className="flex-1 rounded-md border border-slate-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring"
-                      />
-                      <input
-                        type="text"
-                        value={row.value}
-                        onChange={(event) => updateHeaderRow(index, "value", event.target.value)}
-                        placeholder="Header value"
-                        className="flex-1 rounded-md border border-slate-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring"
-                      />
-                      {!isLast && (
-                        <button
-                          type="button"
-                          onClick={() => removeHeaderRow(index)}
-                          className="text-sm text-red-600 hover:text-red-700"
-                        >
-                          Remove
-                        </button>
+                      {integration.recipeTypeId && (
+                        <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
+                          Recipe type:{' '}
+                          {recipeTypeMap[integration.recipeTypeId]?.name ||
+                            integration.recipeTypeId}
+                        </p>
+                      )}
+                      <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
+                        API key: {maskSecret(integration.apiKey)}
+                      </p>
+                      {integration.supportedFormats?.length > 0 && (
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {integration.supportedFormats.map((format) => (
+                            <span
+                              key={format}
+                              className="inline-flex items-center rounded-full bg-[var(--accent-color)]/10 px-2.5 py-1 text-xs font-medium text-[var(--accent-color)]"
+                            >
+                              {format}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                      {integration.notes && (
+                        <p className="mt-3 text-sm text-gray-600 dark:text-gray-300">
+                          {integration.notes}
+                        </p>
+                      )}
+                      {lastUpdated && (
+                        <p className="mt-3 text-xs text-gray-400 dark:text-gray-500">
+                          Last updated {lastUpdated}
+                        </p>
                       )}
                     </div>
-                  );
-                })}
-              </div>
-            </div>
+                    <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        variant="neutral"
+                        size="sm"
+                        onClick={() => startEdit(integration)}
+                      >
+                        Edit
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="delete"
+                        size="sm"
+                        onClick={() => handleDelete(integration)}
+                      >
+                        Delete
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+      )}
 
-            <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6">
-              <h2 className="text-lg font-semibold text-slate-900 mb-4">Authentication</h2>
-              {form ? (
-                <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-sm font-medium text-slate-700">Strategy</label>
-                      <select
-                        value={form.auth?.strategy || "none"}
-                        onChange={(event) =>
-                          setForm((current) => ({
-                            ...current,
-                            auth: { ...current.auth, strategy: event.target.value },
-                          }))
-                        }
-                        className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring"
-                      >
-                        {AUTH_STRATEGIES.map((strategy) => (
-                          <option key={strategy}>{strategy}</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-slate-700">Location</label>
-                      <select
-                        value={form.auth?.location || "header"}
-                        onChange={(event) =>
-                          setForm((current) => ({
-                            ...current,
-                            auth: { ...current.auth, location: event.target.value },
-                          }))
-                        }
-                        className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring"
-                      >
-                        {AUTH_LOCATIONS.map((location) => (
-                          <option key={location}>{location}</option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700">Key Name</label>
-                    <input
-                      type="text"
-                      value={form.auth?.keyName || ""}
-                      onChange={(event) =>
-                        setForm((current) => ({
-                          ...current,
-                          auth: { ...current.auth, keyName: event.target.value },
-                        }))
-                      }
-                      className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring"
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-sm font-medium text-slate-700">Secret Name</label>
-                      <input
-                        type="text"
-                        value={form.auth?.secret?.name || ""}
-                        onChange={(event) =>
-                          setForm((current) => ({
-                            ...current,
-                            auth: {
-                              ...current.auth,
-                              secret: {
-                                name: event.target.value,
-                                ...(current.auth?.secret?.version
-                                  ? { version: current.auth.secret.version }
-                                  : {}),
-                              },
-                            },
-                          }))
-                        }
-                        placeholder="projects/.../secrets/..."
-                        className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-slate-700">Secret Version</label>
-                      <input
-                        type="text"
-                        value={form.auth?.secret?.version || ""}
-                        onChange={(event) =>
-                          setForm((current) => ({
-                            ...current,
-                            auth: {
-                              ...current.auth,
-                              secret: current.auth?.secret?.name
-                                ? {
-                                    name: current.auth.secret.name,
-                                    version: event.target.value,
-                                  }
-                                : undefined,
-                            },
-                          }))
-                        }
-                        placeholder="latest"
-                        className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring"
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700">Scopes (one per line)</label>
-                    <textarea
-                      value={scopesInput}
-                      onChange={(event) => handleScopesChange(event.target.value)}
-                      className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring"
-                      rows={3}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700">Metadata (JSON)</label>
-                    <textarea
-                      value={metadataInput}
-                      onChange={(event) => handleMetadataChange(event.target.value)}
-                      className={`mt-1 w-full rounded-md border px-3 py-2 focus:outline-none focus:ring ${
-                        metadataError ? "border-red-500 focus:border-red-500" : "border-slate-300 focus:border-blue-500"
-                      }`}
-                      rows={4}
-                    />
-                    {metadataError && (
-                      <p className="mt-1 text-xs text-red-600">{metadataError}</p>
-                    )}
-                  </div>
+      {(editingId || validationError) && (
+        <form
+          onSubmit={handleSubmit}
+          className="mt-10 space-y-4 rounded-lg border border-gray-200 bg-white p-6 shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-card-bg)]"
+        >
+          <h2 className="text-lg font-semibold">
+            {editingId === 'new' || !editingId ? 'Add integration' : 'Edit integration'}
+          </h2>
+          <div className="grid gap-4 md:grid-cols-2">
+            <label className="flex flex-col text-sm font-medium text-gray-700 dark:text-gray-200">
+              Name
+              <input
+                type="text"
+                className="mt-1 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-[var(--accent-color)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)] dark:border-[var(--border-color-default)] dark:bg-[var(--dark-input-bg)] dark:text-white"
+                value={formState.name}
+                onChange={(event) => handleChange('name', event.target.value)}
+                placeholder="e.g. Meta Marketing API"
+                required
+              />
+            </label>
+            <label className="flex flex-col text-sm font-medium text-gray-700 dark:text-gray-200">
+              Partner key
+              <input
+                type="text"
+                className="mt-1 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-[var(--accent-color)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)] dark:border-[var(--border-color-default)] dark:bg-[var(--dark-input-bg)] dark:text-white"
+                value={formState.partnerKey}
+                onChange={(event) => handleChange('partnerKey', event.target.value)}
+                placeholder="Internal identifier"
+                required
+              />
+            </label>
+            <label className="md:col-span-2 flex flex-col text-sm font-medium text-gray-700 dark:text-gray-200">
+              Base URL
+              <input
+                type="url"
+                className="mt-1 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-[var(--accent-color)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)] dark:border-[var(--border-color-default)] dark:bg-[var(--dark-input-bg)] dark:text-white"
+                value={formState.baseUrl}
+                onChange={(event) => handleChange('baseUrl', event.target.value)}
+                placeholder="https://api.partner.com"
+              />
+            </label>
+            <label className="md:col-span-2 flex flex-col text-sm font-medium text-gray-700 dark:text-gray-200">
+              Recipe type
+              {recipeTypesLoading ? (
+                <div className="mt-1 rounded-md border border-dashed border-gray-300 bg-gray-50 px-3 py-2 text-sm text-gray-500 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-input-bg)]/40 dark:text-gray-300">
+                  Loading recipe types…
                 </div>
               ) : (
-                <div className="text-slate-500">Select an integration to configure authentication.</div>
+                <select
+                  className="mt-1 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-[var(--accent-color)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)] dark:border-[var(--border-color-default)] dark:bg-[var(--dark-input-bg)] dark:text-white"
+                  value={formState.recipeTypeId}
+                  onChange={(event) => handleChange('recipeTypeId', event.target.value)}
+                >
+                  <option value="">Select a recipe type</option>
+                  {recipeTypes.map((type) => (
+                    <option key={type.id} value={type.id}>
+                      {type.name || type.id}
+                    </option>
+                  ))}
+                </select>
               )}
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6">
-            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 mb-4">
-              <div>
-                <h2 className="text-lg font-semibold text-slate-900">Mapping</h2>
-                <p className="text-sm text-slate-500">Define how review data transforms into partner payloads.</p>
+              <span className="mt-1 text-xs font-normal text-gray-500 dark:text-gray-400">
+                Choose the recipe type this integration exports. Field mappings are based on the selected type.
+              </span>
+            </label>
+            <label className="flex flex-col text-sm font-medium text-gray-700 dark:text-gray-200">
+              API key
+              <div className="mt-1 flex gap-2">
+                <input
+                  type={showApiKey ? 'text' : 'password'}
+                  className="flex-1 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-[var(--accent-color)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)] dark:border-[var(--border-color-default)] dark:bg-[var(--dark-input-bg)] dark:text-white"
+                  value={formState.apiKey}
+                  onChange={(event) => handleChange('apiKey', event.target.value)}
+                  placeholder="Token or credential"
+                />
+                <Button
+                  type="button"
+                  variant="neutral"
+                  size="sm"
+                  onClick={() => setShowApiKey((value) => !value)}
+                >
+                  {showApiKey ? 'Hide' : 'Show'}
+                </Button>
               </div>
-              {form && form.mapping?.type === "jsonata" && (
-                <label className="inline-flex items-center gap-2 text-sm text-slate-700">
-                  <input
-                    type="checkbox"
-                    checked={Boolean(form.mapping?.allowUndefined)}
-                    onChange={(event) =>
-                      setForm((current) => ({
-                        ...current,
-                        mapping: {
-                          ...current.mapping,
-                          allowUndefined: event.target.checked,
-                        },
-                      }))
-                    }
-                    className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                  />
-                  Allow undefined JSONata results
-                </label>
-              )}
-            </div>
-            {form ? (
-              <div className="space-y-4">
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700">Engine</label>
-                    <select
-                      value={form.mapping?.type || "jsonata"}
-                      onChange={(event) => handleMappingTypeChange(event.target.value)}
-                      className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring"
-                    >
-                      <option value="jsonata">JSONata</option>
-                      <option value="handlebars">Handlebars</option>
-                      <option value="literal">Literal</option>
-                    </select>
+            </label>
+            <label className="flex flex-col text-sm font-medium text-gray-700 dark:text-gray-200">
+              Supported export types
+              <input
+                type="text"
+                className="mt-1 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-[var(--accent-color)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)] dark:border-[var(--border-color-default)] dark:bg-[var(--dark-input-bg)] dark:text-white"
+                value={formState.supportedFormatsText}
+                onChange={(event) => handleChange('supportedFormatsText', event.target.value)}
+                placeholder="Comma-separated list, e.g. ads, catalog"
+              />
+            </label>
+            <div className="md:col-span-2">
+              <div className="flex flex-col gap-1 md:flex-row md:items-baseline md:justify-between">
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-200">Field mapping</span>
+                <span className="text-xs text-gray-500 dark:text-gray-400">
+                  Map Campfire fields to your partner’s expected field names.
+                </span>
+              </div>
+              <div className="mt-2 rounded-md border border-gray-200 bg-white dark:border-[var(--border-color-default)] dark:bg-[var(--dark-card-bg)]">
+                {displayedCampfireFields.length > 0 ? (
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200 text-left text-sm dark:divide-[var(--border-color-default)]">
+                      <thead className="bg-gray-50 text-xs font-medium uppercase tracking-wide text-gray-500 dark:bg-[var(--dark-input-bg)] dark:text-gray-400">
+                        <tr>
+                          <th className="px-3 py-2">Campfire field</th>
+                          <th className="px-3 py-2">Partner field name</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-200 dark:divide-[var(--border-color-default)]">
+                        {displayedCampfireFields.map((field) => {
+                          const mappingEntry = normalizeMappingEntry(
+                            formState.fieldMapping?.[field.key],
+                          );
+                          const partnerValue = mappingEntry.target;
+                          const showFormatDropdown = !!field.isDate;
+                          const effectiveFormat =
+                            mappingEntry.format || DEFAULT_DATE_FORMAT;
+                          const showPartnerError =
+                            showFormatDropdown &&
+                            !!mappingEntry.format &&
+                            !partnerValue;
+
+                          return (
+                            <tr key={field.key}>
+                              <td className="px-3 py-2 align-top text-sm text-gray-700 dark:text-gray-200">
+                                <div className="font-medium">{field.label || field.key}</div>
+                                <div className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">Key: {field.key}</div>
+                              </td>
+                              <td className="px-3 py-2 align-top">
+                                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:gap-3">
+                                  <div className="flex-1">
+                                    <input
+                                      type="text"
+                                      className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-[var(--accent-color)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)] dark:border-[var(--border-color-default)] dark:bg-[var(--dark-input-bg)] dark:text-white"
+                                      value={partnerValue || ''}
+                                      onChange={(event) =>
+                                        updateFieldMapping(field.key, event.target.value, {
+                                          isDate: field.isDate,
+                                        })
+                                      }
+                                      placeholder="Partner field name"
+                                    />
+                                    {showPartnerError ? (
+                                      <p className="mt-1 text-xs text-red-600 dark:text-red-400">
+                                        Enter a partner field name to apply the selected date format.
+                                      </p>
+                                    ) : (
+                                      <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                        Leave blank to omit this field from the payload.
+                                      </p>
+                                    )}
+                                  </div>
+                                  {showFormatDropdown ? (
+                                    <div className="sm:w-48">
+                                      <label className="block text-xs font-medium text-gray-600 dark:text-gray-300">
+                                        Date format
+                                        <select
+                                          className="mt-1 w-full rounded-md border border-gray-300 bg-white px-2.5 py-2 text-sm text-gray-900 shadow-sm focus:border-[var(--accent-color)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)] dark:border-[var(--border-color-default)] dark:bg-[var(--dark-input-bg)] dark:text-white"
+                                          value={effectiveFormat}
+                                          onChange={(event) =>
+                                            updateFieldFormat(field.key, event.target.value)
+                                          }
+                                        >
+                                          {DATE_FORMAT_OPTIONS.map((option) => (
+                                            <option key={option.value} value={option.value}>
+                                              {option.label}
+                                            </option>
+                                          ))}
+                                        </select>
+                                      </label>
+                                    </div>
+                                  ) : null}
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700">Mapping Version</label>
-                    <input
-                      type="text"
-                      value={form.mapping?.version || ""}
-                      onChange={(event) =>
-                        setForm((current) => ({
-                          ...current,
-                          mapping: { ...current.mapping, version: event.target.value },
-                        }))
-                      }
-                      className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700">Source URI</label>
-                    <input
-                      type="text"
-                      value={form.mapping?.sourceUri || ""}
-                      onChange={(event) =>
-                        setForm((current) => ({
-                          ...current,
-                          mapping: { ...current.mapping, sourceUri: event.target.value },
-                        }))
-                      }
-                      className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring"
-                    />
-                  </div>
-                </div>
-                <div>
-                  <Editor
-                    height="280px"
-                    defaultLanguage={mappingLanguage}
-                    value={mappingDrafts[form.mapping?.type || "jsonata"]}
-                    onChange={handleMappingEditorChange}
-                    theme="vs-light"
-                    options={{ minimap: { enabled: false }, scrollBeyondLastLine: false }}
-                  />
-                  {literalError && (
-                    <p className="mt-1 text-xs text-red-600">{literalError}</p>
-                  )}
-                </div>
-                {form.mapping?.type === "literal" && (
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-sm font-medium text-slate-700">Start Delimiter</label>
-                      <input
-                        type="text"
-                        value={form.mapping?.delimiters?.start || ""}
-                        onChange={(event) =>
-                          setForm((current) => ({
-                            ...current,
-                            mapping: {
-                              ...current.mapping,
-                              delimiters: {
-                                start: event.target.value,
-                                end: current.mapping?.delimiters?.end || "",
-                              },
-                            },
-                          }))
-                        }
-                        className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-slate-700">End Delimiter</label>
-                      <input
-                        type="text"
-                        value={form.mapping?.delimiters?.end || ""}
-                        onChange={(event) =>
-                          setForm((current) => ({
-                            ...current,
-                            mapping: {
-                              ...current.mapping,
-                              delimiters: {
-                                start: current.mapping?.delimiters?.start || "",
-                                end: event.target.value,
-                              },
-                            },
-                          }))
-                        }
-                        className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring"
-                      />
-                    </div>
-                  </div>
-                )}
-                {form.mapping?.type === "handlebars" && (
-                  <div className="grid gap-4 lg:grid-cols-2">
-                    <div>
-                      <label className="block text-sm font-medium text-slate-700">Partials (JSON)</label>
-                      <textarea
-                        value={partialsInput}
-                        onChange={(event) => handlePartialsChange(event.target.value)}
-                        className={`mt-1 w-full rounded-md border px-3 py-2 focus:outline-none focus:ring ${
-                          partialsError ? "border-red-500 focus:border-red-500" : "border-slate-300 focus:border-blue-500"
-                        }`}
-                        rows={6}
-                      />
-                      {partialsError && (
-                        <p className="mt-1 text-xs text-red-600">{partialsError}</p>
-                      )}
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-slate-700">Helpers (JSON)</label>
-                      <textarea
-                        value={helpersInput}
-                        onChange={(event) => handleHelpersChange(event.target.value)}
-                        className={`mt-1 w-full rounded-md border px-3 py-2 focus:outline-none focus:ring ${
-                          helpersError ? "border-red-500 focus:border-red-500" : "border-slate-300 focus:border-blue-500"
-                        }`}
-                        rows={6}
-                      />
-                      {helpersError && (
-                        <p className="mt-1 text-xs text-red-600">{helpersError}</p>
-                      )}
-                    </div>
-                  </div>
+                ) : (
+                  <p className="p-4 text-sm text-gray-500 dark:text-gray-400">
+                    {formState.recipeTypeId
+                      ? 'No fields defined for this recipe; you can add Campfire fields below.'
+                      : 'Select a recipe type to load fields.'}
+                  </p>
                 )}
               </div>
-            ) : (
-              <div className="text-slate-500">Select an integration to edit mappings.</div>
-            )}
-          </div>
-
-          <div className="grid gap-6 lg:grid-cols-2">
-            <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6">
-              <h2 className="text-lg font-semibold text-slate-900 mb-4">Retry Policy & Schema</h2>
-              {form ? (
-                <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-sm font-medium text-slate-700">Max Attempts</label>
-                      <input
-                        type="number"
-                        min={0}
-                        value={form.retryPolicy?.maxAttempts ?? 0}
-                        onChange={(event) =>
-                          setForm((current) => ({
-                            ...current,
-                            retryPolicy: {
-                              ...current.retryPolicy,
-                              maxAttempts: Number(event.target.value || 0),
-                            },
-                          }))
-                        }
-                        className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-slate-700">Initial Interval (ms)</label>
-                      <input
-                        type="number"
-                        min={0}
-                        value={form.retryPolicy?.initialIntervalMs ?? 0}
-                        onChange={(event) =>
-                          setForm((current) => ({
-                            ...current,
-                            retryPolicy: {
-                              ...current.retryPolicy,
-                              initialIntervalMs: Number(event.target.value || 0),
-                            },
-                          }))
-                        }
-                        className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring"
-                      />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-sm font-medium text-slate-700">Max Interval (ms)</label>
-                      <input
-                        type="number"
-                        min={0}
-                        value={form.retryPolicy?.maxIntervalMs ?? 0}
-                        onChange={(event) =>
-                          setForm((current) => ({
-                            ...current,
-                            retryPolicy: {
-                              ...current.retryPolicy,
-                              maxIntervalMs: Number(event.target.value || 0),
-                            },
-                          }))
-                        }
-                        className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-slate-700">Backoff Multiplier</label>
-                      <input
-                        type="number"
-                        step="0.1"
-                        min={0}
-                        value={form.retryPolicy?.backoffMultiplier ?? 0}
-                        onChange={(event) =>
-                          setForm((current) => ({
-                            ...current,
-                            retryPolicy: {
-                              ...current.retryPolicy,
-                              backoffMultiplier: Number(event.target.value || 0),
-                            },
-                          }))
-                        }
-                        className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring"
-                      />
-                    </div>
-                  </div>
-                  <label className="inline-flex items-center gap-2 text-sm text-slate-700">
-                    <input
-                      type="checkbox"
-                      checked={Boolean(form.retryPolicy?.jitter)}
-                      onChange={(event) =>
-                        setForm((current) => ({
-                          ...current,
-                          retryPolicy: {
-                            ...current.retryPolicy,
-                            jitter: event.target.checked,
-                          },
-                        }))
-                      }
-                      className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                    />
-                    Enable jitter
-                  </label>
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700">Schema Reference</label>
-                    <input
-                      type="text"
-                      value={form.schemaRef || ""}
-                      onChange={(event) =>
-                        setForm((current) => ({
-                          ...current,
-                          schemaRef: event.target.value,
-                        }))
-                      }
-                      placeholder="firestore://schemas/..."
-                      className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring"
-                    />
-                  </div>
-                </div>
-              ) : (
-                <div className="text-slate-500">Select an integration to configure retry policy.</div>
-              )}
-            </div>
-
-            <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6">
-              <h2 className="text-lg font-semibold text-slate-900 mb-4">Sample Data</h2>
-              <div className="flex gap-2 mb-3">
-                <div className="flex items-center border border-slate-300 rounded-md px-3 py-2 flex-1">
-                  <FiSearch className="h-4 w-4 text-slate-500 mr-2" />
+              <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                You are selecting which Campfire fields to send and naming the partner fields that should receive them.
+              </p>
+              <div className="mt-4">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-200">
+                  Search Campfire fields
                   <input
                     type="text"
-                    value={sampleReviewId}
-                    onChange={(event) => setSampleReviewId(event.target.value)}
-                    placeholder="Review ID"
-                    className="flex-1 focus:outline-none"
+                    className="mt-1 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-[var(--accent-color)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)] dark:border-[var(--border-color-default)] dark:bg-[var(--dark-input-bg)] dark:text-white"
+                    value={campfireFieldSearch}
+                    onChange={(event) => setCampfireFieldSearch(event.target.value)}
+                    onKeyDown={handleCampfireFieldSearchKeyDown}
+                    placeholder="Search Campfire fields…"
                   />
-                </div>
-                <button
-                  type="button"
-                  onClick={handleLoadSample}
-                  className="inline-flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium text-white bg-slate-700 hover:bg-slate-800"
-                >
-                  Load
-                </button>
-              </div>
-              {sampleLoading && (
-                <p className="text-xs text-slate-500 mb-2">Loading sample data…</p>
-              )}
-              {sampleError && <p className="text-sm text-red-600 mb-2">{sampleError}</p>}
-              <div className="space-y-3 max-h-64 overflow-y-auto">
-                <div>
-                  <h3 className="text-sm font-semibold text-slate-700">Review</h3>
-                  <pre className="bg-slate-100 rounded-md p-3 text-xs overflow-x-auto whitespace-pre-wrap">
-                    {formatJson(sampleData?.review, "No review loaded.")}
-                  </pre>
-                </div>
-                <div>
-                  <h3 className="text-sm font-semibold text-slate-700">Ads</h3>
-                  <pre className="bg-slate-100 rounded-md p-3 text-xs overflow-x-auto whitespace-pre-wrap">
-                    {formatJson(sampleData?.ads, "[]")}
-                  </pre>
-                </div>
-                <div>
-                  <h3 className="text-sm font-semibold text-slate-700">Client</h3>
-                  <pre className="bg-slate-100 rounded-md p-3 text-xs overflow-x-auto whitespace-pre-wrap">
-                    {formatJson(sampleData?.client, "{}")}
-                  </pre>
-                </div>
-                {sampleData?.recipeType && (
-                  <div>
-                    <h3 className="text-sm font-semibold text-slate-700">Recipe Type</h3>
-                    <pre className="bg-slate-100 rounded-md p-3 text-xs overflow-x-auto whitespace-pre-wrap">
-                      {formatJson(sampleData.recipeType, "{}")}
-                    </pre>
-                  </div>
-                )}
-                {Array.isArray(sampleData?.recipeFieldKeys) &&
-                  sampleData.recipeFieldKeys.length > 0 && (
-                    <div>
-                      <h3 className="text-sm font-semibold text-slate-700">Recipe Field Keys</h3>
-                      <pre className="bg-slate-100 rounded-md p-3 text-xs overflow-x-auto whitespace-pre-wrap">
-                        {sampleData.recipeFieldKeys.join("\n")}
-                      </pre>
-                    </div>
-                  )}
+                </label>
+                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                  Suggestions include standard Campfire fields and nested paths from the selected recipe type.
+                </p>
+                {campfireFieldSearch.trim() ? (
+                  filteredCampfireSuggestions.length > 0 ? (
+                    <ul className="mt-3 max-h-60 overflow-auto rounded-md border border-gray-200 bg-white shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-card-bg)]">
+                      {filteredCampfireSuggestions.map((option) => (
+                        <li
+                          key={option.key}
+                          className="border-b border-gray-100 last:border-0 dark:border-[var(--border-color-default)] last:dark:border-0"
+                        >
+                          <button
+                            type="button"
+                            className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50 focus:bg-gray-100 focus:outline-none dark:hover:bg-[var(--dark-input-bg)] dark:focus:bg-[var(--dark-input-bg)]"
+                            onClick={() => handleAddCampfireField(option.key)}
+                          >
+                            <div className="font-medium text-gray-700 dark:text-gray-200">
+                              {option.label || option.key}
+                            </div>
+                            <div className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">Key: {option.key}</div>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">
+                      No matching Campfire fields found. Enter a full field path and press Enter to add it manually.
+                    </p>
+                  )
+                ) : null}
               </div>
             </div>
+            <label className="md:col-span-2 flex items-center gap-3 text-sm font-medium text-gray-700 dark:text-gray-200">
+              <input
+                type="checkbox"
+                className="h-4 w-4 rounded border-gray-300 text-[var(--accent-color)] focus:ring-[var(--accent-color)]"
+                checked={!!formState.enabled}
+                onChange={(event) => handleChange('enabled', event.target.checked)}
+              />
+              Integration is enabled
+            </label>
+            <label className="md:col-span-2 flex flex-col text-sm font-medium text-gray-700 dark:text-gray-200">
+              Notes
+              <textarea
+                className="mt-1 min-h-[96px] rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-[var(--accent-color)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)] dark:border-[var(--border-color-default)] dark:bg-[var(--dark-input-bg)] dark:text-white"
+                value={formState.notes}
+                onChange={(event) => handleChange('notes', event.target.value)}
+                placeholder="Optional runbooks, SLA information, or configuration notes."
+              />
+            </label>
           </div>
 
-          <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6">
-            <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-              <div>
-                <h2 className="text-lg font-semibold text-slate-900">Preview & Test</h2>
-                <p className="text-sm text-slate-500">Dry-run executes mapping only. Live test dispatches with an X-Test header.</p>
-              </div>
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => runIntegrationTest("dry-run")}
-                  disabled={previewLoading || !form}
-                  className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium text-white ${
-                    previewLoading ? "bg-blue-400 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-700"
-                  }`}
-                >
-                  <FiPlay className="h-4 w-4" />
-                  {previewLoading ? "Previewing..." : "Dry Run"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => runIntegrationTest("live")}
-                  disabled={liveLoading || !form}
-                  className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium text-white ${
-                    liveLoading ? "bg-emerald-400 cursor-not-allowed" : "bg-emerald-600 hover:bg-emerald-700"
-                  }`}
-                >
-                  <FiSend className="h-4 w-4" />
-                  {liveLoading ? "Sending..." : "Live Test"}
-                </button>
-              </div>
-            </div>
-            {testError && <p className="text-sm text-red-600 mb-3">{testError}</p>}
-            {testResult ? (
-              <div className="grid gap-4 lg:grid-cols-2">
-                <div>
-                  <h3 className="text-sm font-semibold text-slate-700">Payload Preview</h3>
-                  <pre className="bg-slate-100 rounded-md p-3 text-xs overflow-x-auto whitespace-pre-wrap">
-                    {testResult.mapping?.preview || "No preview available."}
-                  </pre>
-                  {Array.isArray(testResult.mapping?.warnings) && testResult.mapping.warnings.length > 0 && (
-                    <div className="mt-3">
-                      <h4 className="text-xs font-semibold text-amber-700">Warnings</h4>
-                      <ul className="list-disc list-inside text-xs text-amber-700">
-                        {testResult.mapping.warnings.map((warning, index) => (
-                          <li key={index}>{warning}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                  <div className="mt-3 text-xs text-slate-500">
-                    Mapping duration: {Math.round(testResult.mapping?.durationMs ?? 0)}ms
-                  </div>
-                </div>
-                <div className="space-y-3">
-                  <div>
-                    <h3 className="text-sm font-semibold text-slate-700">Request</h3>
-                    <pre className="bg-slate-100 rounded-md p-3 text-xs overflow-x-auto whitespace-pre-wrap">
-                      {formatJson(testResult.request, "No request captured.")}
-                    </pre>
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-semibold text-slate-700">Response</h3>
-                    <pre className="bg-slate-100 rounded-md p-3 text-xs overflow-x-auto whitespace-pre-wrap">
-                      {formatJson(testResult.dispatch, "No response captured.")}
-                    </pre>
-                    <div className="mt-2 text-xs text-slate-500">
-                      Status: {testResult.dispatch?.status ?? "n/a"} · Duration: {Math.round(testResult.dispatch?.durationMs ?? 0)}ms
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className="text-slate-500">Run a preview or live test to inspect payloads and responses.</div>
-            )}
+          {validationError && (
+            <p className="text-sm text-red-600 dark:text-red-400">{validationError}</p>
+          )}
+
+          <div className="flex flex-wrap gap-3">
+            <Button type="submit" variant="accent" size="sm" disabled={saving}>
+              {saving ? 'Saving…' : 'Save integration'}
+            </Button>
+            <Button
+              type="button"
+              variant="neutral"
+              size="sm"
+              onClick={resetForm}
+              disabled={saving}
+            >
+              Cancel
+            </Button>
           </div>
-        </div>
-      </div>
+        </form>
+      )}
     </div>
   );
 };
