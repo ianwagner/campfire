@@ -4767,9 +4767,8 @@ useEffect(() => {
                   statusBarPinned ? 'mt-0' : 'mt-2',
                 )}
                 style={{
-                  top: statusBarPinned
-                    ? 0
-                    : toolbarOffset
+                  top:
+                    toolbarOffset && toolbarOffset > 0
                       ? `${toolbarOffset}px`
                       : 0,
                 }}
