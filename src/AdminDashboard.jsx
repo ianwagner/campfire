@@ -189,7 +189,8 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
         }
 
         const computeCounts = async (brand, { briefOnly: briefFilter } = {}) => {
-          let contracted = 0;
+          let contractedProduction = 0;
+          let contractedBrief = 0;
           let briefed = 0;
           let delivered = 0;
           let approved = 0;
@@ -246,7 +247,11 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
                 }
                 if (selected >= start && selected <= end) {
                   const units = Number(c.stills || 0) + Number(c.videos || 0);
-                  contracted += units;
+                  if (isBriefContract) {
+                    contractedBrief += units;
+                  } else {
+                    contractedProduction += units;
+                  }
                 }
               });
             }
@@ -325,6 +330,8 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
                 }
               }
             }
+
+            const contracted = briefFilter ? contractedBrief : contractedProduction;
 
             const noProgress =
               contracted === 0 &&
