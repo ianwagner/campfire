@@ -5230,7 +5230,7 @@ const AdGroupDetail = () => {
                 showOnlyResults
                 onSelectChange={toggleRecipeSelect}
                 onRecipesClick={() => setShowRecipes(true)}
-                externalOnly
+                externalOnly={userRole === "client"}
                 hideActions={isClientPortalUser}
               />
             </div>
@@ -6008,7 +6008,7 @@ const AdGroupDetail = () => {
             onSave={saveRecipes}
             brandCode={group?.brandCode}
             hideBrandSelect
-            externalOnly
+            externalOnly={userRole === "client"}
             showBriefExtras
           />
         </Modal>
