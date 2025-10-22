@@ -785,7 +785,26 @@ const Review = forwardRef(
   const toolbarRef = useRef(null);
   const recipePreviewRef = useRef(null);
   const [statusBarPinned, setStatusBarPinned] = useState(false);
+  const statusBarPinnedRef = useRef(statusBarPinned);
+  useEffect(() => {
+    statusBarPinnedRef.current = statusBarPinned;
+  }, [statusBarPinned]);
   const [toolbarOffset, setToolbarOffset] = useState(0);
+  const [toolbarBaseOffset, setToolbarBaseOffset] = useState(0);
+  const effectiveToolbarOffset = useMemo(() => {
+    const normalizedOffset = Number.isFinite(toolbarOffset)
+      ? Math.max(0, toolbarOffset)
+      : 0;
+    const normalizedBase =
+      Number.isFinite(toolbarBaseOffset) && toolbarBaseOffset > 0
+        ? Math.max(0, toolbarBaseOffset)
+        : normalizedOffset;
+    return Math.min(normalizedOffset, normalizedBase);
+  }, [toolbarOffset, toolbarBaseOffset]);
+  const effectiveToolbarOffsetRef = useRef(effectiveToolbarOffset);
+  useEffect(() => {
+    effectiveToolbarOffsetRef.current = effectiveToolbarOffset;
+  }, [effectiveToolbarOffset]);
   const preloads = useRef([]);
   const touchStartX = useRef(0);
   const touchStartY = useRef(0);
@@ -1085,17 +1104,20 @@ const Review = forwardRef(
     if (reviewVersion !== 2) {
       setStatusBarPinned(false);
       setToolbarOffset(0);
+      setToolbarBaseOffset(0);
       return;
     }
     if (typeof window === 'undefined' || typeof IntersectionObserver !== 'function') {
       setStatusBarPinned(false);
       setToolbarOffset(0);
+      setToolbarBaseOffset(0);
       return;
     }
     const sentinel = statusBarSentinelRef.current;
     const statusBarEl = statusBarRef.current;
     if (!sentinel || !statusBarEl) {
       setStatusBarPinned(false);
+      setToolbarBaseOffset(0);
       return;
     }
     // Add some hysteresis so the pinned state is stable even as the bar
@@ -1108,8 +1130,8 @@ const Review = forwardRef(
     const computeOffsets = () => {
       const computedStyle = window.getComputedStyle(statusBarEl);
       const marginTop = Number.parseFloat(computedStyle?.marginTop || '0') || 0;
-      const safeToolbarOffset = Number.isFinite(toolbarOffset)
-        ? Math.max(0, toolbarOffset)
+      const safeToolbarOffset = Number.isFinite(effectiveToolbarOffsetRef.current)
+        ? Math.max(0, effectiveToolbarOffsetRef.current)
         : 0;
       const pinOffset = safeToolbarOffset - marginTop;
       const releaseOffset = Math.max(0, pinOffset + MIN_HYSTERESIS);
@@ -1168,11 +1190,12 @@ const Review = forwardRef(
       }
       window.removeEventListener('resize', updateOffsets);
     };
-  }, [reviewVersion, reviewAds.length, toolbarOffset]);
+  }, [reviewVersion, reviewAds.length, effectiveToolbarOffset]);
 
   useEffect(() => {
     if (reviewVersion !== 2) {
       setToolbarOffset(0);
+      setToolbarBaseOffset(0);
       return undefined;
     }
     if (typeof window === 'undefined') {
@@ -1182,6 +1205,7 @@ const Review = forwardRef(
     const toolbarEl = toolbarRef.current;
     if (!toolbarEl) {
       setToolbarOffset(0);
+      setToolbarBaseOffset(0);
       return undefined;
     }
 
@@ -1212,12 +1236,19 @@ const Review = forwardRef(
         ) || 16;
         const basePaddingTop = 0.75 * rootFontSize;
         const safeAreaTop = Math.max(0, paddingTop - basePaddingTop);
-        setToolbarOffset((prev) => {
-          const next = Math.max(
-            0,
-            Math.round(height - safeAreaTop - paddingBottom),
-          );
-          return prev === next ? prev : next;
+        const next = Math.max(
+          0,
+          Math.round(height - safeAreaTop - paddingBottom),
+        );
+        setToolbarOffset((prev) => (prev === next ? prev : next));
+        setToolbarBaseOffset((prev) => {
+          if (!statusBarPinnedRef.current) {
+            return next;
+          }
+          if (!Number.isFinite(prev) || prev <= 0) {
+            return next;
+          }
+          return Math.min(prev, next);
         });
       });
     };
@@ -4416,7 +4447,7 @@ useEffect(() => {
         onClick={openFinalizeModal}
         disabled={disabled}
         className={combineClasses(
-          'btn-primary whitespace-nowrap font-semibold',
+          'btn-primary relative z-40 whitespace-nowrap font-semibold',
           compact ? 'px-3 py-1.5 text-xs' : 'text-sm',
           fullWidth ? 'w-full' : '',
           disabled ? 'opacity-60 cursor-not-allowed' : '',
@@ -4767,10 +4798,9 @@ useEffect(() => {
                   statusBarPinned ? 'mt-0' : 'mt-2',
                 )}
                 style={{
-                  top: statusBarPinned
-                    ? 0
-                    : toolbarOffset
-                      ? `${toolbarOffset}px`
+                  top:
+                    effectiveToolbarOffset && effectiveToolbarOffset > 0
+                      ? `${effectiveToolbarOffset}px`
                       : 0,
                 }}
               >
