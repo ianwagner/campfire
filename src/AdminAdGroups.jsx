@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import {
   FiEye,
   FiTrash,
@@ -46,6 +46,7 @@ import GalleryModal from './components/GalleryModal.jsx';
 import AdGroupGantt from './components/AdGroupGantt.jsx';
 
 const AdminAdGroups = () => {
+  const location = useLocation();
   const [groups, setGroups] = useState([]);
   const [loading, setLoading] = useState(true);
   const [viewNote, setViewNote] = useState(null);
@@ -59,7 +60,10 @@ const AdminAdGroups = () => {
   const [renameId, setRenameId] = useState(null);
   const [renameName, setRenameName] = useState('');
   const [showCreate, setShowCreate] = useState(false);
-  const [filter, setFilter] = useState('');
+  const [filter, setFilter] = useState(() => {
+    const params = new URLSearchParams(location.search);
+    return params.get('brandCode') || '';
+  });
   const [sortField, setSortField] = useState('status');
   const [designers, setDesigners] = useState([]);
   const [designerFilter, setDesignerFilter] = useState('');
@@ -87,6 +91,16 @@ const AdminAdGroups = () => {
     }
     setShareInfo({ url, password });
   };
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const brandParam = params.get('brandCode');
+    if (brandParam) {
+      setFilter((prev) => (prev === brandParam ? prev : brandParam));
+    } else {
+      setFilter((prev) => (prev === '' ? prev : ''));
+    }
+  }, [location.search]);
 
   useEffect(() => {
     const fetchGroups = async () => {

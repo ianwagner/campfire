@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { FiCheck } from 'react-icons/fi';
 import {
   collection,
@@ -9,6 +10,9 @@ import {
   doc,
   getDoc,
   Timestamp,
+  setDoc,
+  deleteDoc,
+  serverTimestamp,
 } from 'firebase/firestore';
 import { db } from './firebase/config';
 import { getAuth } from 'firebase/auth';
@@ -25,6 +29,85 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [briefOnly, setBriefOnly] = useState(false);
+  const [notes, setNotes] = useState({});
+  const [noteDrafts, setNoteDrafts] = useState({});
+  const [savingNotes, setSavingNotes] = useState({});
+  const [noteErrors, setNoteErrors] = useState({});
+
+  const getNoteKey = (brand) => {
+    const rawKey = brand?.noteKey || brand?.code || brand?.id;
+    return rawKey ? String(rawKey) : '';
+  };
+
+  const handleNoteChange = (key, value) => {
+    if (!key) return;
+    setNoteDrafts((prev) => ({ ...prev, [key]: value }));
+    setNoteErrors((prev) => {
+      if (!prev[key]) return prev;
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+  };
+
+  const handleNoteBlur = async (row) => {
+    const key = getNoteKey(row);
+    if (!key) return;
+    const draftValue = (noteDrafts[key] ?? '').trim();
+    const savedValue = (notes[key] ?? '').trim();
+    if (!draftValue && !savedValue) {
+      return;
+    }
+    if (draftValue === savedValue) {
+      // Draft matches what we already saved.
+      if ((noteDrafts[key] ?? '') !== (notes[key] ?? '')) {
+        setNoteDrafts((prev) => ({ ...prev, [key]: notes[key] ?? '' }));
+      }
+      return;
+    }
+
+    setSavingNotes((prev) => ({ ...prev, [key]: true }));
+    try {
+      const noteRef = doc(db, 'dashboardNotes', key);
+      if (!draftValue) {
+        await deleteDoc(noteRef);
+        setNotes((prev) => {
+          const next = { ...prev };
+          next[key] = '';
+          return next;
+        });
+        setNoteDrafts((prev) => ({ ...prev, [key]: '' }));
+      } else {
+        await setDoc(
+          noteRef,
+          {
+            note: draftValue,
+            brandCode: row.code || '',
+            brandId: row.id || '',
+            brandName: row.name || '',
+            workflow: briefOnly ? 'brief' : 'production',
+            updatedAt: serverTimestamp(),
+          },
+          { merge: true }
+        );
+        setNotes((prev) => ({ ...prev, [key]: draftValue }));
+        setNoteDrafts((prev) => ({ ...prev, [key]: draftValue }));
+      }
+    } catch (err) {
+      console.error('Failed to save dashboard note', err);
+      setNoteErrors((prev) => ({
+        ...prev,
+        [key]: 'Failed to save note. Please try again.',
+      }));
+      setNoteDrafts((prev) => ({ ...prev, [key]: notes[key] ?? '' }));
+    } finally {
+      setSavingNotes((prev) => {
+        const next = { ...prev };
+        delete next[key];
+        return next;
+      });
+    }
+  };
 
   useEffect(() => {
     const auth = getAuth();
@@ -48,6 +131,10 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
       if (requireFilters && brandCodes.length === 0 && !agencyId) {
         if (active) {
           setRows([]);
+          setNotes({});
+          setNoteDrafts({});
+          setSavingNotes({});
+          setNoteErrors({});
           setLoading(false);
         }
         return;
@@ -257,6 +344,9 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
               return null;
             }
 
+            const noteKeyRaw = brandCode || brandId || brand.id;
+            const noteKey = noteKeyRaw ? String(noteKeyRaw) : '';
+
             return {
               id: brandId || brand.code || brand.id,
               code: brandCode,
@@ -266,6 +356,7 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
               delivered,
               approved: briefFilter ? '-' : approved,
               rejected: briefFilter ? '-' : rejected,
+              noteKey,
             };
           } catch (err) {
             console.error('Failed to compute counts', err);
@@ -278,6 +369,7 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
               delivered: '?',
               approved: briefFilter ? '-' : '?',
               rejected: briefFilter ? '-' : '?',
+              noteKey: brand.code || brand.id || '',
             };
           }
         };
@@ -312,9 +404,53 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
           (a.name || a.code || '').localeCompare(b.name || b.code || '')
         );
         if (active) setRows(computedResults);
+
+        const noteEntries = {};
+        const noteDraftEntries = {};
+        const uniqueNoteKeys = Array.from(
+          new Set(
+            computedResults
+              .map((row) => row.noteKey)
+              .filter((key) => typeof key === 'string' && key.length > 0)
+          )
+        );
+        if (uniqueNoteKeys.length > 0) {
+          try {
+            const noteSnaps = await Promise.all(
+              uniqueNoteKeys.map((key) => getDoc(doc(db, 'dashboardNotes', key)))
+            );
+            noteSnaps.forEach((snap, idx) => {
+              const key = uniqueNoteKeys[idx];
+              if (snap?.exists()) {
+                const data = snap.data() || {};
+                const value = typeof data.note === 'string' ? data.note : '';
+                noteEntries[key] = value;
+                noteDraftEntries[key] = value;
+              } else {
+                noteEntries[key] = '';
+                noteDraftEntries[key] = '';
+              }
+            });
+          } catch (err) {
+            console.error('Failed to load dashboard notes', err);
+          }
+        }
+
+        if (active) {
+          setNotes(noteEntries);
+          setNoteDrafts(noteDraftEntries);
+          setSavingNotes({});
+          setNoteErrors({});
+        }
       } catch (err) {
         console.error('Failed to fetch dashboard data', err);
-        if (active) setRows([]);
+        if (active) {
+          setRows([]);
+          setNotes({});
+          setNoteDrafts({});
+          setSavingNotes({});
+          setNoteErrors({});
+        }
       } finally {
         if (active) setLoading(false);
       }
@@ -369,6 +505,7 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
               <th>Delivered</th>
               {!briefOnly && <th>Approved</th>}
               {!briefOnly && <th>Rejected</th>}
+              <th>Notes</th>
             </tr>
           </thead>
           <tbody>
@@ -377,9 +514,27 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
               const briefedMatch = Number(r.briefed) >= contracted;
               const deliveredMatch = Number(r.delivered) >= contracted;
               const approvedMatch = !briefOnly && Number(r.approved) >= contracted;
+              const noteKey = getNoteKey(r);
+              const noteValue = noteDrafts[noteKey] ?? '';
               return (
                 <tr key={r.id}>
-                  <td data-label="Brand">{r.code || r.name}</td>
+                  <td data-label="Brand" className="align-top">
+                    {r.code ? (
+                      <Link
+                        to={`/admin/ad-groups?brandCode=${encodeURIComponent(r.code)}`}
+                        className="inline-flex flex-wrap items-center gap-2 font-medium text-blue-600 hover:underline dark:text-blue-400"
+                      >
+                        <span>{r.name || r.code}</span>
+                        <span className="tag tag-pill border border-gray-300 bg-gray-100 text-xs uppercase tracking-wide text-gray-700 dark:border-gray-600 dark:bg-[var(--dark-sidebar-hover)] dark:text-gray-200">
+                          {r.code}
+                        </span>
+                      </Link>
+                    ) : (
+                      <div className="inline-flex flex-wrap items-center gap-2 font-medium">
+                        <span>{r.name || r.id}</span>
+                      </div>
+                    )}
+                  </td>
                   <td className="text-center" data-label="Contracted">
                     {r.contracted}
                   </td>
@@ -417,6 +572,33 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
                       {r.rejected}
                     </td>
                   )}
+                  <td
+                    className="notes-cell align-top"
+                    data-label="Notes"
+                  >
+                    <div className="flex flex-col gap-1">
+                      <textarea
+                        value={noteValue}
+                        onChange={(e) => handleNoteChange(noteKey, e.target.value)}
+                        onBlur={() => handleNoteBlur(r)}
+                        placeholder="Add a note"
+                        rows={2}
+                        style={{ height: 'auto' }}
+                        className="w-full resize-y rounded border border-gray-300 px-2 py-1 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-[var(--dark-sidebar-bg)] dark:text-white"
+                      />
+                      {savingNotes[noteKey] && (
+                        <span className="note-status text-xs text-gray-500">Saving...</span>
+                      )}
+                      {noteErrors[noteKey] && (
+                        <span className="note-status text-xs text-red-600">
+                          {noteErrors[noteKey]}
+                        </span>
+                      )}
+                      {!savingNotes[noteKey] && !noteErrors[noteKey] && notes[noteKey] && (
+                        <span className="note-status text-xs text-gray-500">Saved</span>
+                      )}
+                    </div>
+                  </td>
                 </tr>
               );
             })}
