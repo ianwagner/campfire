@@ -34,6 +34,7 @@ import {
   FiMessageSquare,
   FiAlertTriangle,
   FiPlay,
+  FiExternalLink,
 } from "react-icons/fi";
 import { Bubbles } from "lucide-react";
 import { FaMagic } from "react-icons/fa";
@@ -113,6 +114,74 @@ const PlaceholderIcon = ({ ext }) => {
       <Icon size={32} />
     </div>
   );
+};
+
+const hasOwn = (target, property) =>
+  Object.prototype.hasOwnProperty.call(target, property);
+
+const INTEGRATION_TONE_STYLES = {
+  info: {
+    container:
+      "border-indigo-200 bg-indigo-50 text-indigo-700 hover:border-indigo-300 hover:bg-indigo-100 focus:ring-indigo-500/40",
+    dot: "bg-indigo-500",
+    accent: "text-indigo-600",
+  },
+  success: {
+    container:
+      "border-emerald-200 bg-emerald-50 text-emerald-700 hover:border-emerald-300 hover:bg-emerald-100 focus:ring-emerald-500/40",
+    dot: "bg-emerald-500",
+    accent: "text-emerald-600",
+  },
+  error: {
+    container:
+      "border-rose-200 bg-rose-50 text-rose-700 hover:border-rose-300 hover:bg-rose-100 focus:ring-rose-500/40",
+    dot: "bg-rose-500",
+    accent: "text-rose-600",
+  },
+};
+
+const resolveDate = (value) => {
+  if (!value) return null;
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? null : value;
+  }
+  if (typeof value === "object" && typeof value.toDate === "function") {
+    try {
+      const date = value.toDate();
+      return Number.isNaN(date.getTime()) ? null : date;
+    } catch (err) {
+      return null;
+    }
+  }
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+
+const formatIntegrationDate = (value) => {
+  const date = resolveDate(value);
+  if (!date) return "";
+  try {
+    return date.toLocaleString();
+  } catch (err) {
+    return date.toISOString();
+  }
+};
+
+const formatJsonValue = (value) => {
+  if (value === undefined) {
+    return null;
+  }
+  if (value === null) {
+    return "null";
+  }
+  if (typeof value === "string") {
+    return value;
+  }
+  try {
+    return JSON.stringify(value, null, 2);
+  } catch (err) {
+    return String(value);
+  }
 };
 
 const ExpandableText = ({ value, maxLength = 40, isLink = false }) => {
@@ -583,6 +652,7 @@ const AdGroupDetail = () => {
   const [uploadSummary, setUploadSummary] = useState(null);
   const [menuRecipe, setMenuRecipe] = useState(null);
   const [inspectRecipe, setInspectRecipe] = useState(null);
+  const [integrationDetail, setIntegrationDetail] = useState(null);
   const menuRef = useRef(null);
   const allFeedbackLoadedRef = useRef(false);
   const autoSummaryTriggeredRef = useRef(false);
@@ -662,39 +732,68 @@ const AdGroupDetail = () => {
         typeof statusEntry.state === "string"
           ? statusEntry.state.toLowerCase()
           : "";
-      const badgeName =
+      const integrationDisplayName =
         statusEntry.integrationName || assignedIntegrationName || "";
-      const resolvedName = badgeName ? `"${badgeName}"` : "integration";
+      const resolvedName = integrationDisplayName
+        ? `"${integrationDisplayName}"`
+        : "integration";
+      const errorMessage =
+        typeof statusEntry.errorMessage === "string"
+          ? statusEntry.errorMessage.trim()
+          : "";
+
+      let text = "";
+      let className = "";
+      let tone = "info";
+      let title = "";
 
       if (["sending", "sent", "in_progress", "queued", "pending"].includes(state)) {
-        return {
-          text: `Sent to ${resolvedName}`,
-          className: "bg-indigo-600 text-white",
-          title: "",
-        };
+        text = `Sent to ${resolvedName}`;
+        className = "bg-indigo-600 text-white";
+        tone = "info";
+      } else if (
+        ["received", "succeeded", "completed", "delivered"].includes(state)
+      ) {
+        text = `Received by ${resolvedName}`;
+        className = "bg-emerald-600 text-white";
+        tone = "success";
+      } else if (["error", "failed", "rejected"].includes(state)) {
+        text = "Error";
+        className = "bg-red-600 text-white";
+        tone = "error";
+        title = errorMessage;
+      } else {
+        return null;
       }
 
-      if (["received", "succeeded", "completed", "delivered"].includes(state)) {
-        return {
-          text: `Received by ${resolvedName}`,
-          className: "bg-emerald-600 text-white",
-          title: "",
-        };
+      const normalizedEntry = {
+        ...statusEntry,
+        state,
+        errorMessage,
+      };
+
+      if (hasOwn(statusEntry, "requestPayload")) {
+        normalizedEntry.requestPayload = statusEntry.requestPayload;
+      }
+      if (hasOwn(statusEntry, "responsePayload")) {
+        normalizedEntry.responsePayload = statusEntry.responsePayload;
+      }
+      if (hasOwn(statusEntry, "responseStatus")) {
+        normalizedEntry.responseStatus = statusEntry.responseStatus;
+      }
+      if (hasOwn(statusEntry, "responseHeaders")) {
+        normalizedEntry.responseHeaders = statusEntry.responseHeaders;
       }
 
-      if (["error", "failed", "rejected"].includes(state)) {
-        const errorMessage =
-          typeof statusEntry.errorMessage === "string"
-            ? statusEntry.errorMessage.trim()
-            : "";
-        return {
-          text: "Error",
-          className: "bg-red-600 text-white",
-          title: errorMessage,
-        };
-      }
-
-      return null;
+      return {
+        text,
+        className,
+        title,
+        tone,
+        state,
+        integrationDisplayName,
+        statusEntry: normalizedEntry,
+      };
     },
     [assignedIntegrationId, assignedIntegrationName],
   );
@@ -702,6 +801,31 @@ const AdGroupDetail = () => {
     () => getIntegrationBadgeDetails(previewAsset),
     [getIntegrationBadgeDetails, previewAsset],
   );
+  const integrationDetailBadge = integrationDetail?.badge || null;
+  const integrationDetailStatus = integrationDetailBadge?.statusEntry || null;
+  const integrationDetailAsset = integrationDetail?.asset || null;
+  const integrationDetailRequest = formatJsonValue(
+    integrationDetailStatus?.requestPayload,
+  );
+  const integrationDetailResponse = formatJsonValue(
+    integrationDetailStatus?.responsePayload,
+  );
+  const integrationDetailHeaders = formatJsonValue(
+    integrationDetailStatus?.responseHeaders,
+  );
+  const integrationDetailUpdatedAt = formatIntegrationDate(
+    integrationDetailStatus?.updatedAt,
+  );
+  const integrationDetailResponseStatus =
+    integrationDetailStatus &&
+    integrationDetailStatus.responseStatus !== undefined &&
+    integrationDetailStatus.responseStatus !== null
+      ? integrationDetailStatus.responseStatus
+      : null;
+  const integrationDetailErrorMessage =
+    typeof integrationDetailStatus?.errorMessage === "string"
+      ? integrationDetailStatus.errorMessage.trim()
+      : "";
   const tableVisible = usesTabs ? tab === "ads" : showTable;
   const recipesTableVisible = usesTabs ? tab === "brief" : showRecipesTable;
   const brandNotesVisible = usesTabs ? tab === "brandNotes" : false;
@@ -2151,6 +2275,7 @@ const AdGroupDetail = () => {
     setMenuRecipe(null);
     setInspectRecipe(null);
     setPreviewAsset(null);
+    setIntegrationDetail(null);
   };
 
   const deleteHistoryEntry = async (assetId, entryId) => {
@@ -3715,6 +3840,12 @@ const AdGroupDetail = () => {
     );
 
     const activeAds = g.assets.filter((a) => a.status !== "archived");
+    const integrationSummaries = activeAds
+      .map((asset) => {
+        const badge = getIntegrationBadgeDetails(asset);
+        return badge ? { asset, badge } : null;
+      })
+      .filter(Boolean);
 
     const normalizedRecipe = normalizeRecipeCode(g.recipeCode);
     const storedAssignmentId = normalizedRecipe
@@ -3767,7 +3898,6 @@ const AdGroupDetail = () => {
                   const aspectLabel = asset.aspectRatio
                     ? String(asset.aspectRatio).toUpperCase()
                     : "";
-                  const badge = getIntegrationBadgeDetails(asset);
                   return (
                     <button
                       type="button"
@@ -3791,14 +3921,6 @@ const AdGroupDetail = () => {
                           : "Preview unavailable"
                       }
                     >
-                      {badge?.text && (
-                        <span
-                          className={`absolute left-1 top-1 rounded px-1.5 py-0.5 text-[10px] font-semibold leading-none shadow-sm ${badge.className}`}
-                          title={badge.title || undefined}
-                        >
-                          {badge.text}
-                        </span>
-                      )}
                       {previewImage ? (
                         <OptimizedImage
                           pngUrl={previewImage}
@@ -3870,14 +3992,57 @@ const AdGroupDetail = () => {
             <StatusBadge status={getRecipeStatus(g.assets)} />
           </td>
           <td className="text-sm">
-            {editAsset && (
-              <>
-                {editAsset.comment && (
-                  <span className="block italic">{editAsset.comment}</span>
-                )}
-                {editAsset.copyEdit &&
-                  renderCopyEditDiff(g.recipeCode, editAsset.copyEdit)}
-              </>
+            {integrationSummaries.length > 0 ? (
+              <div className="flex flex-col items-start gap-2">
+                {integrationSummaries.map(({ asset, badge }) => {
+                  const toneKey =
+                    badge?.tone && INTEGRATION_TONE_STYLES[badge.tone]
+                      ? badge.tone
+                      : "info";
+                  const toneStyles =
+                    INTEGRATION_TONE_STYLES[toneKey] ||
+                    INTEGRATION_TONE_STYLES.info;
+                  const assetLabel = asset.filename || "Unnamed asset";
+                  return (
+                    <button
+                      type="button"
+                      key={asset.id || `${asset.filename || "asset"}-${badge.state}`}
+                      onClick={() => setIntegrationDetail({ asset, badge })}
+                      className={`group inline-flex w-full max-w-[260px] items-start gap-2 rounded-lg border px-3 py-2 text-left text-xs font-semibold shadow-sm transition focus:outline-none focus:ring-2 ${toneStyles.container}`}
+                      title={`View integration delivery details for ${assetLabel}`}
+                    >
+                      <span
+                        className={`mt-1 h-2 w-2 rounded-full ${toneStyles.dot}`}
+                        aria-hidden="true"
+                      />
+                      <span className="flex min-w-0 flex-col">
+                        <span className="truncate text-xs font-semibold leading-tight">
+                          {badge.text}
+                        </span>
+                        <span className="mt-0.5 truncate text-[11px] font-medium leading-tight opacity-80">
+                          {assetLabel}
+                        </span>
+                        <span
+                          className={`mt-1 inline-flex items-center gap-1 text-[11px] font-medium leading-tight opacity-90 ${toneStyles.accent}`}
+                        >
+                          View payload & response
+                          <FiExternalLink className="h-3 w-3" aria-hidden="true" />
+                        </span>
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            ) : (
+              editAsset && (
+                <>
+                  {editAsset.comment && (
+                    <span className="block italic">{editAsset.comment}</span>
+                  )}
+                  {editAsset.copyEdit &&
+                    renderCopyEditDiff(g.recipeCode, editAsset.copyEdit)}
+                </>
+              )
             )}
           </td>
           <td className="relative text-right">
@@ -5372,12 +5537,21 @@ const AdGroupDetail = () => {
                         <div className="flex flex-col items-start gap-1">
                           <span>{a.filename}</span>
                           {badge?.text && (
-                            <span
-                              className={`inline-flex items-center rounded px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${badge.className}`}
+                            <button
+                              type="button"
+                              onClick={() => setIntegrationDetail({ asset: a, badge })}
+                              className={`inline-flex items-center gap-1 rounded border px-2 py-1 text-[11px] font-semibold uppercase tracking-wide transition focus:outline-none focus:ring-2 ${
+                                INTEGRATION_TONE_STYLES[
+                                  badge.tone && INTEGRATION_TONE_STYLES[badge.tone]
+                                    ? badge.tone
+                                    : "info"
+                                ]?.container || INTEGRATION_TONE_STYLES.info.container
+                              }`}
                               title={badge.title || undefined}
                             >
-                              {badge.text}
-                            </span>
+                              <span>{badge.text}</span>
+                              <FiExternalLink className="h-3 w-3" aria-hidden="true" />
+                            </button>
                           )}
                         </div>
                       </td>
@@ -5483,6 +5657,85 @@ const AdGroupDetail = () => {
           </div>
           <div className="mt-3 flex justify-end">
             <IconButton onClick={() => setPreviewAsset(null)}>Close</IconButton>
+          </div>
+        </Modal>
+      )}
+
+      {integrationDetail && (
+        <Modal sizeClass="max-w-3xl w-full">
+          <h3 className="text-lg font-semibold">Integration delivery details</h3>
+          <p className="mt-1 text-sm text-gray-600">
+            {integrationDetailAsset?.filename || "Unnamed asset"}
+            {integrationDetailBadge?.integrationDisplayName
+              ? ` • ${integrationDetailBadge.integrationDisplayName}`
+              : ""}
+          </p>
+          <dl className="mt-4 grid gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
+            <div>
+              <dt className="font-medium text-gray-500">Status</dt>
+              <dd className="text-gray-900">
+                {integrationDetailBadge?.text || "Status unavailable"}
+              </dd>
+            </div>
+            {integrationDetailUpdatedAt && (
+              <div>
+                <dt className="font-medium text-gray-500">Last updated</dt>
+                <dd className="text-gray-900">{integrationDetailUpdatedAt}</dd>
+              </div>
+            )}
+            {integrationDetailResponseStatus !== null && (
+              <div>
+                <dt className="font-medium text-gray-500">Response status</dt>
+                <dd className="text-gray-900">
+                  {integrationDetailResponseStatus}
+                </dd>
+              </div>
+            )}
+            {integrationDetailErrorMessage && (
+              <div className="sm:col-span-2">
+                <dt className="font-medium text-gray-500">Error</dt>
+                <dd className="text-gray-900">{integrationDetailErrorMessage}</dd>
+              </div>
+            )}
+          </dl>
+          <div className="mt-4 grid gap-4 md:grid-cols-2">
+            <section>
+              <h4 className="text-sm font-semibold text-gray-700">Request payload</h4>
+              {integrationDetailRequest ? (
+                <pre className="mt-2 max-h-72 overflow-auto rounded border border-gray-200 bg-gray-50 p-3 text-xs leading-relaxed text-gray-800">
+                  {integrationDetailRequest}
+                </pre>
+              ) : (
+                <p className="mt-2 text-xs text-gray-500">
+                  No payload captured for this delivery.
+                </p>
+              )}
+            </section>
+            <section>
+              <h4 className="text-sm font-semibold text-gray-700">Response</h4>
+              {integrationDetailResponse ? (
+                <pre className="mt-2 max-h-72 overflow-auto rounded border border-gray-200 bg-gray-50 p-3 text-xs leading-relaxed text-gray-800">
+                  {integrationDetailResponse}
+                </pre>
+              ) : (
+                <p className="mt-2 text-xs text-gray-500">
+                  No response body was recorded.
+                </p>
+              )}
+              {integrationDetailHeaders && (
+                <div className="mt-3">
+                  <h5 className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                    Headers
+                  </h5>
+                  <pre className="mt-1 max-h-48 overflow-auto rounded border border-gray-200 bg-gray-50 p-3 text-xs leading-relaxed text-gray-800">
+                    {integrationDetailHeaders}
+                  </pre>
+                </div>
+              )}
+            </section>
+          </div>
+          <div className="mt-4 flex justify-end">
+            <IconButton onClick={() => setIntegrationDetail(null)}>Close</IconButton>
           </div>
         </Modal>
       )}
