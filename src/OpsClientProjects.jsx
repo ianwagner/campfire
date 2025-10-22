@@ -19,6 +19,7 @@ import computeGroupStatus from './utils/computeGroupStatus';
 import notifySlackStatusChange from './utils/notifySlackStatusChange';
 import MonthTag from './components/MonthTag.jsx';
 import IconButton from './components/IconButton.jsx';
+import { runIntegrationForAdGroup } from './utils/runIntegrationForAdGroup';
 
 const OpsClientProjects = () => {
   const { agencyId } = useUserRole(auth.currentUser?.uid);
@@ -197,6 +198,15 @@ const OpsClientProjects = () => {
   const handleRefresh = async (clientId, project) => {
     const groupId = project?.group?.id;
     if (!groupId) return;
+    const previousStatus = project?.group?.status;
+    const integrationId =
+      typeof project?.group?.assignedIntegrationId === 'string'
+        ? project.group.assignedIntegrationId
+        : '';
+    const integrationName =
+      typeof project?.group?.assignedIntegrationName === 'string'
+        ? project.group.assignedIntegrationName
+        : '';
     try {
       const [assetSnap, recipeSnap] = await Promise.all([
         getDocs(collection(db, 'adGroups', groupId, 'assets')),
@@ -234,6 +244,18 @@ const OpsClientProjects = () => {
         url: detailUrl,
         adGroupUrl,
       });
+
+      if (newStatus === 'done' && previousStatus !== 'done' && integrationId) {
+        try {
+          await runIntegrationForAdGroup(groupId, {
+            assets,
+            integrationId,
+            integrationName,
+          });
+        } catch (err) {
+          console.error('Failed to dispatch integration after refreshing project', err);
+        }
+      }
       setProjects((prev) => ({
         ...prev,
         [clientId]: prev[clientId].map((p) =>
