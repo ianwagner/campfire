@@ -144,6 +144,14 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
                 : [];
               const selected = new Date(`${month}-01`);
               contracts.forEach((c) => {
+                const contractMode =
+                  typeof c.mode === 'string'
+                    ? c.mode.toLowerCase()
+                    : 'production';
+                const isBriefContract = contractMode === 'brief';
+                if (briefFilter ? !isBriefContract : isBriefContract) {
+                  return;
+                }
                 const startStr = c.startDate ? c.startDate.slice(0, 7) : '';
                 if (!startStr) return;
                 const start = new Date(`${startStr}-01`);
