@@ -110,6 +110,8 @@ const RecipePreview = forwardRef(({
   const [isPlanning, setIsPlanning] = useState(false);
   const [lastPlannedCount, setLastPlannedCount] = useState(0);
   const [lastPlannedTotal, setLastPlannedTotal] = useState(null);
+  const { role: userRole, agencyId } = useUserRole(auth.currentUser?.uid);
+  const isAgencyUser = userRole === 'agency' || !!agencyId;
 
   const [briefNote, setBriefNote] = useState('');
   const [briefFiles, setBriefFiles] = useState([]);
@@ -289,8 +291,6 @@ const RecipePreview = forwardRef(({
     };
     loadCampaigns();
   }, [brandCode]);
-  const { role: userRole, agencyId } = useUserRole(auth.currentUser?.uid);
-  const isAgencyUser = userRole === 'agency' || !!agencyId;
   const canEditRecipes =
     userRole === 'admin' ||
     userRole === 'agency' ||
