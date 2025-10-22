@@ -110,15 +110,12 @@ const RecipePreview = forwardRef(({
   const [isPlanning, setIsPlanning] = useState(false);
   const [lastPlannedCount, setLastPlannedCount] = useState(0);
   const [lastPlannedTotal, setLastPlannedTotal] = useState(null);
-  const { role: userRole, agencyId } = useUserRole(auth.currentUser?.uid);
-  const isAgencyUser = userRole === 'agency' || !!agencyId;
 
   const [briefNote, setBriefNote] = useState('');
   const [briefFiles, setBriefFiles] = useState([]);
   const briefFileInputRef = useRef(null);
   const [month, setMonth] = useState(getMonthString());
   const [dueDate, setDueDate] = useState('');
-  const roleColumnSignatureRef = useRef(null);
 
   const handleBriefNoteChange = (e) => {
     setBriefNote(e.target.value);
@@ -149,13 +146,13 @@ const RecipePreview = forwardRef(({
   }, [step, onStepChange]);
 
 
-  // Reset visible columns when the selected recipe type or user role changes so
-  // the initialization effect below can apply the correct defaults for the
-  // active role.
+  // Reset visible columns when the selected recipe type changes or when the
+  // recipe type details load so defaults for the type can be applied in the
+  // column initialization effect below.
   useEffect(() => {
     setVisibleColumns({});
     setColumnsReady(false);
-  }, [selectedType, currentType, userRole, externalOnly]);
+  }, [selectedType, currentType]);
 
   const allInstances = useMemo(() => [...instances, ...brandProducts, ...brandCampaigns], [instances, brandProducts, brandCampaigns]);
   const filteredAssetRows = useMemo(() => {
@@ -291,6 +288,8 @@ const RecipePreview = forwardRef(({
     };
     loadCampaigns();
   }, [brandCode]);
+  const { role: userRole, agencyId } = useUserRole(auth.currentUser?.uid);
+  const isAgencyUser = userRole === 'agency' || !!agencyId;
   const canEditRecipes =
     userRole === 'admin' ||
     userRole === 'agency' ||
@@ -1269,46 +1268,6 @@ const RecipePreview = forwardRef(({
     () => currentType?.writeInFields || [],
     [currentType],
   );
-  const roleColumnDefaults = useMemo(() => {
-    if (!currentType) return { order: null, source: null };
-    const hasValues = (arr) => Array.isArray(arr) && arr.length > 0;
-    const opsViewValue =
-      typeof currentType.opsVisibleView === 'string' ? currentType.opsVisibleView : 'default';
-    const opsView = opsViewValue.toLowerCase();
-
-    if ((userRole === 'client' || externalOnly) && hasValues(currentType.clientVisibleColumns)) {
-      return { order: currentType.clientVisibleColumns, source: 'client' };
-    }
-
-    if (userRole === 'designer' && hasValues(currentType.designerVisibleColumns)) {
-      return { order: currentType.designerVisibleColumns, source: 'designer' };
-    }
-
-    if (userRole === 'editor' && hasValues(currentType.editorVisibleColumns)) {
-      return { order: currentType.editorVisibleColumns, source: 'editor' };
-    }
-
-    if (userRole === 'ops') {
-      if (opsView === 'client' && hasValues(currentType.clientVisibleColumns)) {
-        return { order: currentType.clientVisibleColumns, source: 'client' };
-      }
-      if (opsView === 'designer' && hasValues(currentType.designerVisibleColumns)) {
-        return { order: currentType.designerVisibleColumns, source: 'designer' };
-      }
-      if (opsView === 'editor' && hasValues(currentType.editorVisibleColumns)) {
-        return { order: currentType.editorVisibleColumns, source: 'editor' };
-      }
-      if (opsView === 'default' && hasValues(currentType.defaultColumns)) {
-        return { order: currentType.defaultColumns, source: 'default' };
-      }
-    }
-
-    if (hasValues(currentType.defaultColumns)) {
-      return { order: currentType.defaultColumns, source: 'default' };
-    }
-
-    return { order: null, source: null };
-  }, [currentType, userRole, externalOnly]);
   const columnMeta = useMemo(() => {
     const columnMap = new Map();
     const addColumn = (key, label, inputType = 'text') => {
@@ -1373,22 +1332,24 @@ const RecipePreview = forwardRef(({
 
     let cols = Array.from(columnMap.values());
 
-    const roleColumnOrder = roleColumnDefaults.order;
-    const roleColumnSource = roleColumnDefaults.source;
-    const restrictToRoleColumns =
-      !!roleColumnOrder &&
-      roleColumnSource === 'client' &&
-      (userRole === 'client' || externalOnly) &&
-      !showColumnButton;
-    if (restrictToRoleColumns) {
-      const allowed = new Set(roleColumnOrder);
+    const useClientColumns =
+      (userRole === 'client' || externalOnly) && currentType?.clientVisibleColumns?.length;
+    const clientOrder = useClientColumns ? currentType.clientVisibleColumns : null;
+    if (clientOrder && !showColumnButton) {
+      const allowed = new Set(clientOrder);
       cols = cols.filter((col) => allowed.has(col.key));
     }
 
-    if (roleColumnOrder && roleColumnOrder.length > 0) {
+    const defaultOrder = clientOrder
+      ? clientOrder
+      : currentType?.defaultColumns && currentType.defaultColumns.length > 0
+      ? currentType.defaultColumns
+      : null;
+
+    if (defaultOrder) {
       cols.sort((a, b) => {
-        const ai = roleColumnOrder.indexOf(a.key);
-        const bi = roleColumnOrder.indexOf(b.key);
+        const ai = defaultOrder.indexOf(a.key);
+        const bi = defaultOrder.indexOf(b.key);
         if (ai === -1 && bi === -1) return 0;
         if (ai === -1) return 1;
         if (bi === -1) return -1;
@@ -1406,50 +1367,42 @@ const RecipePreview = forwardRef(({
     results,
     externalOnly,
     showColumnButton,
-    roleColumnDefaults,
   ]);
 
   useEffect(() => {
-    const signature = JSON.stringify({
-      source: roleColumnDefaults.source || null,
-      order: Array.isArray(roleColumnDefaults.order)
-        ? roleColumnDefaults.order
-        : null,
-    });
-    const roleDefaultsChanged = roleColumnSignatureRef.current !== signature;
-    roleColumnSignatureRef.current = signature;
-
     setVisibleColumns((prev) => {
       const availableKeys = ['recipeNo', ...columnMeta.map((c) => c.key), 'copy'];
-      const defaultOrder = Array.isArray(roleColumnDefaults.order)
-        ? roleColumnDefaults.order
+      const hasClientColumns =
+        (userRole === 'client' || externalOnly) && currentType?.clientVisibleColumns?.length > 0;
+      const defaultOrder = hasClientColumns
+        ? currentType.clientVisibleColumns
+        : currentType?.defaultColumns && currentType.defaultColumns.length > 0
+        ? currentType.defaultColumns
         : [];
       const defaultSet = new Set(defaultOrder);
       if (!showColumnButton) {
         availableKeys.forEach((key) => defaultSet.add(key));
       }
 
-      const baseState = roleDefaultsChanged ? {} : prev;
       const updated = {};
-      let changed = roleDefaultsChanged;
-
+      let changed = false;
       availableKeys.forEach((key) => {
-        const prevValue = baseState[key];
+        const prevValue = prev[key];
         const nextValue = prevValue !== undefined ? prevValue : defaultSet.has(key);
         updated[key] = nextValue;
         if (nextValue !== prevValue) changed = true;
       });
 
-      Object.keys(baseState).forEach((key) => {
+      Object.keys(prev).forEach((key) => {
         if (!availableKeys.includes(key)) {
           changed = true;
         }
       });
 
-      return changed ? updated : baseState;
+      return changed ? updated : prev;
     });
     setColumnsReady(true);
-  }, [columnMeta, roleColumnDefaults, showColumnButton, userRole]);
+  }, [columnMeta, currentType, showColumnButton, userRole]);
   const imageColumnKeys = useMemo(() => {
     const keys = new Set();
     columnMeta.forEach((col) => {
