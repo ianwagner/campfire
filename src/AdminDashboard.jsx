@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { FiCheck } from 'react-icons/fi';
 import {
@@ -33,14 +33,24 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
   const [noteDrafts, setNoteDrafts] = useState({});
   const [savingNotes, setSavingNotes] = useState({});
   const [noteErrors, setNoteErrors] = useState({});
+  const fallbackSourceRef = useRef({});
 
   const user = auth.currentUser;
   const { role } = useUserRole(user?.uid);
   const canEditNotes = role === 'admin' || role === 'ops';
 
-  const getNoteKey = (brand) => {
+  const getWorkflow = () => (briefOnly ? 'brief' : 'production');
+
+  const getBaseNoteKey = (brand) => {
     const rawKey = brand?.noteKey || brand?.code || brand?.id;
     return rawKey ? String(rawKey) : '';
+  };
+
+  const getScopedNoteKey = (input) => {
+    const baseKey = typeof input === 'string' ? input : getBaseNoteKey(input);
+    if (!baseKey) return '';
+    const workflow = getWorkflow();
+    return `${baseKey}__${month}__${workflow}`;
   };
 
   const handleNoteChange = (key, value) => {
@@ -57,7 +67,8 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
 
   const handleNoteBlur = async (row) => {
     if (!canEditNotes) return;
-    const key = getNoteKey(row);
+    const baseKey = getBaseNoteKey(row);
+    const key = getScopedNoteKey(baseKey);
     if (!key) return;
     const draftValue = (noteDrafts[key] ?? '').trim();
     const savedValue = (notes[key] ?? '').trim();
@@ -73,8 +84,10 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
     }
 
     setSavingNotes((prev) => ({ ...prev, [key]: true }));
+    const workflow = getWorkflow();
     try {
       const noteRef = doc(db, 'dashboardNotes', key);
+      const legacyKey = fallbackSourceRef.current[key] || (baseKey && baseKey !== key ? baseKey : '');
       if (!draftValue) {
         await deleteDoc(noteRef);
         setNotes((prev) => {
@@ -83,6 +96,16 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
           return next;
         });
         setNoteDrafts((prev) => ({ ...prev, [key]: '' }));
+        if (legacyKey) {
+          try {
+            await deleteDoc(doc(db, 'dashboardNotes', legacyKey));
+          } catch (cleanupErr) {
+            console.error('Failed to remove legacy dashboard note', cleanupErr);
+          }
+          const nextFallback = { ...fallbackSourceRef.current };
+          delete nextFallback[key];
+          fallbackSourceRef.current = nextFallback;
+        }
       } else {
         await setDoc(
           noteRef,
@@ -91,13 +114,24 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
             brandCode: row.code || '',
             brandId: row.id || '',
             brandName: row.name || '',
-            workflow: briefOnly ? 'brief' : 'production',
+            workflow,
+            month,
             updatedAt: serverTimestamp(),
           },
           { merge: true }
         );
         setNotes((prev) => ({ ...prev, [key]: draftValue }));
         setNoteDrafts((prev) => ({ ...prev, [key]: draftValue }));
+        if (legacyKey) {
+          try {
+            await deleteDoc(doc(db, 'dashboardNotes', legacyKey));
+          } catch (cleanupErr) {
+            console.error('Failed to remove legacy dashboard note', cleanupErr);
+          }
+          const nextFallback = { ...fallbackSourceRef.current };
+          delete nextFallback[key];
+          fallbackSourceRef.current = nextFallback;
+        }
       }
     } catch (err) {
       console.error('Failed to save dashboard note', err);
@@ -126,11 +160,13 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
           setNoteDrafts({});
           setSavingNotes({});
           setNoteErrors({});
+          fallbackSourceRef.current = {};
           setLoading(false);
         }
         return;
       }
       try {
+        fallbackSourceRef.current = {};
         const base = collection(db, 'brandStats');
         let statDocs = [];
         if (brandCodes.length > 0) {
@@ -405,30 +441,89 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
 
         const noteEntries = {};
         const noteDraftEntries = {};
-        const uniqueNoteKeys = Array.from(
-          new Set(
-            computedResults
-              .map((row) => row.noteKey)
-              .filter((key) => typeof key === 'string' && key.length > 0)
-          )
-        );
-        if (uniqueNoteKeys.length > 0) {
+        const fallbackSourceMap = {};
+        const scopedToBaseKey = new Map();
+        const uniqueScopedKeys = [];
+        computedResults.forEach((row) => {
+          const baseKey = getBaseNoteKey(row);
+          const scopedKey = getScopedNoteKey(baseKey);
+          if (!scopedKey) return;
+          if (!scopedToBaseKey.has(scopedKey)) {
+            scopedToBaseKey.set(scopedKey, baseKey);
+            uniqueScopedKeys.push(scopedKey);
+          }
+        });
+
+        if (uniqueScopedKeys.length > 0) {
           try {
             const noteSnaps = await Promise.all(
-              uniqueNoteKeys.map((key) => getDoc(doc(db, 'dashboardNotes', key)))
+              uniqueScopedKeys.map((key) => getDoc(doc(db, 'dashboardNotes', key)))
             );
+            const missingScopedKeys = [];
             noteSnaps.forEach((snap, idx) => {
-              const key = uniqueNoteKeys[idx];
+              const scopedKey = uniqueScopedKeys[idx];
               if (snap?.exists()) {
                 const data = snap.data() || {};
                 const value = typeof data.note === 'string' ? data.note : '';
-                noteEntries[key] = value;
-                noteDraftEntries[key] = value;
+                noteEntries[scopedKey] = value;
+                noteDraftEntries[scopedKey] = value;
               } else {
-                noteEntries[key] = '';
-                noteDraftEntries[key] = '';
+                noteEntries[scopedKey] = '';
+                noteDraftEntries[scopedKey] = '';
+                missingScopedKeys.push(scopedKey);
               }
             });
+
+            if (missingScopedKeys.length > 0) {
+              const fallbackBaseKeys = Array.from(
+                new Set(
+                  missingScopedKeys
+                    .map((scopedKey) => scopedToBaseKey.get(scopedKey))
+                    .filter((key) => typeof key === 'string' && key.length > 0)
+                )
+              );
+              if (fallbackBaseKeys.length > 0) {
+                try {
+                  const fallbackSnaps = await Promise.all(
+                    fallbackBaseKeys.map((key) => getDoc(doc(db, 'dashboardNotes', key)))
+                  );
+                  const workflow = getWorkflow();
+                  fallbackSnaps.forEach((snap, idx) => {
+                    const baseKey = fallbackBaseKeys[idx];
+                    if (!snap?.exists()) return;
+                    const data = snap.data() || {};
+                    const docWorkflow =
+                      typeof data.workflow === 'string' ? data.workflow : 'production';
+                    if (docWorkflow !== workflow) return;
+                    let noteMonth = '';
+                    if (typeof data.month === 'string' && data.month) {
+                      noteMonth = data.month;
+                    } else if (data.updatedAt?.toDate) {
+                      noteMonth = data.updatedAt
+                        .toDate()
+                        .toISOString()
+                        .slice(0, 7);
+                    } else if (typeof snap.updateTime?.toDate === 'function') {
+                      noteMonth = snap
+                        .updateTime
+                        .toDate()
+                        .toISOString()
+                        .slice(0, 7);
+                    }
+                    if (noteMonth && noteMonth !== month) return;
+                    const value = typeof data.note === 'string' ? data.note : '';
+                    missingScopedKeys.forEach((scopedKey) => {
+                      if (scopedToBaseKey.get(scopedKey) !== baseKey) return;
+                      noteEntries[scopedKey] = value;
+                      noteDraftEntries[scopedKey] = value;
+                      fallbackSourceMap[scopedKey] = baseKey;
+                    });
+                  });
+                } catch (fallbackErr) {
+                  console.error('Failed to load legacy dashboard notes', fallbackErr);
+                }
+              }
+            }
           } catch (err) {
             console.error('Failed to load dashboard notes', err);
           }
@@ -439,6 +534,7 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
           setNoteDrafts(noteDraftEntries);
           setSavingNotes({});
           setNoteErrors({});
+          fallbackSourceRef.current = fallbackSourceMap;
         }
       } catch (err) {
         console.error('Failed to fetch dashboard data', err);
@@ -448,6 +544,7 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
           setNoteDrafts({});
           setSavingNotes({});
           setNoteErrors({});
+          fallbackSourceRef.current = {};
         }
       } finally {
         if (active) setLoading(false);
@@ -520,7 +617,7 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
               const briefedMatch = Number(r.briefed) >= contracted;
               const deliveredMatch = Number(r.delivered) >= contracted;
               const approvedMatch = !briefOnly && Number(r.approved) >= contracted;
-              const noteKey = getNoteKey(r);
+              const noteKey = getScopedNoteKey(r);
               const noteValue = noteDrafts[noteKey] ?? '';
               return (
                 <tr key={r.id}>
