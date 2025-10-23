@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { FiCheck } from 'react-icons/fi';
 import {
   collection,
@@ -9,34 +10,144 @@ import {
   doc,
   getDoc,
   Timestamp,
+  setDoc,
+  deleteDoc,
+  serverTimestamp,
 } from 'firebase/firestore';
-import { db } from './firebase/config';
-import { getAuth } from 'firebase/auth';
+import { auth, db } from './firebase/config';
 import PageWrapper from './components/PageWrapper.jsx';
 import Table from './components/common/Table';
 import MonthSelector from './components/MonthSelector.jsx';
 import getMonthString from './utils/getMonthString.js';
+import TabButton from './components/TabButton.jsx';
+import { normalizeReviewVersion } from './utils/reviewVersion';
+import useUserRole from './useUserRole';
 
 function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = {}) {
   const thisMonth = getMonthString();
   const [month, setMonth] = useState(thisMonth);
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [briefOnly, setBriefOnly] = useState(false);
+  const [notes, setNotes] = useState({});
+  const [noteDrafts, setNoteDrafts] = useState({});
+  const [savingNotes, setSavingNotes] = useState({});
+  const [noteErrors, setNoteErrors] = useState({});
+  const fallbackSourceRef = useRef({});
 
-  useEffect(() => {
-    const auth = getAuth();
-    const user = auth.currentUser;
-    if (!user) return;
+  const user = auth.currentUser;
+  const { role } = useUserRole(user?.uid);
+  const canEditNotes = role === 'admin' || role === 'ops';
 
-    user.getIdTokenResult(true)
-      .then((token) => {
-        console.log(token.claims);
-        if (!token.claims.admin) {
-          // optionally handle missing admin claim
+  const getWorkflow = () => (briefOnly ? 'brief' : 'production');
+
+  const getBaseNoteKey = (brand) => {
+    const rawKey = brand?.noteKey || brand?.code || brand?.id;
+    return rawKey ? String(rawKey) : '';
+  };
+
+  const getScopedNoteKey = (input) => {
+    const baseKey = typeof input === 'string' ? input : getBaseNoteKey(input);
+    if (!baseKey) return '';
+    const workflow = getWorkflow();
+    return `${baseKey}__${month}__${workflow}`;
+  };
+
+  const handleNoteChange = (key, value) => {
+    if (!canEditNotes) return;
+    if (!key) return;
+    setNoteDrafts((prev) => ({ ...prev, [key]: value }));
+    setNoteErrors((prev) => {
+      if (!prev[key]) return prev;
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+  };
+
+  const handleNoteBlur = async (row) => {
+    if (!canEditNotes) return;
+    const baseKey = getBaseNoteKey(row);
+    const key = getScopedNoteKey(baseKey);
+    if (!key) return;
+    const draftValue = (noteDrafts[key] ?? '').trim();
+    const savedValue = (notes[key] ?? '').trim();
+    if (!draftValue && !savedValue) {
+      return;
+    }
+    if (draftValue === savedValue) {
+      // Draft matches what we already saved.
+      if ((noteDrafts[key] ?? '') !== (notes[key] ?? '')) {
+        setNoteDrafts((prev) => ({ ...prev, [key]: notes[key] ?? '' }));
+      }
+      return;
+    }
+
+    setSavingNotes((prev) => ({ ...prev, [key]: true }));
+    const workflow = getWorkflow();
+    try {
+      const noteRef = doc(db, 'dashboardNotes', key);
+      const legacyKey = fallbackSourceRef.current[key] || (baseKey && baseKey !== key ? baseKey : '');
+      if (!draftValue) {
+        await deleteDoc(noteRef);
+        setNotes((prev) => {
+          const next = { ...prev };
+          next[key] = '';
+          return next;
+        });
+        setNoteDrafts((prev) => ({ ...prev, [key]: '' }));
+        if (legacyKey) {
+          try {
+            await deleteDoc(doc(db, 'dashboardNotes', legacyKey));
+          } catch (cleanupErr) {
+            console.error('Failed to remove legacy dashboard note', cleanupErr);
+          }
+          const nextFallback = { ...fallbackSourceRef.current };
+          delete nextFallback[key];
+          fallbackSourceRef.current = nextFallback;
         }
-      })
-      .catch((err) => console.error(err));
-  }, []);
+      } else {
+        await setDoc(
+          noteRef,
+          {
+            note: draftValue,
+            brandCode: row.code || '',
+            brandId: row.id || '',
+            brandName: row.name || '',
+            workflow,
+            month,
+            updatedAt: serverTimestamp(),
+          },
+          { merge: true }
+        );
+        setNotes((prev) => ({ ...prev, [key]: draftValue }));
+        setNoteDrafts((prev) => ({ ...prev, [key]: draftValue }));
+        if (legacyKey) {
+          try {
+            await deleteDoc(doc(db, 'dashboardNotes', legacyKey));
+          } catch (cleanupErr) {
+            console.error('Failed to remove legacy dashboard note', cleanupErr);
+          }
+          const nextFallback = { ...fallbackSourceRef.current };
+          delete nextFallback[key];
+          fallbackSourceRef.current = nextFallback;
+        }
+      }
+    } catch (err) {
+      console.error('Failed to save dashboard note', err);
+      setNoteErrors((prev) => ({
+        ...prev,
+        [key]: 'Failed to save note. Please try again.',
+      }));
+      setNoteDrafts((prev) => ({ ...prev, [key]: notes[key] ?? '' }));
+    } finally {
+      setSavingNotes((prev) => {
+        const next = { ...prev };
+        delete next[key];
+        return next;
+      });
+    }
+  };
 
   useEffect(() => {
     let active = true;
@@ -45,11 +156,17 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
       if (requireFilters && brandCodes.length === 0 && !agencyId) {
         if (active) {
           setRows([]);
+          setNotes({});
+          setNoteDrafts({});
+          setSavingNotes({});
+          setNoteErrors({});
+          fallbackSourceRef.current = {};
           setLoading(false);
         }
         return;
       }
       try {
+        fallbackSourceRef.current = {};
         const base = collection(db, 'brandStats');
         let statDocs = [];
         if (brandCodes.length > 0) {
@@ -107,8 +224,9 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
           extraBrands = missing.map((code) => ({ id: code, code }));
         }
 
-        const computeCounts = async (brand) => {
-          let contracted = 0;
+        const computeCounts = async (brand, { briefOnly: briefFilter } = {}) => {
+          let contractedProduction = 0;
+          let contractedBrief = 0;
           let briefed = 0;
           let delivered = 0;
           let approved = 0;
@@ -141,6 +259,14 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
                 : [];
               const selected = new Date(`${month}-01`);
               contracts.forEach((c) => {
+                const contractMode =
+                  typeof c.mode === 'string'
+                    ? c.mode.toLowerCase()
+                    : 'production';
+                const isBriefContract = contractMode === 'brief';
+                if (briefFilter ? !isBriefContract : isBriefContract) {
+                  return;
+                }
                 const startStr = c.startDate ? c.startDate.slice(0, 7) : '';
                 if (!startStr) return;
                 const start = new Date(`${startStr}-01`);
@@ -157,10 +283,14 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
                 }
                 if (selected >= start && selected <= end) {
                   const units = Number(c.stills || 0) + Number(c.videos || 0);
-                  contracted += units;
+                  if (isBriefContract) {
+                    contractedBrief += units;
+                  } else {
+                    contractedProduction += units;
+                  }
                 }
               });
-              }
+            }
 
             if (brandCode) {
               const startDate = new Date(`${month}-01`);
@@ -187,6 +317,13 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
               });
               const adDocs = [...monthSnap.docs, ...dueDocs];
               for (const g of adDocs) {
+                const gData = g.data() || {};
+                const normalizedReview = normalizeReviewVersion(
+                  gData.reviewVersion ?? gData.reviewType ?? 1
+                );
+                const isBriefGroup = normalizedReview === '3';
+                if (briefFilter && !isBriefGroup) continue;
+                if (!briefFilter && isBriefGroup) continue;
                 const [rSnap, aSnap] = await Promise.all([
                   getCountFromServer(collection(db, 'adGroups', g.id, 'recipes')),
                   getDocs(
@@ -202,7 +339,8 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
                     )
                   ),
                 ]);
-                briefed += rSnap.data().count || 0;
+                const recipeCount = rSnap.data().count || 0;
+                briefed += recipeCount;
                 const deliveredSet = new Set();
                 const approvedSet = new Set();
                 const rejectedSet = new Set();
@@ -217,102 +355,197 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
                     rejectedSet.add(key);
                   }
                 });
-                delivered += deliveredSet.size;
-                approved += approvedSet.size;
-                rejected += rejectedSet.size;
+                let deliveredCount = deliveredSet.size;
+                if (briefFilter && gData.status === 'designed') {
+                  deliveredCount = Math.max(deliveredCount, recipeCount);
+                }
+                delivered += deliveredCount;
+                if (!briefFilter) {
+                  approved += approvedSet.size;
+                  rejected += rejectedSet.size;
+                }
               }
             }
 
-            if (
+            const contracted = briefFilter ? contractedBrief : contractedProduction;
+
+            const noProgress =
               contracted === 0 &&
               briefed === 0 &&
               delivered === 0 &&
-              approved === 0 &&
-              rejected === 0
-            ) {
+              (briefFilter || (approved === 0 && rejected === 0));
+            if (noProgress) {
               return null;
             }
 
+            const noteKeyRaw = brandCode || brandId || brand.id;
+            const noteKey = noteKeyRaw ? String(noteKeyRaw) : '';
+
             return {
-              id: brandId || brand.code,
+              id: brandId || brand.code || brand.id,
               code: brandCode,
               name: brandName,
               contracted,
               briefed,
               delivered,
-              approved,
-              rejected,
+              approved: briefFilter ? '-' : approved,
+              rejected: briefFilter ? '-' : rejected,
+              noteKey,
             };
           } catch (err) {
             console.error('Failed to compute counts', err);
             return {
-              id: brand.id,
+              id: brand.id || brand.code,
               code: brand.code,
               name: brand.name,
               contracted: '?',
               briefed: '?',
               delivered: '?',
-              approved: '?',
-              rejected: '?',
+              approved: briefFilter ? '-' : '?',
+              rejected: briefFilter ? '-' : '?',
+              noteKey: brand.code || brand.id || '',
             };
           }
         };
 
-        const resultPromises = statDocs.map(async (docSnap) => {
+        const brandEntryMap = new Map();
+        statDocs.forEach((docSnap) => {
           const data = docSnap.data() || {};
-          const counts = data.counts || {};
-          let contracted = 0;
-          let briefed = 0;
-          let delivered = 0;
-          let approved = 0;
-          let rejected = 0;
-
-          for (const [m, v] of Object.entries(counts)) {
-            if (m === month) {
-              contracted += Number(v.contracted || 0);
-              briefed += Number(v.briefed || 0);
-              delivered += Number(v.delivered || 0);
-              approved += Number(v.approved || 0);
-              rejected += Number(v.rejected || 0);
-            }
-          }
-
-          if (
-            data.code &&
-            (contracted === 0 ||
-              (briefed === 0 &&
-                delivered === 0 &&
-                approved === 0 &&
-                rejected === 0))
-          ) {
-            return await computeCounts({ id: docSnap.id, code: data.code, name: data.name });
-          }
-
-          if (contracted === 0 && rejected === 0) return null;
-
-          return {
+          const entry = {
             id: docSnap.id,
             code: data.code,
             name: data.name,
-            contracted,
-            briefed,
-            delivered,
-            approved,
-            rejected,
           };
+          const key = entry.code || entry.id;
+          if (key && !brandEntryMap.has(key)) {
+            brandEntryMap.set(key, entry);
+          }
         });
-        const fallbackPromises = extraBrands.map((brand) => computeCounts(brand));
+        extraBrands.forEach((brand) => {
+          const key = brand.code || brand.id;
+          if (key && !brandEntryMap.has(key)) {
+            brandEntryMap.set(key, brand);
+          }
+        });
 
-        const results = (await Promise.all(resultPromises)).filter(Boolean);
-        const fallbackResults = (await Promise.all(fallbackPromises)).filter(Boolean);
-        const merged = [...results, ...fallbackResults];
-        merged.sort((a, b) =>
+        const brandEntries = Array.from(brandEntryMap.values());
+        const computedResults = (
+          await Promise.all(
+            brandEntries.map((brand) => computeCounts(brand, { briefOnly }))
+          )
+        ).filter(Boolean);
+        computedResults.sort((a, b) =>
           (a.name || a.code || '').localeCompare(b.name || b.code || '')
         );
-        if (active) setRows(merged);
+        if (active) setRows(computedResults);
+
+        const noteEntries = {};
+        const noteDraftEntries = {};
+        const fallbackSourceMap = {};
+        const scopedToBaseKey = new Map();
+        const uniqueScopedKeys = [];
+        computedResults.forEach((row) => {
+          const baseKey = getBaseNoteKey(row);
+          const scopedKey = getScopedNoteKey(baseKey);
+          if (!scopedKey) return;
+          if (!scopedToBaseKey.has(scopedKey)) {
+            scopedToBaseKey.set(scopedKey, baseKey);
+            uniqueScopedKeys.push(scopedKey);
+          }
+        });
+
+        if (uniqueScopedKeys.length > 0) {
+          try {
+            const noteSnaps = await Promise.all(
+              uniqueScopedKeys.map((key) => getDoc(doc(db, 'dashboardNotes', key)))
+            );
+            const missingScopedKeys = [];
+            noteSnaps.forEach((snap, idx) => {
+              const scopedKey = uniqueScopedKeys[idx];
+              if (snap?.exists()) {
+                const data = snap.data() || {};
+                const value = typeof data.note === 'string' ? data.note : '';
+                noteEntries[scopedKey] = value;
+                noteDraftEntries[scopedKey] = value;
+              } else {
+                noteEntries[scopedKey] = '';
+                noteDraftEntries[scopedKey] = '';
+                missingScopedKeys.push(scopedKey);
+              }
+            });
+
+            if (missingScopedKeys.length > 0) {
+              const fallbackBaseKeys = Array.from(
+                new Set(
+                  missingScopedKeys
+                    .map((scopedKey) => scopedToBaseKey.get(scopedKey))
+                    .filter((key) => typeof key === 'string' && key.length > 0)
+                )
+              );
+              if (fallbackBaseKeys.length > 0) {
+                try {
+                  const fallbackSnaps = await Promise.all(
+                    fallbackBaseKeys.map((key) => getDoc(doc(db, 'dashboardNotes', key)))
+                  );
+                  const workflow = getWorkflow();
+                  fallbackSnaps.forEach((snap, idx) => {
+                    const baseKey = fallbackBaseKeys[idx];
+                    if (!snap?.exists()) return;
+                    const data = snap.data() || {};
+                    const docWorkflow =
+                      typeof data.workflow === 'string' ? data.workflow : 'production';
+                    if (docWorkflow !== workflow) return;
+                    let noteMonth = '';
+                    if (typeof data.month === 'string' && data.month) {
+                      noteMonth = data.month;
+                    } else if (data.updatedAt?.toDate) {
+                      noteMonth = data.updatedAt
+                        .toDate()
+                        .toISOString()
+                        .slice(0, 7);
+                    } else if (typeof snap.updateTime?.toDate === 'function') {
+                      noteMonth = snap
+                        .updateTime
+                        .toDate()
+                        .toISOString()
+                        .slice(0, 7);
+                    }
+                    if (noteMonth && noteMonth !== month) return;
+                    const value = typeof data.note === 'string' ? data.note : '';
+                    missingScopedKeys.forEach((scopedKey) => {
+                      if (scopedToBaseKey.get(scopedKey) !== baseKey) return;
+                      noteEntries[scopedKey] = value;
+                      noteDraftEntries[scopedKey] = value;
+                      fallbackSourceMap[scopedKey] = baseKey;
+                    });
+                  });
+                } catch (fallbackErr) {
+                  console.error('Failed to load legacy dashboard notes', fallbackErr);
+                }
+              }
+            }
+          } catch (err) {
+            console.error('Failed to load dashboard notes', err);
+          }
+        }
+
+        if (active) {
+          setNotes(noteEntries);
+          setNoteDrafts(noteDraftEntries);
+          setSavingNotes({});
+          setNoteErrors({});
+          fallbackSourceRef.current = fallbackSourceMap;
+        }
       } catch (err) {
         console.error('Failed to fetch dashboard data', err);
-        if (active) setRows([]);
+        if (active) {
+          setRows([]);
+          setNotes({});
+          setNoteDrafts({});
+          setSavingNotes({});
+          setNoteErrors({});
+          fallbackSourceRef.current = {};
+        }
       } finally {
         if (active) setLoading(false);
       }
@@ -321,59 +554,115 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
     return () => {
       active = false;
     };
-  }, [month, agencyId, brandCodes]);
+  }, [month, agencyId, brandCodes, briefOnly]);
+
+  const columnWidths = useMemo(
+    () =>
+      briefOnly
+        ? ['auto', '6.5rem', '6.5rem', '6.5rem', 'auto']
+        : ['auto', '6.5rem', '6.5rem', '6.5rem', '6.5rem', '6.5rem', 'auto'],
+    [briefOnly]
+  );
 
   return (
     <PageWrapper title="Dashboard">
-      <MonthSelector value={month} onChange={setMonth} className="mb-4" />
-        {loading ? (
-          <p>Loading...</p>
-        ) : rows.length === 0 ? (
-          <p>No contracts found.</p>
-        ) : (
-          <Table className="dashboard-table">
-            <thead>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
+        <MonthSelector value={month} onChange={setMonth} className="sm:mb-0" />
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
+            View
+          </span>
+          <div className="inline-flex overflow-hidden rounded border border-gray-300 dark:border-gray-600">
+            <TabButton
+              type="button"
+              active={!briefOnly}
+              onClick={() => setBriefOnly(false)}
+              className="rounded-none border-0 border-r border-gray-300 dark:border-gray-600"
+              aria-pressed={!briefOnly}
+            >
+              Production
+            </TabButton>
+            <TabButton
+              type="button"
+              active={briefOnly}
+              onClick={() => setBriefOnly(true)}
+              className="rounded-none border-0"
+              aria-pressed={briefOnly}
+            >
+              Brief Only
+            </TabButton>
+          </div>
+        </div>
+      </div>
+      {loading ? (
+        <p>Loading...</p>
+      ) : rows.length === 0 ? (
+        <p>No contracts found.</p>
+      ) : (
+        <Table className="dashboard-table" columns={columnWidths}>
+          <thead>
             <tr>
               <th>Brand</th>
-              <th>Contracted</th>
-              <th>Briefed</th>
-              <th>Delivered</th>
-              <th>Approved</th>
-              <th>Rejected</th>
+              <th className="metric-col">Contracted</th>
+              <th className="metric-col">Briefed</th>
+              <th className="metric-col">Delivered</th>
+              {!briefOnly && <th className="metric-col">Approved</th>}
+              {!briefOnly && <th className="metric-col">Rejected</th>}
+              <th>Notes</th>
             </tr>
           </thead>
-            <tbody>
-              {rows.map((r) => {
-                const contracted = Number(r.contracted);
-                const briefedMatch = Number(r.briefed) >= contracted;
-                const deliveredMatch = Number(r.delivered) >= contracted;
-                const approvedMatch = Number(r.approved) >= contracted;
-                return (
-                  <tr key={r.id}>
-                    <td data-label="Brand">{r.code || r.name}</td>
-                    <td className="text-center" data-label="Contracted">
-                      {r.contracted}
-                    </td>
+          <tbody>
+            {rows.map((r) => {
+              const contracted = Number(r.contracted);
+              const briefedMatch = Number(r.briefed) >= contracted;
+              const deliveredMatch = Number(r.delivered) >= contracted;
+              const approvedMatch = !briefOnly && Number(r.approved) >= contracted;
+              const noteKey = getScopedNoteKey(r);
+              const noteValue = noteDrafts[noteKey] ?? '';
+              return (
+                <tr key={r.id}>
+                  <td data-label="Brand" className="align-top">
+                    {r.code ? (
+                      <Link
+                        to={`/admin/ad-groups?brandCode=${encodeURIComponent(r.code)}`}
+                        className="inline-flex flex-wrap items-center gap-2 font-medium hover:underline"
+                        style={{ color: 'inherit' }}
+                      >
+                        <span>{r.name || r.code}</span>
+                        <span className="inline-flex items-center rounded-full border border-gray-300 bg-gray-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-gray-700 dark:border-gray-600 dark:bg-[var(--dark-sidebar-hover)] dark:text-gray-200">
+                          {r.code}
+                        </span>
+                      </Link>
+                    ) : (
+                      <div className="inline-flex flex-wrap items-center gap-2 font-medium">
+                        <span>{r.name || r.id}</span>
+                      </div>
+                    )}
+                  </td>
+                  <td className="metric-col text-center" data-label="Contracted">
+                    {r.contracted}
+                  </td>
+                  <td
+                    className={`metric-col text-center ${briefedMatch ? 'bg-approve-10' : ''}`}
+                    data-label="Briefed"
+                  >
+                    {r.briefed}
+                    {briefedMatch && (
+                      <FiCheck className="inline ml-1 text-approve" />
+                    )}
+                  </td>
+                  <td
+                    className={`metric-col text-center ${deliveredMatch ? 'bg-approve-10' : ''}`}
+                    data-label="Delivered"
+                  >
+                    {r.delivered}
+                    {deliveredMatch && (
+                      <FiCheck className="inline ml-1 text-approve" />
+                    )}
+                  </td>
+                  {!briefOnly && (
                     <td
-                      className={`text-center ${briefedMatch ? 'bg-approve-10' : ''}`}
-                      data-label="Briefed"
-                    >
-                      {r.briefed}
-                      {briefedMatch && (
-                        <FiCheck className="inline ml-1 text-approve" />
-                      )}
-                    </td>
-                    <td
-                      className={`text-center ${deliveredMatch ? 'bg-approve-10' : ''}`}
-                      data-label="Delivered"
-                    >
-                      {r.delivered}
-                      {deliveredMatch && (
-                        <FiCheck className="inline ml-1 text-approve" />
-                      )}
-                    </td>
-                    <td
-                      className={`text-center ${approvedMatch ? 'bg-approve-10' : ''}`}
+                      className={`metric-col text-center ${approvedMatch ? 'bg-approve-10' : ''}`}
                       data-label="Approved"
                     >
                       {r.approved}
@@ -381,16 +670,48 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
                         <FiCheck className="inline ml-1 text-approve" />
                       )}
                     </td>
-                    <td className="text-center text-reject" data-label="Rejected">
+                  )}
+                  {!briefOnly && (
+                    <td className="metric-col text-center text-reject" data-label="Rejected">
                       {r.rejected}
                     </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </Table>
-        )}
-      </PageWrapper>
+                  )}
+                  <td
+                    className="notes-cell align-top"
+                    data-label="Notes"
+                  >
+                    <div className="flex flex-col gap-1">
+                      <textarea
+                        value={noteValue}
+                        onChange={(e) => handleNoteChange(noteKey, e.target.value)}
+                        onBlur={() => handleNoteBlur(r)}
+                        placeholder={canEditNotes ? 'Add a note' : 'Notes are view only'}
+                        rows={2}
+                        style={{ height: 'auto' }}
+                        disabled={!canEditNotes}
+                        aria-disabled={!canEditNotes}
+                        className="w-full resize-y rounded border border-gray-300 px-2 py-1 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500 dark:border-gray-600 dark:bg-[var(--dark-sidebar-bg)] dark:text-white dark:disabled:bg-[var(--dark-sidebar-hover)] dark:disabled:text-gray-400"
+                      />
+                      {savingNotes[noteKey] && (
+                        <span className="note-status text-xs text-gray-500">Saving...</span>
+                      )}
+                      {noteErrors[noteKey] && (
+                        <span className="note-status text-xs text-red-600">
+                          {noteErrors[noteKey]}
+                        </span>
+                      )}
+                      {!savingNotes[noteKey] && !noteErrors[noteKey] && notes[noteKey] && (
+                        <span className="note-status text-xs text-gray-500">Saved</span>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </Table>
+      )}
+    </PageWrapper>
   );
 }
 

@@ -838,7 +838,7 @@ const AdGroupDetail = () => {
   const [feedbackScope, setFeedbackScope] = useState("current");
   const [allFeedbackEntries, setAllFeedbackEntries] = useState([]);
   const [allFeedbackLoading, setAllFeedbackLoading] = useState(false);
-  const [tab, setTab] = useState("stats");
+  const [tab, setTab] = useState("ads");
   const [blockerText, setBlockerText] = useState("");
   const [editingNotes, setEditingNotes] = useState(false);
   const [notesInput, setNotesInput] = useState("");
@@ -4526,6 +4526,10 @@ const AdGroupDetail = () => {
       return (
         <>
           {blockerTab}
+          <TabButton active={tab === 'ads'} onClick={() => setTab('ads')}>
+            <FiEye size={18} />
+            Ads
+          </TabButton>
           <TabButton active={tab === 'brief'} onClick={() => setTab('brief')}>
             <FiFileText size={18} />
             Brief
@@ -4557,10 +4561,6 @@ const AdGroupDetail = () => {
             <FiType size={18} />
             Platform Copy
           </TabButton>
-          <TabButton active={tab === 'ads'} onClick={() => setTab('ads')}>
-            <FiEye size={18} />
-            Ads
-          </TabButton>
           <TabButton active={tab === 'feedback'} onClick={() => setTab('feedback')}>
             <FiMessageSquare size={18} />
             Feedback
@@ -4580,9 +4580,9 @@ const AdGroupDetail = () => {
     return (
       <>
         {blockerTab}
-        <TabButton active={tab === 'stats'} onClick={() => setTab('stats')}>
-          <FiBarChart2 size={18} />
-          Stats
+        <TabButton active={tab === 'ads'} onClick={() => setTab('ads')}>
+          <FiEye size={18} />
+          Ads
         </TabButton>
         <TabButton active={tab === 'brief'} onClick={() => setTab('brief')}>
           <FiFileText size={18} />
@@ -4612,16 +4612,16 @@ const AdGroupDetail = () => {
           Products
         </TabButton>
         {copyTab}
-        <TabButton active={tab === 'ads'} onClick={() => setTab('ads')}>
-          <FiEye size={18} />
-          Ads
-        </TabButton>
         {(isAdmin || isEditor || isDesigner || isManager) && (
           <TabButton active={tab === 'feedback'} onClick={() => setTab('feedback')}>
             <FiMessageSquare size={18} />
             Feedback
           </TabButton>
         )}
+        <TabButton active={tab === 'stats'} onClick={() => setTab('stats')}>
+          <FiBarChart2 size={18} />
+          Stats
+        </TabButton>
       </>
     );
   };
@@ -6475,49 +6475,50 @@ const AdGroupDetail = () => {
       )}
 
       {showCopyModal && (
-        <Modal sizeClass="max-w-[52rem] w-full" className="p-0">
-          <div className="flex h-full flex-col">
-            <div className="border-b border-gray-100 px-6 py-5 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)]">
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                <div className="flex items-start gap-3">
-                  <span className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-full bg-[var(--accent-color-10)] text-[var(--accent-color)]">
-                    <FiType size={18} />
+        <Modal
+          sizeClass="max-w-[52rem] w-full"
+          className="flex max-h-[90vh] flex-col overflow-hidden p-0"
+        >
+          <div className="border-b border-gray-100 px-6 py-5 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)]">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+              <div className="flex items-start gap-3">
+                <span className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-full bg-[var(--accent-color-10)] text-[var(--accent-color)]">
+                  <FiType size={18} />
+                </span>
+                <div>
+                  <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Generate platform copy</h2>
+                  <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">
+                    Select a recipe type, tailor the prompt, and save new variations directly to this ad group.
+                  </p>
+                </div>
+              </div>
+              <div className="flex flex-wrap items-center justify-end gap-2">
+                {copyChanges && (
+                  <span className="rounded-full bg-[var(--accent-color-10)] px-3 py-1 text-xs font-semibold text-[var(--accent-color)]">
+                    Unsaved changes
                   </span>
-                  <div>
-                    <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Generate platform copy</h2>
-                    <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">
-                      Select a recipe type, tailor the prompt, and save new variations directly to this ad group.
-                    </p>
-                  </div>
-                </div>
-                <div className="flex flex-wrap items-center justify-end gap-2">
-                  {copyChanges && (
-                    <span className="rounded-full bg-[var(--accent-color-10)] px-3 py-1 text-xs font-semibold text-[var(--accent-color)]">
-                      Unsaved changes
-                    </span>
-                  )}
-                  <IconButton onClick={() => setShowCopyModal(false)} aria-label="Close platform copy modal">
-                    Close
-                  </IconButton>
-                </div>
+                )}
+                <IconButton onClick={() => setShowCopyModal(false)} aria-label="Close platform copy modal">
+                  Close
+                </IconButton>
               </div>
             </div>
-            <div className="flex-1 overflow-auto px-6 py-5">
-              <div className="mb-4 rounded-xl bg-gray-50 px-4 py-3 text-sm text-gray-600 dark:bg-[var(--dark-sidebar)] dark:text-gray-300">
-                <p className="font-medium text-gray-700 dark:text-gray-200">How it works</p>
-                <p className="mt-1">
-                  Choose a recipe template, tweak any of the inputs, and edit the generated copy before saving it back to the group.
-                </p>
-              </div>
-              <CopyRecipePreview
-                onSave={(copies) => saveCopyCards(copies, { append: true })}
-                brandCode={group?.brandCode}
-                hideBrandSelect
-                onCopiesChange={updateModalCopies}
-                saveLabel="Save changes"
-                canSave={copyChanges}
-              />
+          </div>
+          <div className="flex-1 overflow-auto px-6 py-5">
+            <div className="mb-4 rounded-xl bg-gray-50 px-4 py-3 text-sm text-gray-600 dark:bg-[var(--dark-sidebar)] dark:text-gray-300">
+              <p className="font-medium text-gray-700 dark:text-gray-200">How it works</p>
+              <p className="mt-1">
+                Choose a recipe template, tweak any of the inputs, and edit the generated copy before saving it back to the group.
+              </p>
             </div>
+            <CopyRecipePreview
+              onSave={(copies) => saveCopyCards(copies, { append: true })}
+              brandCode={group?.brandCode}
+              hideBrandSelect
+              onCopiesChange={updateModalCopies}
+              saveLabel="Save changes"
+              canSave={copyChanges}
+            />
           </div>
         </Modal>
       )}
