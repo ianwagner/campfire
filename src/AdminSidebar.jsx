@@ -9,6 +9,7 @@ import {
   FiBriefcase,
   FiPackage,
   FiShare2,
+  FiFileText,
   FiFolder,
   FiCalendar,
   FiSettings,
@@ -29,6 +30,7 @@ const tabs = [
   { label: 'Agencies', path: '/admin/agencies', icon: FiPackage },
   { label: 'Client Projects', path: '/ops/projects', icon: FiFolder },
   { label: 'Distribution', path: '/admin/distribution', icon: FiShare2 },
+  { label: 'Invoices', path: '/admin/invoices', icon: FiFileText },
   { label: 'Capacity Planner', path: '/admin/capacity-planner', icon: FiCalendar },
   { label: 'Integrations', path: '/admin/integrations', icon: FiZap },
   {
