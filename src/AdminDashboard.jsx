@@ -11,7 +11,7 @@ import {
   getDoc,
   Timestamp,
   setDoc,
-  deleteField,
+  deleteDoc,
   serverTimestamp,
 } from 'firebase/firestore';
 import { auth, db } from './firebase/config';
@@ -37,9 +37,6 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
   const user = auth.currentUser;
   const { role } = useUserRole(user?.uid);
   const canEditNotes = role === 'admin' || role === 'ops';
-  const workflow = briefOnly ? 'brief' : 'production';
-  const monthWorkflowKey = `${month}__${workflow}`;
-  const monthFieldPath = `notesByMonth.${monthWorkflowKey}`;
 
   const getNoteKey = (brand) => {
     const rawKey = brand?.noteKey || brand?.code || brand?.id;
@@ -79,14 +76,7 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
     try {
       const noteRef = doc(db, 'dashboardNotes', key);
       if (!draftValue) {
-        await setDoc(
-          noteRef,
-          {
-            updatedAt: serverTimestamp(),
-            [monthFieldPath]: deleteField(),
-          },
-          { merge: true }
-        );
+        await deleteDoc(noteRef);
         setNotes((prev) => {
           const next = { ...prev };
           next[key] = '';
@@ -97,18 +87,12 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
         await setDoc(
           noteRef,
           {
+            note: draftValue,
             brandCode: row.code || '',
             brandId: row.id || '',
             brandName: row.name || '',
-            workflow,
-            noteKey: key,
+            workflow: briefOnly ? 'brief' : 'production',
             updatedAt: serverTimestamp(),
-            [monthFieldPath]: {
-              note: draftValue,
-              month,
-              workflow,
-              updatedAt: serverTimestamp(),
-            },
           },
           { merge: true }
         );
@@ -437,32 +421,7 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
               const key = uniqueNoteKeys[idx];
               if (snap?.exists()) {
                 const data = snap.data() || {};
-                let value = '';
-                const monthNotes =
-                  data.notesByMonth &&
-                  typeof data.notesByMonth === 'object' &&
-                  !Array.isArray(data.notesByMonth)
-                    ? data.notesByMonth
-                    : undefined;
-                if (monthNotes && monthNotes[monthWorkflowKey] != null) {
-                  const monthEntry = monthNotes[monthWorkflowKey];
-                  if (typeof monthEntry === 'string') {
-                    value = monthEntry;
-                  } else if (
-                    monthEntry &&
-                    typeof monthEntry === 'object' &&
-                    typeof monthEntry.note === 'string'
-                  ) {
-                    value = monthEntry.note;
-                  }
-                }
-                if (
-                  !value &&
-                  month === thisMonth &&
-                  typeof data.note === 'string'
-                ) {
-                  value = data.note;
-                }
+                const value = typeof data.note === 'string' ? data.note : '';
                 noteEntries[key] = value;
                 noteDraftEntries[key] = value;
               } else {
