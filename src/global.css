@@ -381,7 +381,6 @@
   .dashboard-table td.notes-cell textarea {
     min-height: 2.5rem;
     height: auto;
-    padding: var(--space-xs) var(--space-sm);
   }
   .dashboard-table td.notes-cell .note-status {
     font-size: 0.75rem;

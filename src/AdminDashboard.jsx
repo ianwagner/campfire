@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { FiCheck } from 'react-icons/fi';
+import { FiAlertCircle, FiCheck, FiClock, FiShare2 } from 'react-icons/fi';
 import {
   collection,
   getDocs,
@@ -19,9 +19,71 @@ import PageWrapper from './components/PageWrapper.jsx';
 import Table from './components/common/Table';
 import MonthSelector from './components/MonthSelector.jsx';
 import getMonthString from './utils/getMonthString.js';
-import TabButton from './components/TabButton.jsx';
 import { normalizeReviewVersion } from './utils/reviewVersion';
 import useUserRole from './useUserRole';
+
+const parseMetricValue = (input) => {
+  if (input === null || input === undefined) {
+    return { value: null, unknown: false };
+  }
+  if (typeof input === 'number') {
+    return Number.isFinite(input)
+      ? { value: input, unknown: false }
+      : { value: null, unknown: true };
+  }
+  if (typeof input === 'string') {
+    const trimmed = input.trim();
+    if (!trimmed || trimmed === '-' || trimmed === '—') {
+      return { value: null, unknown: false };
+    }
+    const numeric = Number(trimmed);
+    if (Number.isFinite(numeric)) {
+      return { value: numeric, unknown: false };
+    }
+    return { value: null, unknown: true };
+  }
+  return { value: null, unknown: true };
+};
+
+const getNumericValue = (input) => {
+  const { value } = parseMetricValue(input);
+  return value;
+};
+
+const formatMetricDisplay = (input) => {
+  if (input === null || input === undefined) {
+    return '—';
+  }
+  if (typeof input === 'number') {
+    return Number.isFinite(input) ? input.toLocaleString() : '—';
+  }
+  if (typeof input === 'string') {
+    const trimmed = input.trim();
+    if (!trimmed || trimmed === '-' || trimmed === '—') {
+      return '—';
+    }
+    const numeric = Number(trimmed);
+    if (Number.isFinite(numeric)) {
+      return numeric.toLocaleString();
+    }
+    return trimmed;
+  }
+  return '—';
+};
+
+const formatSummaryValue = (stat) => {
+  if (!stat) return '—';
+  if (stat.hasData) {
+    return stat.total.toLocaleString();
+  }
+  if (stat.hasUnknown) {
+    return '—';
+  }
+  return '0';
+};
+
+const pluralize = (count, singular, plural = `${singular}s`) =>
+  count === 1 ? singular : plural;
 
 function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = {}) {
   const thisMonth = getMonthString();
@@ -52,6 +114,240 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
     const workflow = getWorkflow();
     return `${baseKey}__${month}__${workflow}`;
   };
+
+  const monthDisplay = useMemo(() => {
+    if (!month) return '';
+    const [yearStr, monthStr] = month.split('-');
+    const yearNum = Number(yearStr);
+    const monthNum = Number(monthStr) - 1;
+    if (Number.isFinite(yearNum) && Number.isFinite(monthNum)) {
+      const date = new Date(yearNum, monthNum);
+      if (!Number.isNaN(date.getTime())) {
+        return date.toLocaleDateString(undefined, {
+          month: 'long',
+          year: 'numeric',
+        });
+      }
+    }
+    return month;
+  }, [month]);
+
+  const viewLabel = briefOnly ? 'Brief-only workflow' : 'Production workflow';
+
+  const relevantNoteKeys = useMemo(() => {
+    const unique = new Set();
+    rows.forEach((row) => {
+      const key = getScopedNoteKey(row);
+      if (key) unique.add(key);
+    });
+    return Array.from(unique.values());
+  }, [rows, month, briefOnly]);
+
+  const activeNoteCount = useMemo(
+    () =>
+      relevantNoteKeys.reduce((total, key) => {
+        const value = (noteDrafts[key] ?? notes[key] ?? '').trim();
+        return value ? total + 1 : total;
+      }, 0),
+    [relevantNoteKeys, noteDrafts, notes]
+  );
+
+  const pendingNoteCount = useMemo(
+    () =>
+      relevantNoteKeys.reduce(
+        (total, key) => (savingNotes[key] ? total + 1 : total),
+        0,
+      ),
+    [relevantNoteKeys, savingNotes]
+  );
+
+  const noteErrorCount = useMemo(
+    () =>
+      relevantNoteKeys.reduce(
+        (total, key) => (noteErrors[key] ? total + 1 : total),
+        0,
+      ),
+    [relevantNoteKeys, noteErrors]
+  );
+
+  const dashboardSummary = useMemo(() => {
+    if (rows.length === 0) {
+      return null;
+    }
+    const metricKeys = ['contracted', 'briefed', 'delivered'];
+    if (!briefOnly) {
+      metricKeys.push('approved', 'rejected');
+    }
+    const stats = {};
+    metricKeys.forEach((key) => {
+      stats[key] = { total: 0, hasData: false, hasUnknown: false };
+    });
+
+    rows.forEach((row) => {
+      metricKeys.forEach((key) => {
+        const { value, unknown } = parseMetricValue(row[key]);
+        if (value !== null) {
+          stats[key].total += value;
+          stats[key].hasData = true;
+        } else if (unknown) {
+          stats[key].hasUnknown = true;
+        }
+      });
+    });
+
+    const getPercentage = (key) => {
+      if (!stats[key]?.hasData || !stats.contracted?.hasData) {
+        return null;
+      }
+      const denominator = stats.contracted.total;
+      if (denominator <= 0) {
+        return null;
+      }
+      return Math.round((stats[key].total / denominator) * 100);
+    };
+
+    const remaining =
+      stats.contracted?.hasData && stats.delivered?.hasData
+        ? Math.max(stats.contracted.total - stats.delivered.total, 0)
+        : null;
+
+    return {
+      stats,
+      percentages: {
+        briefed: getPercentage('briefed'),
+        delivered: getPercentage('delivered'),
+        approved: getPercentage('approved'),
+      },
+      remaining,
+    };
+  }, [rows, briefOnly]);
+
+  const summaryCards = useMemo(() => {
+    if (rows.length === 0) {
+      return [];
+    }
+
+    const baseCards = [
+      {
+        key: 'brands',
+        label: 'Brands in view',
+        value: rows.length.toLocaleString(),
+        description: requireFilters
+          ? 'You are viewing the brands shared with you.'
+          : 'Includes every active brand in this timeframe.',
+        accent: 'from-sky-500 to-blue-600',
+      },
+    ];
+
+    if (!dashboardSummary) {
+      return baseCards;
+    }
+
+    const cards = [...baseCards];
+
+    const contractedStat = dashboardSummary.stats.contracted;
+    cards.push({
+      key: 'contracted',
+      label: briefOnly ? 'Contracted briefs' : 'Contracted units',
+      value: formatSummaryValue(contractedStat),
+      secondary: monthDisplay ? `Scheduled for ${monthDisplay}` : null,
+      description: contractedStat?.hasUnknown
+        ? 'Some brands are missing contract data.'
+        : 'Total commitments for the selected month.',
+      accent: 'from-indigo-500 to-purple-500',
+    });
+
+    const deliveredStat = dashboardSummary.stats.delivered;
+    cards.push({
+      key: 'delivered',
+      label: 'Delivered',
+      value: formatSummaryValue(deliveredStat),
+      secondary:
+        dashboardSummary.percentages.delivered !== null
+          ? `${dashboardSummary.percentages.delivered}% of goal`
+          : null,
+      description:
+        dashboardSummary.remaining !== null
+          ? `${dashboardSummary.remaining.toLocaleString()} ${pluralize(
+              dashboardSummary.remaining,
+              'unit',
+            )} remaining`
+          : 'Delivery progress for the current month.',
+      accent: 'from-emerald-500 to-teal-500',
+    });
+
+    const briefedStat = dashboardSummary.stats.briefed;
+    cards.push({
+      key: 'briefed',
+      label: briefOnly ? 'Briefs submitted' : 'Briefed',
+      value: formatSummaryValue(briefedStat),
+      secondary:
+        dashboardSummary.percentages.briefed !== null
+          ? `${dashboardSummary.percentages.briefed}% of goal`
+          : null,
+      description: briefOnly
+        ? 'Brief progress within the selected workflow.'
+        : 'Requests that have been briefed for production.',
+      accent: 'from-amber-500 to-orange-500',
+    });
+
+    if (!briefOnly) {
+      const approvedStat = dashboardSummary.stats.approved;
+      cards.push({
+        key: 'approved',
+        label: 'Approved',
+        value: formatSummaryValue(approvedStat),
+        secondary:
+          dashboardSummary.percentages.approved !== null
+            ? `${dashboardSummary.percentages.approved}% of goal`
+            : null,
+        description: approvedStat?.hasUnknown
+          ? 'Some brands are missing approval data.'
+          : 'Assets that cleared review this month.',
+        accent: 'from-blue-500 to-cyan-500',
+      });
+    }
+
+    if (
+      canEditNotes ||
+      activeNoteCount > 0 ||
+      pendingNoteCount > 0 ||
+      noteErrorCount > 0
+    ) {
+      const errorVerb = noteErrorCount === 1 ? 'needs' : 'need';
+      cards.push({
+        key: 'notes',
+        label: canEditNotes ? 'Active notes' : 'Shared notes',
+        value: activeNoteCount.toLocaleString(),
+        secondary:
+          pendingNoteCount > 0
+            ? `${pendingNoteCount} ${pluralize(pendingNoteCount, 'save')} in progress`
+            : null,
+        description:
+          noteErrorCount > 0
+            ? `${noteErrorCount} ${pluralize(noteErrorCount, 'note')} ${errorVerb} attention`
+            : canEditNotes
+              ? 'Notes save automatically as you type.'
+              : 'Notes are view-only in this dashboard.',
+        accent:
+          noteErrorCount > 0
+            ? 'from-rose-500 to-orange-500'
+            : 'from-slate-500 to-slate-600',
+      });
+    }
+
+    return cards;
+  }, [
+    rows,
+    dashboardSummary,
+    requireFilters,
+    monthDisplay,
+    briefOnly,
+    canEditNotes,
+    activeNoteCount,
+    pendingNoteCount,
+    noteErrorCount,
+  ]);
 
   const handleNoteChange = (key, value) => {
     if (!canEditNotes) return;
@@ -559,158 +855,314 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
   const columnWidths = useMemo(
     () =>
       briefOnly
-        ? ['auto', '6.5rem', '6.5rem', '6.5rem', 'auto']
-        : ['auto', '6.5rem', '6.5rem', '6.5rem', '6.5rem', '6.5rem', 'auto'],
+        ? ['auto', '7.5rem', '7.5rem', '7.5rem', 'auto']
+        : ['auto', '7.5rem', '7.5rem', '7.5rem', '7.5rem', '7.5rem', 'auto'],
     [briefOnly]
   );
 
+  const ToggleButton = ({ active, children, onClick }) => (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`rounded-full px-4 py-2 text-sm font-medium transition focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40 ${
+        active
+          ? 'bg-blue-600 text-white shadow-sm dark:bg-blue-500'
+          : 'text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800'
+      }`}
+      aria-pressed={active}
+    >
+      {children}
+    </button>
+  );
+
   return (
-    <PageWrapper title="Dashboard">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
-        <MonthSelector value={month} onChange={setMonth} className="sm:mb-0" />
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
-            View
-          </span>
-          <div className="inline-flex overflow-hidden rounded border border-gray-300 dark:border-gray-600">
-            <TabButton
-              type="button"
-              active={!briefOnly}
-              onClick={() => setBriefOnly(false)}
-              className="rounded-none border-0 border-r border-gray-300 dark:border-gray-600"
-              aria-pressed={!briefOnly}
-            >
-              Production
-            </TabButton>
-            <TabButton
-              type="button"
-              active={briefOnly}
-              onClick={() => setBriefOnly(true)}
-              className="rounded-none border-0"
-              aria-pressed={briefOnly}
-            >
-              Brief Only
-            </TabButton>
+    <PageWrapper className="bg-slate-50 dark:bg-slate-950/70">
+      <div className="mx-auto flex w-full max-w-7xl flex-col gap-6">
+        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <h1 className="text-3xl font-semibold text-slate-900 dark:text-white">
+                {requireFilters ? 'Shared dashboard' : 'Admin dashboard'}
+              </h1>
+              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                {monthDisplay ? `${monthDisplay} · ${viewLabel}` : viewLabel}
+              </p>
+            </div>
+            <div className="flex flex-wrap items-end gap-4">
+              <div>
+                <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
+                  Month
+                </span>
+                <div className="mt-2">
+                  <MonthSelector
+                    value={month}
+                    onChange={setMonth}
+                    className="flex-wrap"
+                    inputClassName="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm transition focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100 dark:focus:border-blue-400 dark:focus:ring-blue-500/40"
+                  />
+                </div>
+              </div>
+              <div>
+                <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
+                  Workflow
+                </span>
+                <div
+                  className="mt-2 inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-100 p-1 text-sm font-medium dark:border-slate-700 dark:bg-slate-800"
+                  role="group"
+                  aria-label="Workflow view"
+                >
+                  <ToggleButton active={!briefOnly} onClick={() => setBriefOnly(false)}>
+                    Production
+                  </ToggleButton>
+                  <ToggleButton active={briefOnly} onClick={() => setBriefOnly(true)}>
+                    Brief only
+                  </ToggleButton>
+                </div>
+              </div>
+            </div>
           </div>
+          {requireFilters && (
+            <div className="mt-4 inline-flex items-start gap-3 rounded-xl border border-blue-200 bg-blue-50/90 px-4 py-3 text-sm text-blue-700 dark:border-blue-500/40 dark:bg-blue-500/10 dark:text-blue-100">
+              <FiShare2 className="mt-1 h-5 w-5 shrink-0" aria-hidden="true" />
+              <div>
+                <p className="font-medium">Shared dashboard view</p>
+                <p className="text-xs text-blue-600/80 dark:text-blue-100/80">
+                  This dashboard is filtered to the brands assigned to your team.
+                </p>
+              </div>
+            </div>
+          )}
         </div>
-      </div>
-      {loading ? (
-        <p>Loading...</p>
-      ) : rows.length === 0 ? (
-        <p>No contracts found.</p>
-      ) : (
-        <Table className="dashboard-table" columns={columnWidths}>
-          <thead>
-            <tr>
-              <th>Brand</th>
-              <th className="metric-col">Contracted</th>
-              <th className="metric-col">Briefed</th>
-              <th className="metric-col">Delivered</th>
-              {!briefOnly && <th className="metric-col">Approved</th>}
-              {!briefOnly && <th className="metric-col">Rejected</th>}
-              <th>Notes</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((r) => {
-              const contracted = Number(r.contracted);
-              const briefedMatch = Number(r.briefed) >= contracted;
-              const deliveredMatch = Number(r.delivered) >= contracted;
-              const approvedMatch = !briefOnly && Number(r.approved) >= contracted;
-              const noteKey = getScopedNoteKey(r);
-              const noteValue = noteDrafts[noteKey] ?? '';
-              return (
-                <tr key={r.id}>
-                  <td data-label="Brand" className="align-top">
-                    {r.code ? (
-                      <Link
-                        to={`/admin/ad-groups?brandCode=${encodeURIComponent(r.code)}`}
-                        className="inline-flex flex-wrap items-center gap-2 font-medium hover:underline"
-                        style={{ color: 'inherit' }}
-                      >
-                        <span>{r.name || r.code}</span>
-                        <span className="inline-flex items-center rounded-full border border-gray-300 bg-gray-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-gray-700 dark:border-gray-600 dark:bg-[var(--dark-sidebar-hover)] dark:text-gray-200">
-                          {r.code}
-                        </span>
-                      </Link>
-                    ) : (
-                      <div className="inline-flex flex-wrap items-center gap-2 font-medium">
-                        <span>{r.name || r.id}</span>
-                      </div>
-                    )}
-                  </td>
-                  <td className="metric-col text-center" data-label="Contracted">
-                    {r.contracted}
-                  </td>
-                  <td
-                    className={`metric-col text-center ${briefedMatch ? 'bg-approve-10' : ''}`}
-                    data-label="Briefed"
-                  >
-                    {r.briefed}
-                    {briefedMatch && (
-                      <FiCheck className="inline ml-1 text-approve" />
-                    )}
-                  </td>
-                  <td
-                    className={`metric-col text-center ${deliveredMatch ? 'bg-approve-10' : ''}`}
-                    data-label="Delivered"
-                  >
-                    {r.delivered}
-                    {deliveredMatch && (
-                      <FiCheck className="inline ml-1 text-approve" />
-                    )}
-                  </td>
-                  {!briefOnly && (
+
+        {!loading && summaryCards.length > 0 && (
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {summaryCards.map((card) => (
+              <div
+                key={card.key}
+                className="relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:shadow-md dark:border-slate-700 dark:bg-slate-900"
+              >
+                <div
+                  className={`absolute inset-x-0 top-0 h-1 bg-gradient-to-r ${card.accent}`}
+                  aria-hidden="true"
+                />
+                <div className="flex flex-col gap-1">
+                  <span className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
+                    {card.label}
+                  </span>
+                  <span className="text-2xl font-semibold text-slate-900 dark:text-white">
+                    {card.value}
+                  </span>
+                  {card.secondary && (
+                    <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
+                      {card.secondary}
+                    </span>
+                  )}
+                  {card.description && (
+                    <p className="text-xs leading-relaxed text-slate-500 dark:text-slate-400">
+                      {card.description}
+                    </p>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {loading ? (
+          <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm dark:border-slate-700 dark:bg-slate-900">
+            <div className="inline-flex items-center gap-2 text-sm font-medium text-slate-500 dark:text-slate-300">
+              <span className="h-2 w-2 animate-pulse rounded-full bg-blue-500" aria-hidden="true" />
+              Loading dashboard data…
+            </div>
+          </div>
+        ) : rows.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center shadow-sm dark:border-slate-700 dark:bg-slate-900">
+            <h2 className="text-lg font-semibold text-slate-900 dark:text-white">
+              No results for {monthDisplay || 'this selection'}
+            </h2>
+            <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+              {requireFilters
+                ? 'Try a different month or ask your admin for access to additional brands.'
+                : 'Adjust the month or review your contracts to see activity here.'}
+            </p>
+          </div>
+        ) : (
+          <Table className="dashboard-table" columns={columnWidths}>
+            <thead>
+              <tr>
+                <th>Brand</th>
+                <th className="metric-col">Contracted</th>
+                <th className="metric-col">Briefed</th>
+                <th className="metric-col">Delivered</th>
+                {!briefOnly && <th className="metric-col">Approved</th>}
+                {!briefOnly && <th className="metric-col">Rejected</th>}
+                <th>Notes</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r) => {
+                const contractedValue = getNumericValue(r.contracted);
+                const noteKey = getScopedNoteKey(r);
+                const noteValue = noteDrafts[noteKey] ?? '';
+                const trimmedDraft = noteValue.trim();
+                const savedValue = (notes[noteKey] ?? '').trim();
+                const showSavedBadge =
+                  !savingNotes[noteKey] && !noteErrors[noteKey] && (trimmedDraft || savedValue);
+
+                const renderMetricCell = (
+                  key,
+                  label,
+                  {
+                    showProgress = true,
+                    highlightOnGoal = false,
+                    accent = 'bg-blue-500 dark:bg-blue-400',
+                    textClass = '',
+                    subLabel = null,
+                  } = {},
+                ) => {
+                  const rawValue = r[key];
+                  const metricValue = getNumericValue(rawValue);
+                  const ratio =
+                    showProgress &&
+                    contractedValue !== null &&
+                    contractedValue > 0 &&
+                    metricValue !== null
+                      ? Math.round((metricValue / contractedValue) * 100)
+                      : null;
+                  const clampedRatio =
+                    ratio !== null ? Math.max(0, Math.min(ratio, 999)) : null;
+                  const highlightClass =
+                    highlightOnGoal && clampedRatio !== null && clampedRatio >= 100
+                      ? 'bg-approve-10'
+                      : '';
+                  const progressWidth = clampedRatio !== null ? Math.min(clampedRatio, 100) : 0;
+                  return (
                     <td
-                      className={`metric-col text-center ${approvedMatch ? 'bg-approve-10' : ''}`}
-                      data-label="Approved"
+                      className={`metric-col align-top text-center ${highlightClass}`.trim()}
+                      data-label={label}
                     >
-                      {r.approved}
-                      {approvedMatch && (
-                        <FiCheck className="inline ml-1 text-approve" />
-                      )}
-                    </td>
-                  )}
-                  {!briefOnly && (
-                    <td className="metric-col text-center text-reject" data-label="Rejected">
-                      {r.rejected}
-                    </td>
-                  )}
-                  <td
-                    className="notes-cell align-top"
-                    data-label="Notes"
-                  >
-                    <div className="flex flex-col gap-1">
-                      <textarea
-                        value={noteValue}
-                        onChange={(e) => handleNoteChange(noteKey, e.target.value)}
-                        onBlur={() => handleNoteBlur(r)}
-                        placeholder={canEditNotes ? 'Add a note' : 'Notes are view only'}
-                        rows={2}
-                        style={{ height: 'auto' }}
-                        disabled={!canEditNotes}
-                        aria-disabled={!canEditNotes}
-                        className="w-full resize-y rounded border border-gray-300 px-2 py-1 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500 dark:border-gray-600 dark:bg-[var(--dark-sidebar-bg)] dark:text-white dark:disabled:bg-[var(--dark-sidebar-hover)] dark:disabled:text-gray-400"
-                      />
-                      {savingNotes[noteKey] && (
-                        <span className="note-status text-xs text-gray-500">Saving...</span>
-                      )}
-                      {noteErrors[noteKey] && (
-                        <span className="note-status text-xs text-red-600">
-                          {noteErrors[noteKey]}
+                      <div className="flex flex-col items-center gap-1">
+                        <span
+                          className={`text-base font-semibold text-slate-900 dark:text-white ${textClass}`.trim()}
+                        >
+                          {formatMetricDisplay(rawValue)}
                         </span>
+                        {subLabel && (
+                          <span className="text-[10px] uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
+                            {subLabel}
+                          </span>
+                        )}
+                        {clampedRatio !== null && (
+                          <div className="w-full" aria-hidden="true">
+                            <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
+                              <div
+                                className={`h-full rounded-full ${accent}`}
+                                style={{ width: `${progressWidth}%` }}
+                              />
+                            </div>
+                            <span className="mt-1 block text-[10px] uppercase tracking-[0.08em] text-slate-500 dark:text-slate-400">
+                              {clampedRatio}% of goal
+                            </span>
+                          </div>
+                        )}
+                        {highlightOnGoal && clampedRatio !== null && clampedRatio >= 100 && (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-approve">
+                            <FiCheck className="h-3 w-3" />
+                            Goal met
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                  );
+                };
+
+                return (
+                  <tr key={r.id}>
+                    <td data-label="Brand" className="align-top">
+                      {r.code ? (
+                        <Link
+                          to={`/admin/ad-groups?brandCode=${encodeURIComponent(r.code)}`}
+                          className="inline-flex flex-wrap items-center gap-2 font-semibold text-slate-900 transition hover:text-blue-600 dark:text-white dark:hover:text-blue-300"
+                        >
+                          <span>{r.name || r.code}</span>
+                          <span className="inline-flex items-center rounded-full border border-slate-300 bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-600 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200">
+                            {r.code}
+                          </span>
+                        </Link>
+                      ) : (
+                        <div className="inline-flex flex-wrap items-center gap-2 font-semibold text-slate-900 dark:text-white">
+                          <span>{r.name || r.id}</span>
+                        </div>
                       )}
-                      {!savingNotes[noteKey] && !noteErrors[noteKey] && notes[noteKey] && (
-                        <span className="note-status text-xs text-gray-500">Saved</span>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </Table>
-      )}
+                    </td>
+                    {renderMetricCell('contracted', 'Contracted', {
+                      showProgress: false,
+                      subLabel: 'Goal',
+                    })}
+                    {renderMetricCell('briefed', 'Briefed', {
+                      highlightOnGoal: true,
+                      accent: 'bg-amber-500 dark:bg-amber-400',
+                    })}
+                    {renderMetricCell('delivered', 'Delivered', {
+                      highlightOnGoal: true,
+                      accent: 'bg-emerald-500 dark:bg-emerald-400',
+                    })}
+                    {!briefOnly &&
+                      renderMetricCell('approved', 'Approved', {
+                        highlightOnGoal: true,
+                        accent: 'bg-blue-500 dark:bg-blue-400',
+                      })}
+                    {!briefOnly &&
+                      renderMetricCell('rejected', 'Rejected', {
+                        showProgress: false,
+                        textClass: 'text-reject',
+                      })}
+                    <td className="notes-cell align-top" data-label="Notes">
+                      <div className="flex w-full flex-col gap-2">
+                        <textarea
+                          value={noteValue}
+                          onChange={(e) => handleNoteChange(noteKey, e.target.value)}
+                          onBlur={() => handleNoteBlur(r)}
+                          placeholder={
+                            canEditNotes
+                              ? 'Add context or action items for this brand'
+                              : 'Notes are view only'
+                          }
+                          rows={2}
+                          style={{ height: 'auto' }}
+                          disabled={!canEditNotes}
+                          aria-disabled={!canEditNotes}
+                          className="w-full resize-y rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm leading-relaxed text-slate-900 shadow-sm transition focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:focus:border-blue-400 dark:focus:ring-blue-500/30 dark:disabled:border-slate-700 dark:disabled:bg-slate-800 dark:disabled:text-slate-400"
+                        />
+                        <div className="flex flex-wrap items-center gap-2 text-xs">
+                          {savingNotes[noteKey] && (
+                            <span className="note-status inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-1 text-amber-700 dark:bg-amber-500/20 dark:text-amber-100">
+                              <FiClock className="h-3 w-3" />
+                              Saving…
+                            </span>
+                          )}
+                          {noteErrors[noteKey] && (
+                            <span className="note-status inline-flex items-center gap-1 rounded-full bg-rose-100 px-2 py-1 text-rose-700 dark:bg-rose-500/20 dark:text-rose-100">
+                              <FiAlertCircle className="h-3 w-3" />
+                              {noteErrors[noteKey]}
+                            </span>
+                          )}
+                          {showSavedBadge && (
+                            <span className="note-status inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-1 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-100">
+                              <FiCheck className="h-3 w-3" />
+                              Saved
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </Table>
+        )}
+      </div>
     </PageWrapper>
   );
 }
