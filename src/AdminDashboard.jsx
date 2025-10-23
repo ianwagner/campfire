@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { FiCheck } from 'react-icons/fi';
+import { FiAlertCircle, FiClock, FiShare2, FiBarChart2, FiTable } from 'react-icons/fi';
 import {
   collection,
   getDocs,
@@ -18,10 +18,140 @@ import { auth, db } from './firebase/config';
 import PageWrapper from './components/PageWrapper.jsx';
 import Table from './components/common/Table';
 import MonthSelector from './components/MonthSelector.jsx';
-import getMonthString from './utils/getMonthString.js';
 import TabButton from './components/TabButton.jsx';
+import DashboardTotalsChart from './components/charts/DashboardTotalsChart.jsx';
+import getMonthString from './utils/getMonthString.js';
 import { normalizeReviewVersion } from './utils/reviewVersion';
 import useUserRole from './useUserRole';
+
+const parseMetricValue = (input) => {
+  if (input === null || input === undefined) {
+    return { value: null, unknown: false };
+  }
+  if (typeof input === 'number') {
+    return Number.isFinite(input)
+      ? { value: input, unknown: false }
+      : { value: null, unknown: true };
+  }
+  if (typeof input === 'string') {
+    const trimmed = input.trim();
+    if (!trimmed || trimmed === '-' || trimmed === '—') {
+      return { value: null, unknown: false };
+    }
+    const numeric = Number(trimmed);
+    if (Number.isFinite(numeric)) {
+      return { value: numeric, unknown: false };
+    }
+    return { value: null, unknown: true };
+  }
+  return { value: null, unknown: true };
+};
+
+const getNumericValue = (input) => {
+  const { value } = parseMetricValue(input);
+  return value;
+};
+
+const formatMetricDisplay = (input) => {
+  if (input === null || input === undefined) {
+    return '—';
+  }
+  if (typeof input === 'number') {
+    return Number.isFinite(input) ? input.toLocaleString() : '—';
+  }
+  if (typeof input === 'string') {
+    const trimmed = input.trim();
+    if (!trimmed || trimmed === '-' || trimmed === '—') {
+      return '—';
+    }
+    const numeric = Number(trimmed);
+    if (Number.isFinite(numeric)) {
+      return numeric.toLocaleString();
+    }
+    return trimmed;
+  }
+  return '—';
+};
+
+const formatSummaryValue = (stat) => {
+  if (!stat) return '—';
+  if (stat.hasData) {
+    return stat.total.toLocaleString();
+  }
+  if (stat.hasUnknown) {
+    return '—';
+  }
+  return '0';
+};
+
+const pluralize = (count, singular, plural = `${singular}s`) =>
+  count === 1 ? singular : plural;
+
+const formatMonthLabel = (value) => {
+  if (!value) return '';
+  const [yearStr, monthStr] = value.split('-');
+  const year = Number(yearStr);
+  const monthIndex = Number(monthStr) - 1;
+  if (!Number.isFinite(year) || !Number.isFinite(monthIndex)) {
+    return value;
+  }
+  const date = new Date(year, monthIndex);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+  return date.toLocaleDateString(undefined, {
+    month: 'long',
+    year: 'numeric',
+  });
+};
+
+const compareMonthValues = (a, b) => {
+  if (!a || !b) return 0;
+  const [aYearStr, aMonthStr] = a.split('-');
+  const [bYearStr, bMonthStr] = b.split('-');
+  const aYear = Number(aYearStr);
+  const aMonth = Number(aMonthStr);
+  const bYear = Number(bYearStr);
+  const bMonth = Number(bMonthStr);
+  if (!Number.isFinite(aYear) || !Number.isFinite(aMonth) || !Number.isFinite(bYear) || !Number.isFinite(bMonth)) {
+    return 0;
+  }
+  if (aYear === bYear) {
+    return aMonth - bMonth;
+  }
+  return aYear - bYear;
+};
+
+const getMonthsBetween = (start, end, limit = 24) => {
+  if (!start || !end) return [];
+  const startDate = new Date(`${start}-01T00:00:00`);
+  const endDate = new Date(`${end}-01T00:00:00`);
+  if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
+    return [];
+  }
+  if (startDate > endDate) {
+    return [];
+  }
+  const months = [];
+  const cursor = new Date(startDate);
+  while (cursor <= endDate && months.length < limit) {
+    months.push(cursor.toISOString().slice(0, 7));
+    cursor.setMonth(cursor.getMonth() + 1);
+  }
+  return months;
+};
+
+const getDefaultOverviewRange = () => {
+  const end = getMonthString();
+  const endDate = new Date(`${end}-01T00:00:00`);
+  if (Number.isNaN(endDate.getTime())) {
+    return { start: end, end };
+  }
+  const startDate = new Date(endDate);
+  startDate.setMonth(startDate.getMonth() - 2);
+  const start = startDate.toISOString().slice(0, 7);
+  return { start, end };
+};
 
 function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = {}) {
   const thisMonth = getMonthString();
@@ -29,6 +159,12 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [briefOnly, setBriefOnly] = useState(false);
+  const [activeTab, setActiveTab] = useState('brands');
+  const [overviewRange, setOverviewRange] = useState(() => getDefaultOverviewRange());
+  const [overviewData, setOverviewData] = useState(null);
+  const [overviewLoading, setOverviewLoading] = useState(false);
+  const [overviewError, setOverviewError] = useState(null);
+  const [brandSources, setBrandSources] = useState([]);
   const [notes, setNotes] = useState({});
   const [noteDrafts, setNoteDrafts] = useState({});
   const [savingNotes, setSavingNotes] = useState({});
@@ -52,6 +188,466 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
     const workflow = getWorkflow();
     return `${baseKey}__${month}__${workflow}`;
   };
+
+  const monthDisplay = useMemo(() => formatMonthLabel(month), [month]);
+
+  const rangeLabel = useMemo(() => {
+    if (!overviewRange.start || !overviewRange.end) return '';
+    if (overviewRange.start === overviewRange.end) {
+      return formatMonthLabel(overviewRange.start);
+    }
+    return `${formatMonthLabel(overviewRange.start)} – ${formatMonthLabel(
+      overviewRange.end,
+    )}`;
+  }, [overviewRange.start, overviewRange.end]);
+
+  const viewLabel = briefOnly ? 'Brief-only workflow' : 'Production workflow';
+
+  const headerSubtitle = useMemo(() => {
+    if (activeTab === 'overview') {
+      return rangeLabel ? `${rangeLabel} · ${viewLabel}` : viewLabel;
+    }
+    return monthDisplay ? `${monthDisplay} · ${viewLabel}` : viewLabel;
+  }, [activeTab, monthDisplay, rangeLabel, viewLabel]);
+
+  const relevantNoteKeys = useMemo(() => {
+    const unique = new Set();
+    rows.forEach((row) => {
+      const key = getScopedNoteKey(row);
+      if (key) unique.add(key);
+    });
+    return Array.from(unique.values());
+  }, [rows, month, briefOnly]);
+
+  const dashboardSummary = useMemo(() => {
+    if (rows.length === 0) {
+      return null;
+    }
+    const metricKeys = ['contracted', 'briefed', 'delivered'];
+    if (!briefOnly) {
+      metricKeys.push('approved', 'rejected');
+    }
+    const stats = {};
+    metricKeys.forEach((key) => {
+      stats[key] = { total: 0, hasData: false, hasUnknown: false };
+    });
+
+    rows.forEach((row) => {
+      metricKeys.forEach((key) => {
+        const { value, unknown } = parseMetricValue(row[key]);
+        if (value !== null) {
+          stats[key].total += value;
+          stats[key].hasData = true;
+        } else if (unknown) {
+          stats[key].hasUnknown = true;
+        }
+      });
+    });
+
+    const getPercentage = (key) => {
+      if (!stats[key]?.hasData || !stats.contracted?.hasData) {
+        return null;
+      }
+      const denominator = stats.contracted.total;
+      if (denominator <= 0) {
+        return null;
+      }
+      return Math.round((stats[key].total / denominator) * 100);
+    };
+
+    const remaining =
+      stats.contracted?.hasData && stats.delivered?.hasData
+        ? Math.max(stats.contracted.total - stats.delivered.total, 0)
+        : null;
+
+    return {
+      stats,
+      percentages: {
+        briefed: getPercentage('briefed'),
+        delivered: getPercentage('delivered'),
+        approved: getPercentage('approved'),
+      },
+      remaining,
+    };
+  }, [rows, briefOnly]);
+
+  const summaryCards = useMemo(() => {
+    if (rows.length === 0) {
+      return [];
+    }
+
+    const baseCards = [
+      {
+        key: 'brands',
+        label: 'Brands in view',
+        value: rows.length.toLocaleString(),
+        description: requireFilters
+          ? 'You are viewing the brands shared with you.'
+          : 'Includes every active brand in this timeframe.',
+        accent: 'from-sky-500 to-blue-600',
+      },
+    ];
+
+    if (!dashboardSummary) {
+      return baseCards;
+    }
+
+    const cards = [...baseCards];
+
+    const contractedStat = dashboardSummary.stats.contracted;
+    cards.push({
+      key: 'contracted',
+      label: briefOnly ? 'Contracted briefs' : 'Contracted units',
+      value: formatSummaryValue(contractedStat),
+      secondary: monthDisplay ? `Scheduled for ${monthDisplay}` : null,
+      description: contractedStat?.hasUnknown
+        ? 'Some brands are missing contract data.'
+        : 'Total commitments for the selected month.',
+      accent: 'from-indigo-500 to-purple-500',
+    });
+
+    const deliveredStat = dashboardSummary.stats.delivered;
+    cards.push({
+      key: 'delivered',
+      label: 'Delivered',
+      value: formatSummaryValue(deliveredStat),
+      secondary:
+        dashboardSummary.percentages.delivered !== null
+          ? `${dashboardSummary.percentages.delivered}% of goal`
+          : null,
+      description:
+        dashboardSummary.remaining !== null
+          ? `${dashboardSummary.remaining.toLocaleString()} ${pluralize(
+              dashboardSummary.remaining,
+              'unit',
+            )} remaining`
+          : 'Delivery progress for the current month.',
+      accent: 'from-emerald-500 to-teal-500',
+    });
+
+    const briefedStat = dashboardSummary.stats.briefed;
+    cards.push({
+      key: 'briefed',
+      label: briefOnly ? 'Briefs submitted' : 'Briefed',
+      value: formatSummaryValue(briefedStat),
+      secondary:
+        dashboardSummary.percentages.briefed !== null
+          ? `${dashboardSummary.percentages.briefed}% of goal`
+          : null,
+      description: briefOnly
+        ? 'Brief progress within the selected workflow.'
+        : 'Requests that have been briefed for production.',
+      accent: 'from-amber-500 to-orange-500',
+    });
+
+    if (!briefOnly) {
+      const approvedStat = dashboardSummary.stats.approved;
+      cards.push({
+        key: 'approved',
+        label: 'Approved',
+        value: formatSummaryValue(approvedStat),
+        secondary:
+          dashboardSummary.percentages.approved !== null
+            ? `${dashboardSummary.percentages.approved}% of goal`
+            : null,
+        description: approvedStat?.hasUnknown
+          ? 'Some brands are missing approval data.'
+          : 'Assets that cleared review this month.',
+        accent: 'from-blue-500 to-cyan-500',
+      });
+    }
+
+    return cards;
+  }, [
+    rows,
+    dashboardSummary,
+    requireFilters,
+    monthDisplay,
+    briefOnly,
+  ]);
+
+  const overviewMetricLabels = useMemo(
+    () => ({
+      contracted: briefOnly ? 'Contracted briefs' : 'Contracted units',
+      briefed: briefOnly ? 'Briefs submitted' : 'Briefed',
+      delivered: 'Delivered',
+      approved: 'Approved',
+      rejected: 'Rejected',
+    }),
+    [briefOnly],
+  );
+
+  const overviewCards = useMemo(() => {
+    if (!overviewData?.aggregate) {
+      return [];
+    }
+
+    const monthsCount = overviewData.months?.length ?? 0;
+    const cards = [
+      {
+        key: 'range',
+        label: 'Months in range',
+        value: monthsCount > 0 ? monthsCount.toLocaleString() : '0',
+        description: rangeLabel
+          ? `Aggregated totals for ${rangeLabel}.`
+          : 'Aggregated totals for the selected range.',
+        accent: 'from-[var(--accent-color)] to-[var(--accent-color)]',
+      },
+    ];
+
+    const metricOrder = ['contracted', 'briefed', 'delivered'];
+    if (!briefOnly) {
+      metricOrder.push('approved', 'rejected');
+    }
+
+    const accentMap = {
+      contracted: 'from-indigo-500 to-purple-500',
+      briefed: 'from-amber-500 to-orange-500',
+      delivered: 'from-emerald-500 to-teal-500',
+      approved: 'from-blue-500 to-cyan-500',
+      rejected: 'from-rose-500 to-red-500',
+    };
+
+    metricOrder.forEach((key) => {
+      const stat = overviewData.aggregate[key];
+      if (!stat) return;
+      cards.push({
+        key: `overview-${key}`,
+        label: overviewMetricLabels[key],
+        value: formatSummaryValue(stat),
+        description: stat.hasUnknown
+          ? 'Includes months with partial reporting.'
+          : 'Total across the selected months.',
+        accent: accentMap[key] || 'from-slate-500 to-slate-600',
+      });
+    });
+
+    return cards;
+  }, [overviewData, rangeLabel, briefOnly, overviewMetricLabels]);
+
+  const overviewMetricKeys = useMemo(
+    () =>
+      briefOnly
+        ? ['contracted', 'briefed', 'delivered']
+        : ['contracted', 'briefed', 'delivered', 'approved', 'rejected'],
+    [briefOnly],
+  );
+
+  const overviewHasUnknown = useMemo(
+    () =>
+      overviewData?.months?.some((entry) =>
+        overviewMetricKeys.some((key) => entry.metrics?.[key]?.hasUnknown),
+      ) ?? false,
+    [overviewData, overviewMetricKeys],
+  );
+
+  const updateRangeStart = (value) => {
+    setOverviewRange((prev) => {
+      if (!value) {
+        return { start: value, end: prev.end };
+      }
+      if (!prev.end || compareMonthValues(value, prev.end) <= 0) {
+        return { start: value, end: prev.end || value };
+      }
+      return { start: value, end: value };
+    });
+  };
+
+  const updateRangeEnd = (value) => {
+    setOverviewRange((prev) => {
+      if (!value) {
+        return { start: prev.start, end: value };
+      }
+      if (!prev.start || compareMonthValues(prev.start, value) <= 0) {
+        return { start: prev.start || value, end: value };
+      }
+      return { start: value, end: value };
+    });
+  };
+
+  const computeBrandCounts = React.useCallback(
+    async ({ brand, targetMonth, briefFilter }) => {
+      const monthToUse = targetMonth || month;
+      if (!monthToUse) {
+        return null;
+      }
+
+      let contractedProduction = 0;
+      let contractedBrief = 0;
+      let briefed = 0;
+      let delivered = 0;
+      let approved = 0;
+      let rejected = 0;
+
+      try {
+        let brandId = brand.id;
+        let brandCode = brand.code;
+        let brandName = brand.name;
+        let brandSnap;
+        if (brandId) {
+          brandSnap = await getDoc(doc(db, 'brands', brandId));
+        }
+        if ((!brandSnap || !brandSnap.exists()) && brandCode) {
+          const q = query(collection(db, 'brands'), where('code', '==', brandCode));
+          const snap = await getDocs(q);
+          if (!snap.empty) {
+            brandSnap = snap.docs[0];
+            brandId = brandSnap.id;
+          }
+        }
+        if (brandSnap && brandSnap.exists()) {
+          const bData = brandSnap.data() || {};
+          brandName = brandName || bData.name;
+          const contracts = Array.isArray(bData.contracts) ? bData.contracts : [];
+          const selected = new Date(`${monthToUse}-01`);
+          contracts.forEach((c) => {
+            const contractMode =
+              typeof c.mode === 'string' ? c.mode.toLowerCase() : 'production';
+            const isBriefContract = contractMode === 'brief';
+            if (briefFilter ? !isBriefContract : isBriefContract) {
+              return;
+            }
+            const startStr = c.startDate ? c.startDate.slice(0, 7) : '';
+            if (!startStr) return;
+            const start = new Date(`${startStr}-01`);
+            let end;
+            const endStr = c.endDate ? c.endDate.slice(0, 7) : '';
+            if (endStr) {
+              end = new Date(`${endStr}-01`);
+            } else if (c.renews || c.repeat) {
+              end = new Date(start);
+              end.setMonth(end.getMonth() + 60);
+            } else {
+              end = new Date(`${startStr}-01`);
+            }
+            if (selected >= start && selected <= end) {
+              const units = Number(c.stills || 0) + Number(c.videos || 0);
+              if (isBriefContract) {
+                contractedBrief += units;
+              } else {
+                contractedProduction += units;
+              }
+            }
+          });
+        }
+
+        if (brandCode) {
+          const startDate = new Date(`${monthToUse}-01`);
+          const endDate = new Date(startDate);
+          endDate.setMonth(endDate.getMonth() + 1);
+          const monthQ = query(
+            collection(db, 'adGroups'),
+            where('brandCode', '==', brandCode),
+            where('month', '==', monthToUse),
+          );
+          const dueQ = query(
+            collection(db, 'adGroups'),
+            where('brandCode', '==', brandCode),
+            where('dueDate', '>=', Timestamp.fromDate(startDate)),
+            where('dueDate', '<', Timestamp.fromDate(endDate)),
+          );
+          const [monthSnap, dueSnap] = await Promise.all([
+            getDocs(monthQ),
+            getDocs(dueQ),
+          ]);
+          const dueDocs = dueSnap.docs.filter((g) => {
+            const data = g.data() || {};
+            return !data.month;
+          });
+          const adDocs = [...monthSnap.docs, ...dueDocs];
+          for (const g of adDocs) {
+            const gData = g.data() || {};
+            const normalizedReview = normalizeReviewVersion(
+              gData.reviewVersion ?? gData.reviewType ?? 1,
+            );
+            const isBriefGroup = normalizedReview === '3';
+            if (briefFilter && !isBriefGroup) continue;
+            if (!briefFilter && isBriefGroup) continue;
+            const [rSnap, aSnap] = await Promise.all([
+              getCountFromServer(collection(db, 'adGroups', g.id, 'recipes')),
+              getDocs(
+                query(
+                  collection(db, 'adGroups', g.id, 'assets'),
+                  where('status', 'in', [
+                    'ready',
+                    'approved',
+                    'rejected',
+                    'edit_requested',
+                    'pending',
+                  ]),
+                ),
+              ),
+            ]);
+            const recipeCount = rSnap.data().count || 0;
+            briefed += recipeCount;
+            const deliveredSet = new Set();
+            const approvedSet = new Set();
+            const rejectedSet = new Set();
+            aSnap.docs.forEach((a) => {
+              const data = a.data() || {};
+              const key = `${g.id}:${data.recipeCode || ''}`;
+              deliveredSet.add(key);
+              if (data.status === 'approved') {
+                approvedSet.add(key);
+              }
+              if (data.status === 'rejected') {
+                rejectedSet.add(key);
+              }
+            });
+            let deliveredCount = deliveredSet.size;
+            if (briefFilter && gData.status === 'designed') {
+              deliveredCount = Math.max(deliveredCount, recipeCount);
+            }
+            delivered += deliveredCount;
+            if (!briefFilter) {
+              approved += approvedSet.size;
+              rejected += rejectedSet.size;
+            }
+          }
+        }
+
+        const contracted = briefFilter ? contractedBrief : contractedProduction;
+
+        const noProgress =
+          contracted === 0 &&
+          briefed === 0 &&
+          delivered === 0 &&
+          (briefFilter || (approved === 0 && rejected === 0));
+        if (noProgress) {
+          return null;
+        }
+
+        const noteKeyRaw = brandCode || brandId || brand.id;
+        const noteKey = noteKeyRaw ? String(noteKeyRaw) : '';
+
+        return {
+          id: brandId || brand.code || brand.id,
+          code: brandCode,
+          name: brandName,
+          contracted,
+          briefed,
+          delivered,
+          approved: briefFilter ? '-' : approved,
+          rejected: briefFilter ? '-' : rejected,
+          noteKey,
+        };
+      } catch (err) {
+        console.error('Failed to compute counts', err);
+        return {
+          id: brand.id || brand.code,
+          code: brand.code,
+          name: brand.name,
+          contracted: '?',
+          briefed: '?',
+          delivered: '?',
+          approved: briefFilter ? '-' : '?',
+          rejected: briefFilter ? '-' : '?',
+          noteKey: brand.code || brand.id || '',
+        };
+      }
+    },
+    [month],
+  );
 
   const handleNoteChange = (key, value) => {
     if (!canEditNotes) return;
@@ -156,6 +752,7 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
       if (requireFilters && brandCodes.length === 0 && !agencyId) {
         if (active) {
           setRows([]);
+          setBrandSources([]);
           setNotes({});
           setNoteDrafts({});
           setSavingNotes({});
@@ -224,190 +821,6 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
           extraBrands = missing.map((code) => ({ id: code, code }));
         }
 
-        const computeCounts = async (brand, { briefOnly: briefFilter } = {}) => {
-          let contractedProduction = 0;
-          let contractedBrief = 0;
-          let briefed = 0;
-          let delivered = 0;
-          let approved = 0;
-          let rejected = 0;
-
-          try {
-            let brandId = brand.id;
-            let brandCode = brand.code;
-            let brandName = brand.name;
-            let brandSnap;
-            if (brandId) {
-              brandSnap = await getDoc(doc(db, 'brands', brandId));
-            }
-            if ((!brandSnap || !brandSnap.exists()) && brandCode) {
-              const q = query(
-                collection(db, 'brands'),
-                where('code', '==', brandCode)
-              );
-              const snap = await getDocs(q);
-              if (!snap.empty) {
-                brandSnap = snap.docs[0];
-                brandId = brandSnap.id;
-              }
-            }
-            if (brandSnap && brandSnap.exists()) {
-              const bData = brandSnap.data() || {};
-              brandName = brandName || bData.name;
-              const contracts = Array.isArray(bData.contracts)
-                ? bData.contracts
-                : [];
-              const selected = new Date(`${month}-01`);
-              contracts.forEach((c) => {
-                const contractMode =
-                  typeof c.mode === 'string'
-                    ? c.mode.toLowerCase()
-                    : 'production';
-                const isBriefContract = contractMode === 'brief';
-                if (briefFilter ? !isBriefContract : isBriefContract) {
-                  return;
-                }
-                const startStr = c.startDate ? c.startDate.slice(0, 7) : '';
-                if (!startStr) return;
-                const start = new Date(`${startStr}-01`);
-                let end;
-                const endStr = c.endDate ? c.endDate.slice(0, 7) : '';
-                if (endStr) {
-                  end = new Date(`${endStr}-01`);
-                } else if (c.renews || c.repeat) {
-                  // Open-ended contracts should count for future months up to five years
-                  end = new Date(start);
-                  end.setMonth(end.getMonth() + 60);
-                } else {
-                  end = new Date(`${startStr}-01`);
-                }
-                if (selected >= start && selected <= end) {
-                  const units = Number(c.stills || 0) + Number(c.videos || 0);
-                  if (isBriefContract) {
-                    contractedBrief += units;
-                  } else {
-                    contractedProduction += units;
-                  }
-                }
-              });
-            }
-
-            if (brandCode) {
-              const startDate = new Date(`${month}-01`);
-              const endDate = new Date(startDate);
-              endDate.setMonth(endDate.getMonth() + 1);
-              const monthQ = query(
-                collection(db, 'adGroups'),
-                where('brandCode', '==', brandCode),
-                where('month', '==', month)
-              );
-              const dueQ = query(
-                collection(db, 'adGroups'),
-                where('brandCode', '==', brandCode),
-                where('dueDate', '>=', Timestamp.fromDate(startDate)),
-                where('dueDate', '<', Timestamp.fromDate(endDate))
-              );
-              const [monthSnap, dueSnap] = await Promise.all([
-                getDocs(monthQ),
-                getDocs(dueQ),
-              ]);
-              const dueDocs = dueSnap.docs.filter((g) => {
-                const data = g.data() || {};
-                return !data.month;
-              });
-              const adDocs = [...monthSnap.docs, ...dueDocs];
-              for (const g of adDocs) {
-                const gData = g.data() || {};
-                const normalizedReview = normalizeReviewVersion(
-                  gData.reviewVersion ?? gData.reviewType ?? 1
-                );
-                const isBriefGroup = normalizedReview === '3';
-                if (briefFilter && !isBriefGroup) continue;
-                if (!briefFilter && isBriefGroup) continue;
-                const [rSnap, aSnap] = await Promise.all([
-                  getCountFromServer(collection(db, 'adGroups', g.id, 'recipes')),
-                  getDocs(
-                    query(
-                      collection(db, 'adGroups', g.id, 'assets'),
-                      where('status', 'in', [
-                        'ready',
-                        'approved',
-                        'rejected',
-                        'edit_requested',
-                        'pending',
-                      ])
-                    )
-                  ),
-                ]);
-                const recipeCount = rSnap.data().count || 0;
-                briefed += recipeCount;
-                const deliveredSet = new Set();
-                const approvedSet = new Set();
-                const rejectedSet = new Set();
-                aSnap.docs.forEach((a) => {
-                  const data = a.data() || {};
-                  const key = `${g.id}:${data.recipeCode || ''}`;
-                  deliveredSet.add(key);
-                  if (data.status === 'approved') {
-                    approvedSet.add(key);
-                  }
-                  if (data.status === 'rejected') {
-                    rejectedSet.add(key);
-                  }
-                });
-                let deliveredCount = deliveredSet.size;
-                if (briefFilter && gData.status === 'designed') {
-                  deliveredCount = Math.max(deliveredCount, recipeCount);
-                }
-                delivered += deliveredCount;
-                if (!briefFilter) {
-                  approved += approvedSet.size;
-                  rejected += rejectedSet.size;
-                }
-              }
-            }
-
-            const contracted = briefFilter ? contractedBrief : contractedProduction;
-
-            const noProgress =
-              contracted === 0 &&
-              briefed === 0 &&
-              delivered === 0 &&
-              (briefFilter || (approved === 0 && rejected === 0));
-            if (noProgress) {
-              return null;
-            }
-
-            const noteKeyRaw = brandCode || brandId || brand.id;
-            const noteKey = noteKeyRaw ? String(noteKeyRaw) : '';
-
-            return {
-              id: brandId || brand.code || brand.id,
-              code: brandCode,
-              name: brandName,
-              contracted,
-              briefed,
-              delivered,
-              approved: briefFilter ? '-' : approved,
-              rejected: briefFilter ? '-' : rejected,
-              noteKey,
-            };
-          } catch (err) {
-            console.error('Failed to compute counts', err);
-            return {
-              id: brand.id || brand.code,
-              code: brand.code,
-              name: brand.name,
-              contracted: '?',
-              briefed: '?',
-              delivered: '?',
-              approved: briefFilter ? '-' : '?',
-              rejected: briefFilter ? '-' : '?',
-              noteKey: brand.code || brand.id || '',
-            };
-          }
-        };
-
         const brandEntryMap = new Map();
         statDocs.forEach((docSnap) => {
           const data = docSnap.data() || {};
@@ -431,13 +844,22 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
         const brandEntries = Array.from(brandEntryMap.values());
         const computedResults = (
           await Promise.all(
-            brandEntries.map((brand) => computeCounts(brand, { briefOnly }))
+            brandEntries.map((brand) =>
+              computeBrandCounts({
+                brand,
+                targetMonth: month,
+                briefFilter: briefOnly,
+              })
+            )
           )
         ).filter(Boolean);
         computedResults.sort((a, b) =>
           (a.name || a.code || '').localeCompare(b.name || b.code || '')
         );
-        if (active) setRows(computedResults);
+        if (active) {
+          setRows(computedResults);
+          setBrandSources(brandEntries);
+        }
 
         const noteEntries = {};
         const noteDraftEntries = {};
@@ -540,6 +962,7 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
         console.error('Failed to fetch dashboard data', err);
         if (active) {
           setRows([]);
+          setBrandSources([]);
           setNotes({});
           setNoteDrafts({});
           setSavingNotes({});
@@ -554,163 +977,582 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
     return () => {
       active = false;
     };
-  }, [month, agencyId, brandCodes, briefOnly]);
+  }, [month, agencyId, brandCodes, briefOnly, computeBrandCounts]);
+
+  useEffect(() => {
+    if (activeTab !== 'overview') {
+      return;
+    }
+
+    if (requireFilters && brandCodes.length === 0 && !agencyId) {
+      setOverviewLoading(false);
+      setOverviewData(null);
+      setOverviewError(null);
+      return;
+    }
+
+    if (!overviewRange.start || !overviewRange.end) {
+      setOverviewLoading(false);
+      setOverviewData(null);
+      setOverviewError(null);
+      return;
+    }
+
+    const monthsInRange = getMonthsBetween(overviewRange.start, overviewRange.end);
+    if (monthsInRange.length === 0) {
+      setOverviewLoading(false);
+      setOverviewData({ months: [], aggregate: {} });
+      setOverviewError(null);
+      return;
+    }
+
+    let cancelled = false;
+
+    const fetchOverview = async () => {
+      setOverviewLoading(true);
+      setOverviewError(null);
+      try {
+        const monthSummaries = [];
+        for (const monthKey of monthsInRange) {
+          const results = await Promise.all(
+            brandSources.map((brand) =>
+              computeBrandCounts({
+                brand,
+                targetMonth: monthKey,
+                briefFilter: briefOnly,
+              })
+            ),
+          );
+          const metricKeys = ['contracted', 'briefed', 'delivered'];
+          if (!briefOnly) {
+            metricKeys.push('approved', 'rejected');
+          }
+          const metrics = {};
+          metricKeys.forEach((key) => {
+            metrics[key] = { total: 0, hasData: false, hasUnknown: false };
+          });
+          results
+            .filter(Boolean)
+            .forEach((row) => {
+              metricKeys.forEach((key) => {
+                const { value, unknown } = parseMetricValue(row[key]);
+                if (value !== null) {
+                  metrics[key].total += value;
+                  metrics[key].hasData = true;
+                } else if (unknown) {
+                  metrics[key].hasUnknown = true;
+                }
+              });
+            });
+          monthSummaries.push({ month: monthKey, metrics });
+        }
+
+        const aggregate = monthSummaries.reduce((acc, entry) => {
+          Object.entries(entry.metrics).forEach(([key, metric]) => {
+            if (!acc[key]) {
+              acc[key] = { total: 0, hasData: false, hasUnknown: false };
+            }
+            if (metric.hasData) {
+              acc[key].total += metric.total;
+              acc[key].hasData = true;
+            }
+            if (metric.hasUnknown) {
+              acc[key].hasUnknown = true;
+            }
+          });
+          return acc;
+        }, {});
+
+        if (!cancelled) {
+          setOverviewData({ months: monthSummaries, aggregate });
+        }
+      } catch (err) {
+        console.error('Failed to load dashboard overview', err);
+        if (!cancelled) {
+          setOverviewError('Failed to load trends. Please try again.');
+          setOverviewData(null);
+        }
+      } finally {
+        if (!cancelled) {
+          setOverviewLoading(false);
+        }
+      }
+    };
+
+    fetchOverview();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    activeTab,
+    overviewRange.start,
+    overviewRange.end,
+    briefOnly,
+    brandSources,
+    computeBrandCounts,
+    requireFilters,
+    brandCodes,
+    agencyId,
+  ]);
 
   const columnWidths = useMemo(
     () =>
       briefOnly
-        ? ['auto', '6.5rem', '6.5rem', '6.5rem', 'auto']
-        : ['auto', '6.5rem', '6.5rem', '6.5rem', '6.5rem', '6.5rem', 'auto'],
+        ? ['auto', '7.5rem', '7.5rem', '7.5rem', 'auto']
+        : ['auto', '7.5rem', '7.5rem', '7.5rem', '7.5rem', '7.5rem', 'auto'],
     [briefOnly]
   );
 
+  const ToggleButton = ({ active, children, onClick }) => (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`rounded-full px-4 py-2 text-sm font-medium transition focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-color)] focus-visible:ring-offset-0 ${
+        active
+          ? 'bg-[var(--accent-color)] text-white shadow-sm'
+          : 'text-gray-600 hover:bg-[var(--accent-color-10)] dark:text-gray-300 dark:hover:bg-[var(--accent-color-10)]/40'
+      }`}
+      aria-pressed={active}
+    >
+      {children}
+    </button>
+  );
+
   return (
-    <PageWrapper title="Dashboard">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
-        <MonthSelector value={month} onChange={setMonth} className="sm:mb-0" />
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
-            View
-          </span>
-          <div className="inline-flex overflow-hidden rounded border border-gray-300 dark:border-gray-600">
+    <PageWrapper className="bg-gray-50 dark:bg-[var(--dark-bg)]">
+      <div className="mx-auto flex w-full max-w-7xl flex-col gap-6">
+        <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar)]">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <h1 className="text-3xl font-semibold text-gray-900 dark:text-gray-100">
+                {requireFilters ? 'Shared dashboard' : 'Admin dashboard'}
+              </h1>
+              {headerSubtitle && (
+                <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">{headerSubtitle}</p>
+              )}
+            </div>
+            <div className="flex flex-wrap items-end gap-4">
+              {activeTab === 'brands' ? (
+                <div>
+                  <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-gray-500 dark:text-gray-300">
+                    Month
+                  </span>
+                  <div className="mt-2">
+                    <MonthSelector
+                      value={month}
+                      onChange={setMonth}
+                      inputClassName="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm transition focus:border-[var(--accent-color)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)]/20 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar)] dark:text-[var(--dark-text)] dark:focus:border-[var(--accent-color)] dark:focus:ring-[var(--accent-color)]/30"
+                      inputProps={{ 'aria-label': 'Select month' }}
+                    />
+                  </div>
+                </div>
+              ) : (
+                <div className="flex flex-wrap gap-4">
+                  <div>
+                    <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-gray-500 dark:text-gray-300">
+                      Start month
+                    </span>
+                    <div className="mt-2">
+                      <MonthSelector
+                        value={overviewRange.start}
+                        onChange={updateRangeStart}
+                        showButton={false}
+                        inputClassName="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm transition focus:border-[var(--accent-color)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)]/20 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar)] dark:text-[var(--dark-text)] dark:focus:border-[var(--accent-color)] dark:focus:ring-[var(--accent-color)]/30"
+                        inputProps={{
+                          'aria-label': 'Select start month',
+                          max: overviewRange.end || undefined,
+                        }}
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-gray-500 dark:text-gray-300">
+                      End month
+                    </span>
+                    <div className="mt-2">
+                      <MonthSelector
+                        value={overviewRange.end}
+                        onChange={updateRangeEnd}
+                        showButton={false}
+                        inputClassName="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm transition focus:border-[var(--accent-color)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)]/20 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar)] dark:text-[var(--dark-text)] dark:focus:border-[var(--accent-color)] dark:focus:ring-[var(--accent-color)]/30"
+                        inputProps={{
+                          'aria-label': 'Select end month',
+                          min: overviewRange.start || undefined,
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+              <div>
+                <div
+                  className="mt-2 inline-flex items-center gap-1 rounded-full border border-[var(--accent-color-10)] bg-[var(--accent-color-10)]/40 p-1 text-sm font-medium dark:border-[var(--accent-color-10)]/50 dark:bg-[var(--accent-color-10)]/20"
+                  role="group"
+                  aria-label="Workflow view"
+                >
+                  <ToggleButton active={!briefOnly} onClick={() => setBriefOnly(false)}>
+                    Production
+                  </ToggleButton>
+                  <ToggleButton active={briefOnly} onClick={() => setBriefOnly(true)}>
+                    Brief only
+                  </ToggleButton>
+                </div>
+              </div>
+              </div>
+            </div>
+          <div className="mt-4 flex flex-wrap items-center gap-2">
             <TabButton
               type="button"
-              active={!briefOnly}
-              onClick={() => setBriefOnly(false)}
-              className="rounded-none border-0 border-r border-gray-300 dark:border-gray-600"
-              aria-pressed={!briefOnly}
+              active={activeTab === 'brands'}
+              onClick={() => setActiveTab('brands')}
+              className={`rounded-full px-4 py-2 text-sm font-medium transition ${
+                activeTab === 'brands'
+                  ? 'shadow-sm'
+                  : 'border-transparent text-gray-600 hover:bg-[var(--accent-color-10)]/50 dark:text-gray-300'
+              }`}
             >
-              Production
+              <FiTable className="h-4 w-4" aria-hidden="true" />
+              <span>Brand metrics</span>
             </TabButton>
             <TabButton
               type="button"
-              active={briefOnly}
-              onClick={() => setBriefOnly(true)}
-              className="rounded-none border-0"
-              aria-pressed={briefOnly}
+              active={activeTab === 'overview'}
+              onClick={() => setActiveTab('overview')}
+              className={`rounded-full px-4 py-2 text-sm font-medium transition ${
+                activeTab === 'overview'
+                  ? 'shadow-sm'
+                  : 'border-transparent text-gray-600 hover:bg-[var(--accent-color-10)]/50 dark:text-gray-300'
+              }`}
             >
-              Brief Only
+              <FiBarChart2 className="h-4 w-4" aria-hidden="true" />
+              <span>Range trends</span>
             </TabButton>
           </div>
+          {requireFilters && (
+            <div className="mt-4 inline-flex items-start gap-3 rounded-xl border border-[var(--accent-color)]/40 bg-[var(--accent-color-10)]/80 px-4 py-3 text-sm text-[var(--accent-color)] dark:border-[var(--accent-color)]/30 dark:bg-[var(--accent-color-10)]/20 dark:text-[var(--accent-color)]">
+              <FiShare2 className="mt-1 h-5 w-5 shrink-0 text-[var(--accent-color)]" aria-hidden="true" />
+              <div>
+                <p className="font-medium">Shared dashboard view</p>
+                <p className="text-xs text-[var(--accent-color)] opacity-80 dark:text-[var(--accent-color)] dark:opacity-70">
+                  This dashboard is filtered to the brands assigned to your team.
+                </p>
+              </div>
+            </div>
+          )}
         </div>
-      </div>
-      {loading ? (
-        <p>Loading...</p>
-      ) : rows.length === 0 ? (
-        <p>No contracts found.</p>
-      ) : (
-        <Table className="dashboard-table" columns={columnWidths}>
-          <thead>
-            <tr>
-              <th>Brand</th>
-              <th className="metric-col">Contracted</th>
-              <th className="metric-col">Briefed</th>
-              <th className="metric-col">Delivered</th>
-              {!briefOnly && <th className="metric-col">Approved</th>}
-              {!briefOnly && <th className="metric-col">Rejected</th>}
-              <th>Notes</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((r) => {
-              const contracted = Number(r.contracted);
-              const briefedMatch = Number(r.briefed) >= contracted;
-              const deliveredMatch = Number(r.delivered) >= contracted;
-              const approvedMatch = !briefOnly && Number(r.approved) >= contracted;
-              const noteKey = getScopedNoteKey(r);
-              const noteValue = noteDrafts[noteKey] ?? '';
-              return (
-                <tr key={r.id}>
-                  <td data-label="Brand" className="align-top">
-                    {r.code ? (
-                      <Link
-                        to={`/admin/ad-groups?brandCode=${encodeURIComponent(r.code)}`}
-                        className="inline-flex flex-wrap items-center gap-2 font-medium hover:underline"
-                        style={{ color: 'inherit' }}
-                      >
-                        <span>{r.name || r.code}</span>
-                        <span className="inline-flex items-center rounded-full border border-gray-300 bg-gray-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-gray-700 dark:border-gray-600 dark:bg-[var(--dark-sidebar-hover)] dark:text-gray-200">
-                          {r.code}
-                        </span>
-                      </Link>
-                    ) : (
-                      <div className="inline-flex flex-wrap items-center gap-2 font-medium">
-                        <span>{r.name || r.id}</span>
-                      </div>
-                    )}
-                  </td>
-                  <td className="metric-col text-center" data-label="Contracted">
-                    {r.contracted}
-                  </td>
-                  <td
-                    className={`metric-col text-center ${briefedMatch ? 'bg-approve-10' : ''}`}
-                    data-label="Briefed"
+
+        {activeTab === 'brands' ? (
+          <>
+            {!loading && summaryCards.length > 0 && (
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                {summaryCards.map((card) => (
+                  <div
+                    key={card.key}
+                    className="relative overflow-hidden rounded-2xl border border-gray-200 bg-white p-5 shadow-sm transition hover:shadow-md dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar)]"
                   >
-                    {r.briefed}
-                    {briefedMatch && (
-                      <FiCheck className="inline ml-1 text-approve" />
-                    )}
-                  </td>
-                  <td
-                    className={`metric-col text-center ${deliveredMatch ? 'bg-approve-10' : ''}`}
-                    data-label="Delivered"
-                  >
-                    {r.delivered}
-                    {deliveredMatch && (
-                      <FiCheck className="inline ml-1 text-approve" />
-                    )}
-                  </td>
-                  {!briefOnly && (
-                    <td
-                      className={`metric-col text-center ${approvedMatch ? 'bg-approve-10' : ''}`}
-                      data-label="Approved"
-                    >
-                      {r.approved}
-                      {approvedMatch && (
-                        <FiCheck className="inline ml-1 text-approve" />
-                      )}
-                    </td>
-                  )}
-                  {!briefOnly && (
-                    <td className="metric-col text-center text-reject" data-label="Rejected">
-                      {r.rejected}
-                    </td>
-                  )}
-                  <td
-                    className="notes-cell align-top"
-                    data-label="Notes"
-                  >
+                    <div
+                      className={`absolute inset-x-0 top-0 h-1 bg-gradient-to-r ${card.accent}`}
+                      aria-hidden="true"
+                    />
                     <div className="flex flex-col gap-1">
-                      <textarea
-                        value={noteValue}
-                        onChange={(e) => handleNoteChange(noteKey, e.target.value)}
-                        onBlur={() => handleNoteBlur(r)}
-                        placeholder={canEditNotes ? 'Add a note' : 'Notes are view only'}
-                        rows={2}
-                        style={{ height: 'auto' }}
-                        disabled={!canEditNotes}
-                        aria-disabled={!canEditNotes}
-                        className="w-full resize-y rounded border border-gray-300 px-2 py-1 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500 dark:border-gray-600 dark:bg-[var(--dark-sidebar-bg)] dark:text-white dark:disabled:bg-[var(--dark-sidebar-hover)] dark:disabled:text-gray-400"
-                      />
-                      {savingNotes[noteKey] && (
-                        <span className="note-status text-xs text-gray-500">Saving...</span>
-                      )}
-                      {noteErrors[noteKey] && (
-                        <span className="note-status text-xs text-red-600">
-                          {noteErrors[noteKey]}
+                      <span className="text-xs font-semibold uppercase tracking-[0.12em] text-gray-500 dark:text-gray-300">
+                        {card.label}
+                      </span>
+                      <span className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
+                        {card.value}
+                      </span>
+                      {card.secondary && (
+                        <span className="text-xs font-medium text-gray-600 dark:text-gray-300">
+                          {card.secondary}
                         </span>
                       )}
-                      {!savingNotes[noteKey] && !noteErrors[noteKey] && notes[noteKey] && (
-                        <span className="note-status text-xs text-gray-500">Saved</span>
+                      {card.description && (
+                        <p className="text-xs leading-relaxed text-gray-600 dark:text-gray-300">
+                          {card.description}
+                        </p>
                       )}
                     </div>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </Table>
-      )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {loading ? (
+              <div className="rounded-2xl border border-gray-200 bg-white p-8 text-center shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar)]">
+                <div className="inline-flex items-center gap-2 text-sm font-medium text-gray-600 dark:text-gray-300">
+                  <span className="h-2 w-2 animate-pulse rounded-full bg-[var(--accent-color)]" aria-hidden="true" />
+                  Loading dashboard data…
+                </div>
+              </div>
+            ) : rows.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-10 text-center shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar)]">
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                  No results for {monthDisplay || 'this selection'}
+                </h2>
+                <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
+                  {requireFilters
+                    ? 'Try a different month or ask your admin for access to additional brands.'
+                    : 'Adjust the month or review your contracts to see activity here.'}
+                </p>
+              </div>
+            ) : (
+              <Table className="dashboard-table" columns={columnWidths}>
+                <thead>
+                  <tr>
+                    <th>Brand</th>
+                    <th className="metric-col">Contracted</th>
+                    <th className="metric-col">Briefed</th>
+                    <th className="metric-col">Delivered</th>
+                    {!briefOnly && <th className="metric-col">Approved</th>}
+                    {!briefOnly && <th className="metric-col">Rejected</th>}
+                    <th>Notes</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((r) => {
+                    const contractedValue = getNumericValue(r.contracted);
+                    const noteKey = getScopedNoteKey(r);
+                    const noteValue = noteDrafts[noteKey] ?? '';
+                    const renderMetricCell = (
+                      key,
+                      label,
+                      {
+                        showProgress = true,
+                        highlightOnGoal = false,
+                        accent = 'bg-[var(--accent-color)] dark:bg-[var(--accent-color)]/80',
+                        textClass = '',
+                      } = {},
+                    ) => {
+                      const rawValue = r[key];
+                      const metricValue = getNumericValue(rawValue);
+                      const ratio =
+                        showProgress &&
+                        contractedValue !== null &&
+                        contractedValue > 0 &&
+                        metricValue !== null
+                          ? Math.round((metricValue / contractedValue) * 100)
+                          : null;
+                      const clampedRatio =
+                        ratio !== null ? Math.max(0, Math.min(ratio, 999)) : null;
+                      const highlightClass =
+                        highlightOnGoal && clampedRatio !== null && clampedRatio >= 100
+                          ? 'bg-approve-10'
+                          : '';
+                      const progressWidth = clampedRatio !== null ? Math.min(clampedRatio, 100) : 0;
+                      return (
+                        <td className={`metric-col align-middle text-center ${highlightClass}`.trim()} data-label={label}>
+                          <div className="flex flex-col items-center gap-1">
+                            <span
+                              className={`text-base font-semibold text-gray-900 dark:text-gray-100 ${textClass}`.trim()}
+                            >
+                              {formatMetricDisplay(rawValue)}
+                            </span>
+                            {clampedRatio !== null && (
+                              <div className="w-full" aria-hidden="true">
+                                <div className="h-1.5 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-[var(--border-color-default)]/40">
+                                  <div
+                                    className={`h-full rounded-full ${accent}`}
+                                    style={{ width: `${progressWidth}%` }}
+                                  />
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </td>
+                      );
+                    };
+
+                    return (
+                      <tr key={r.id}>
+                        <td data-label="Brand" className="align-middle">
+                          {r.code ? (
+                            <Link
+                              to={`/admin/ad-groups?brandCode=${encodeURIComponent(r.code)}`}
+                              className="inline-flex flex-wrap items-center gap-2 font-semibold text-gray-900 transition hover:text-[var(--accent-color)] dark:text-gray-100 dark:hover:text-[var(--accent-color)]"
+                            >
+                              <span>{r.name || r.code}</span>
+                              <span className="inline-flex items-center rounded-full border border-gray-300 bg-gray-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-gray-600 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-hover)] dark:text-[var(--dark-text)]">
+                                {r.code}
+                              </span>
+                            </Link>
+                          ) : (
+                            <div className="inline-flex flex-wrap items-center gap-2 font-semibold text-gray-900 dark:text-gray-100">
+                              <span>{r.name || r.id}</span>
+                            </div>
+                          )}
+                        </td>
+                        {renderMetricCell('contracted', 'Contracted', { showProgress: false })}
+                        {renderMetricCell('briefed', 'Briefed', {
+                          highlightOnGoal: true,
+                          accent: 'bg-amber-500 dark:bg-amber-400',
+                        })}
+                        {renderMetricCell('delivered', 'Delivered', {
+                          highlightOnGoal: true,
+                          accent: 'bg-emerald-500 dark:bg-emerald-400',
+                        })}
+                        {!briefOnly &&
+                          renderMetricCell('approved', 'Approved', {
+                            highlightOnGoal: true,
+                            accent: 'bg-[var(--approve-color)] dark:bg-[var(--approve-color)]/80',
+                          })}
+                        {!briefOnly &&
+                          renderMetricCell('rejected', 'Rejected', {
+                            showProgress: false,
+                            textClass: 'text-reject',
+                          })}
+                        <td className="notes-cell align-middle" data-label="Notes">
+                          <div className="flex w-full flex-col gap-2">
+                            <textarea
+                              value={noteValue}
+                              onChange={(e) => handleNoteChange(noteKey, e.target.value)}
+                              onBlur={() => handleNoteBlur(r)}
+                              placeholder={
+                                canEditNotes
+                                  ? 'Add context or action items for this brand'
+                                  : 'Notes are view only'
+                              }
+                              rows={2}
+                              style={{ height: 'auto' }}
+                              disabled={!canEditNotes}
+                              aria-disabled={!canEditNotes}
+                              className="dashboard-note-input w-full resize-y rounded-lg border border-gray-300 bg-white text-sm leading-relaxed text-gray-900 shadow-sm transition focus:border-[var(--accent-color)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)]/20 disabled:cursor-not-allowed disabled:border-gray-200 disabled:bg-gray-100 disabled:text-gray-500 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar)] dark:text-[var(--dark-text)] dark:focus:border-[var(--accent-color)] dark:focus:ring-[var(--accent-color)]/30 dark:disabled:border-[var(--border-color-default)] dark:disabled:bg-[var(--dark-sidebar-hover)] dark:disabled:text-gray-400"
+                            />
+                            <div className="flex flex-wrap items-center gap-2 text-xs">
+                              {savingNotes[noteKey] && (
+                                <span className="note-status inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-1 text-amber-700 dark:bg-amber-500/20 dark:text-amber-100">
+                                  <FiClock className="h-3 w-3" />
+                                  Saving…
+                                </span>
+                              )}
+                              {noteErrors[noteKey] && (
+                                <span className="note-status inline-flex items-center gap-1 rounded-full bg-rose-100 px-2 py-1 text-rose-700 dark:bg-rose-500/20 dark:text-rose-100">
+                                  <FiAlertCircle className="h-3 w-3" />
+                                  {noteErrors[noteKey]}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </Table>
+            )}
+          </>
+        ) : (
+          <div className="flex flex-col gap-6">
+            {overviewError && (
+              <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700 dark:border-rose-500/40 dark:bg-rose-500/10 dark:text-rose-100">
+                {overviewError}
+              </div>
+            )}
+
+            {overviewLoading ? (
+              <div className="rounded-2xl border border-gray-200 bg-white p-8 text-center shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar)]">
+                <div className="inline-flex items-center gap-2 text-sm font-medium text-gray-600 dark:text-gray-300">
+                  <span className="h-2 w-2 animate-pulse rounded-full bg-[var(--accent-color)]" aria-hidden="true" />
+                  Loading range insights…
+                </div>
+              </div>
+            ) : overviewData?.months?.length ? (
+              <>
+                {overviewCards.length > 0 && (
+                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                    {overviewCards.map((card) => (
+                      <div
+                        key={card.key}
+                        className="relative overflow-hidden rounded-2xl border border-gray-200 bg-white p-5 shadow-sm transition hover:shadow-md dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar)]"
+                      >
+                        <div
+                          className={`absolute inset-x-0 top-0 h-1 bg-gradient-to-r ${card.accent}`}
+                          aria-hidden="true"
+                        />
+                        <div className="flex flex-col gap-1">
+                          <span className="text-xs font-semibold uppercase tracking-[0.12em] text-gray-500 dark:text-gray-300">
+                            {card.label}
+                          </span>
+                          <span className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
+                            {card.value}
+                          </span>
+                          {card.description && (
+                            <p className="text-xs leading-relaxed text-gray-600 dark:text-gray-300">
+                              {card.description}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar)]">
+                  <div className="flex flex-col gap-2 pb-4">
+                    <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Monthly momentum</h2>
+                    <p className="text-sm text-gray-600 dark:text-gray-300">
+                      Track how production shifts over time and spot trends across the shared range.
+                    </p>
+                  </div>
+                  <DashboardTotalsChart entries={overviewData.months} briefOnly={briefOnly} />
+                </div>
+
+                <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar)]">
+                  <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Monthly totals</h2>
+                  <div className="mt-4 overflow-x-auto">
+                    <table className="min-w-full table-fixed text-sm">
+                      <thead className="bg-gray-50 text-left text-xs font-semibold uppercase tracking-[0.12em] text-gray-500 dark:bg-[var(--dark-sidebar-hover)] dark:text-gray-300">
+                        <tr>
+                          <th className="px-4 py-3">Month</th>
+                          {overviewMetricKeys.map((key) => (
+                            <th key={key} className="px-4 py-3 text-center">
+                              {overviewMetricLabels[key]}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {overviewData.months.map((entry) => (
+                          <tr
+                            key={entry.month}
+                            className="border-t border-gray-100 text-sm text-gray-700 dark:border-[var(--border-color-default)] dark:text-gray-200"
+                          >
+                            <th scope="row" className="px-4 py-3 text-left font-medium text-gray-900 dark:text-gray-100">
+                              {formatMonthLabel(entry.month)}
+                            </th>
+                            {overviewMetricKeys.map((key) => {
+                              const metric = entry.metrics?.[key];
+                              return (
+                                <td key={`${entry.month}-${key}`} className="px-4 py-3 text-center">
+                                  {metric ? formatSummaryValue(metric) : '—'}
+                                </td>
+                              );
+                            })}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  {overviewHasUnknown && (
+                    <p className="mt-3 text-xs text-gray-500 dark:text-gray-400">
+                      Months with incomplete reporting show an em dash for the affected metrics.
+                    </p>
+                  )}
+                </div>
+              </>
+            ) : (
+              <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-10 text-center shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar)]">
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                  No data for this range
+                </h2>
+                <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
+                  Try expanding the range or switch back to the brand view for a different month.
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
     </PageWrapper>
   );
 }

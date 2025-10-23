@@ -273,6 +273,11 @@
     padding: 0;
   }
 
+  .cmf-table td textarea.dashboard-note-input {
+    padding: 0.5rem 0.75rem;
+    line-height: 1.5;
+  }
+
   .cmf-table td:not(:last-child):not(.copy-cell) {
     white-space: normal;
     overflow-wrap: anywhere;
@@ -381,7 +386,6 @@
   .dashboard-table td.notes-cell textarea {
     min-height: 2.5rem;
     height: auto;
-    padding: var(--space-xs) var(--space-sm);
   }
   .dashboard-table td.notes-cell .note-status {
     font-size: 0.75rem;
