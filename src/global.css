@@ -273,6 +273,11 @@
     padding: 0;
   }
 
+  .cmf-table td textarea.dashboard-note-input {
+    padding: 0.5rem 0.75rem;
+    line-height: 1.5;
+  }
+
   .cmf-table td:not(:last-child):not(.copy-cell) {
     white-space: normal;
     overflow-wrap: anywhere;
