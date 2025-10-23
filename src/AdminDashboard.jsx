@@ -21,6 +21,11 @@ import MonthSelector from './components/MonthSelector.jsx';
 import getMonthString from './utils/getMonthString.js';
 import TabButton from './components/TabButton.jsx';
 import { normalizeReviewVersion } from './utils/reviewVersion';
+import {
+  NOTE_FALLBACK_TYPES,
+  NOTE_SOURCE_TYPES,
+  resolveDashboardNoteState,
+} from './utils/resolveDashboardNoteState.js';
 import useUserRole from './useUserRole';
 
 function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = {}) {
@@ -33,6 +38,8 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
   const [noteDrafts, setNoteDrafts] = useState({});
   const [savingNotes, setSavingNotes] = useState({});
   const [noteErrors, setNoteErrors] = useState({});
+  const [noteSources, setNoteSources] = useState({});
+  const [noteFallbacks, setNoteFallbacks] = useState({});
 
   const user = auth.currentUser;
   const { role } = useUserRole(user?.uid);
@@ -92,7 +99,17 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
           next[key] = '';
           return next;
         });
-        setNoteDrafts((prev) => ({ ...prev, [key]: '' }));
+        const fallback = noteFallbacks[key];
+        const fallbackValue = fallback?.value ?? '';
+        setNoteDrafts((prev) => ({ ...prev, [key]: fallbackValue }));
+        setNoteSources((prev) => ({
+          ...prev,
+          [key]: fallback
+            ? fallback.type === NOTE_FALLBACK_TYPES.MONTHLY
+              ? { type: NOTE_SOURCE_TYPES.FALLBACK, month: fallback.month }
+              : { type: NOTE_SOURCE_TYPES.LEGACY, month: null }
+            : { type: NOTE_SOURCE_TYPES.EMPTY, month: null },
+        }));
       } else {
         await setDoc(
           noteRef,
@@ -114,6 +131,10 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
         );
         setNotes((prev) => ({ ...prev, [key]: draftValue }));
         setNoteDrafts((prev) => ({ ...prev, [key]: draftValue }));
+        setNoteSources((prev) => ({
+          ...prev,
+          [key]: { type: NOTE_SOURCE_TYPES.CURRENT, month },
+        }));
       }
     } catch (err) {
       console.error('Failed to save dashboard note', err);
@@ -142,6 +163,8 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
           setNoteDrafts({});
           setSavingNotes({});
           setNoteErrors({});
+          setNoteSources({});
+          setNoteFallbacks({});
           setLoading(false);
         }
         return;
@@ -421,6 +444,8 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
 
         const noteEntries = {};
         const noteDraftEntries = {};
+        const noteSourceEntries = {};
+        const noteFallbackEntries = {};
         const uniqueNoteKeys = Array.from(
           new Set(
             computedResults
@@ -437,37 +462,32 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
               const key = uniqueNoteKeys[idx];
               if (snap?.exists()) {
                 const data = snap.data() || {};
-                let value = '';
                 const monthNotes =
                   data.notesByMonth &&
                   typeof data.notesByMonth === 'object' &&
                   !Array.isArray(data.notesByMonth)
                     ? data.notesByMonth
                     : undefined;
-                if (monthNotes && monthNotes[monthWorkflowKey] != null) {
-                  const monthEntry = monthNotes[monthWorkflowKey];
-                  if (typeof monthEntry === 'string') {
-                    value = monthEntry;
-                  } else if (
-                    monthEntry &&
-                    typeof monthEntry === 'object' &&
-                    typeof monthEntry.note === 'string'
-                  ) {
-                    value = monthEntry.note;
-                  }
-                }
-                if (
-                  !value &&
-                  month === thisMonth &&
-                  typeof data.note === 'string'
-                ) {
-                  value = data.note;
-                }
-                noteEntries[key] = value;
-                noteDraftEntries[key] = value;
+                const {
+                  savedValue,
+                  draftValue,
+                  source,
+                  fallback,
+                } = resolveDashboardNoteState({
+                  monthNotes,
+                  month,
+                  workflow,
+                  legacyNote: data.note,
+                });
+                noteEntries[key] = savedValue;
+                noteDraftEntries[key] = draftValue;
+                noteSourceEntries[key] = source;
+                noteFallbackEntries[key] = fallback || null;
               } else {
                 noteEntries[key] = '';
                 noteDraftEntries[key] = '';
+                noteSourceEntries[key] = { type: NOTE_SOURCE_TYPES.EMPTY, month: null };
+                noteFallbackEntries[key] = null;
               }
             });
           } catch (err) {
@@ -480,6 +500,8 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
           setNoteDrafts(noteDraftEntries);
           setSavingNotes({});
           setNoteErrors({});
+          setNoteSources(noteSourceEntries);
+          setNoteFallbacks(noteFallbackEntries);
         }
       } catch (err) {
         console.error('Failed to fetch dashboard data', err);
@@ -489,6 +511,8 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
           setNoteDrafts({});
           setSavingNotes({});
           setNoteErrors({});
+          setNoteSources({});
+          setNoteFallbacks({});
         }
       } finally {
         if (active) setLoading(false);
@@ -563,6 +587,39 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
               const approvedMatch = !briefOnly && Number(r.approved) >= contracted;
               const noteKey = getNoteKey(r);
               const noteValue = noteDrafts[noteKey] ?? '';
+              const noteSource = noteSources[noteKey];
+              const fallbackMessage = (() => {
+                if (!noteSource) return '';
+                if (
+                  noteSource.type === NOTE_SOURCE_TYPES.FALLBACK &&
+                  noteSource.month
+                ) {
+                  try {
+                    const [sourceYear, sourceMonth] = noteSource.month.split('-');
+                    const yearNum = Number(sourceYear);
+                    const monthNum = Number(sourceMonth) - 1;
+                    if (
+                      Number.isInteger(yearNum) &&
+                      Number.isInteger(monthNum) &&
+                      monthNum >= 0 &&
+                      monthNum < 12
+                    ) {
+                      const label = new Date(yearNum, monthNum, 1).toLocaleDateString(
+                        undefined,
+                        { month: 'long', year: 'numeric' }
+                      );
+                      return `Showing note from ${label}.`;
+                    }
+                  } catch (err) {
+                    console.error('Failed to format fallback month label', err);
+                  }
+                  return `Showing note from ${noteSource.month}.`;
+                }
+                if (noteSource.type === NOTE_SOURCE_TYPES.LEGACY) {
+                  return 'Showing existing dashboard note.';
+                }
+                return '';
+              })();
               return (
                 <tr key={r.id}>
                   <td data-label="Brand" className="align-top">
@@ -644,9 +701,19 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
                           {noteErrors[noteKey]}
                         </span>
                       )}
-                      {!savingNotes[noteKey] && !noteErrors[noteKey] && notes[noteKey] && (
-                        <span className="note-status text-xs text-gray-500">Saved</span>
-                      )}
+                      {!savingNotes[noteKey] &&
+                        !noteErrors[noteKey] &&
+                        fallbackMessage && (
+                          <span className="note-status text-xs text-gray-500">
+                            {fallbackMessage}
+                          </span>
+                        )}
+                      {!savingNotes[noteKey] &&
+                        !noteErrors[noteKey] &&
+                        !fallbackMessage &&
+                        notes[noteKey] && (
+                          <span className="note-status text-xs text-gray-500">Saved</span>
+                        )}
                     </div>
                   </td>
                 </tr>
