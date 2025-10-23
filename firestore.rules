@@ -169,6 +169,10 @@ match /assets/{assetId} {
       allow write: if isAdmin();
     }
 
+    match /invoices/{invoiceId} {
+      allow read, write: if isAdmin();
+    }
+
     match /dashboardNotes/{noteId} {
       allow read, write: if isAdmin() || isOps();
     }

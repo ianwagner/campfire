@@ -81,6 +81,7 @@ import AdminClaimDebug from "./AdminClaimDebug";
 import AdminDistribution from "./AdminDistribution";
 import AdminCapacityPlanner from "./AdminCapacityPlanner";
 import AdminIntegrations from "./AdminIntegrations";
+import AdminInvoices from "./AdminInvoices";
 import MiniGame from "./MiniGame.jsx";
 
 const ThemeWatcher = () => {
@@ -619,6 +620,22 @@ const App = () => {
                     loading={roleLoading}
                   >
                     <AdminDistribution />
+                  </RoleGuard>
+                ) : (
+                  <Navigate to="/login" replace />
+                )
+              }
+            />
+            <Route
+              path="/admin/invoices"
+              element={
+                user ? (
+                  <RoleGuard
+                    requiredRole="admin"
+                    userRole={role} isAdmin={isAdmin}
+                    loading={roleLoading}
+                  >
+                    <AdminInvoices />
                   </RoleGuard>
                 ) : (
                   <Navigate to="/login" replace />
