@@ -838,7 +838,7 @@ const AdGroupDetail = () => {
   const [feedbackScope, setFeedbackScope] = useState("current");
   const [allFeedbackEntries, setAllFeedbackEntries] = useState([]);
   const [allFeedbackLoading, setAllFeedbackLoading] = useState(false);
-  const [tab, setTab] = useState("stats");
+  const [tab, setTab] = useState("ads");
   const [blockerText, setBlockerText] = useState("");
   const [editingNotes, setEditingNotes] = useState(false);
   const [notesInput, setNotesInput] = useState("");
@@ -4526,6 +4526,10 @@ const AdGroupDetail = () => {
       return (
         <>
           {blockerTab}
+          <TabButton active={tab === 'ads'} onClick={() => setTab('ads')}>
+            <FiEye size={18} />
+            Ads
+          </TabButton>
           <TabButton active={tab === 'brief'} onClick={() => setTab('brief')}>
             <FiFileText size={18} />
             Brief
@@ -4557,10 +4561,6 @@ const AdGroupDetail = () => {
             <FiType size={18} />
             Platform Copy
           </TabButton>
-          <TabButton active={tab === 'ads'} onClick={() => setTab('ads')}>
-            <FiEye size={18} />
-            Ads
-          </TabButton>
           <TabButton active={tab === 'feedback'} onClick={() => setTab('feedback')}>
             <FiMessageSquare size={18} />
             Feedback
@@ -4580,9 +4580,9 @@ const AdGroupDetail = () => {
     return (
       <>
         {blockerTab}
-        <TabButton active={tab === 'stats'} onClick={() => setTab('stats')}>
-          <FiBarChart2 size={18} />
-          Stats
+        <TabButton active={tab === 'ads'} onClick={() => setTab('ads')}>
+          <FiEye size={18} />
+          Ads
         </TabButton>
         <TabButton active={tab === 'brief'} onClick={() => setTab('brief')}>
           <FiFileText size={18} />
@@ -4612,16 +4612,16 @@ const AdGroupDetail = () => {
           Products
         </TabButton>
         {copyTab}
-        <TabButton active={tab === 'ads'} onClick={() => setTab('ads')}>
-          <FiEye size={18} />
-          Ads
-        </TabButton>
         {(isAdmin || isEditor || isDesigner || isManager) && (
           <TabButton active={tab === 'feedback'} onClick={() => setTab('feedback')}>
             <FiMessageSquare size={18} />
             Feedback
           </TabButton>
         )}
+        <TabButton active={tab === 'stats'} onClick={() => setTab('stats')}>
+          <FiBarChart2 size={18} />
+          Stats
+        </TabButton>
       </>
     );
   };
