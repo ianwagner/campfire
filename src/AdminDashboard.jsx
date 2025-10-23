@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { FiAlertCircle, FiCheck, FiClock, FiShare2 } from 'react-icons/fi';
+import { FiAlertCircle, FiClock, FiShare2 } from 'react-icons/fi';
 import {
   collection,
   getDocs,
@@ -143,33 +143,6 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
     return Array.from(unique.values());
   }, [rows, month, briefOnly]);
 
-  const activeNoteCount = useMemo(
-    () =>
-      relevantNoteKeys.reduce((total, key) => {
-        const value = (noteDrafts[key] ?? notes[key] ?? '').trim();
-        return value ? total + 1 : total;
-      }, 0),
-    [relevantNoteKeys, noteDrafts, notes]
-  );
-
-  const pendingNoteCount = useMemo(
-    () =>
-      relevantNoteKeys.reduce(
-        (total, key) => (savingNotes[key] ? total + 1 : total),
-        0,
-      ),
-    [relevantNoteKeys, savingNotes]
-  );
-
-  const noteErrorCount = useMemo(
-    () =>
-      relevantNoteKeys.reduce(
-        (total, key) => (noteErrors[key] ? total + 1 : total),
-        0,
-      ),
-    [relevantNoteKeys, noteErrors]
-  );
-
   const dashboardSummary = useMemo(() => {
     if (rows.length === 0) {
       return null;
@@ -308,34 +281,6 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
       });
     }
 
-    if (
-      canEditNotes ||
-      activeNoteCount > 0 ||
-      pendingNoteCount > 0 ||
-      noteErrorCount > 0
-    ) {
-      const errorVerb = noteErrorCount === 1 ? 'needs' : 'need';
-      cards.push({
-        key: 'notes',
-        label: canEditNotes ? 'Active notes' : 'Shared notes',
-        value: activeNoteCount.toLocaleString(),
-        secondary:
-          pendingNoteCount > 0
-            ? `${pendingNoteCount} ${pluralize(pendingNoteCount, 'save')} in progress`
-            : null,
-        description:
-          noteErrorCount > 0
-            ? `${noteErrorCount} ${pluralize(noteErrorCount, 'note')} ${errorVerb} attention`
-            : canEditNotes
-              ? 'Notes save automatically as you type.'
-              : 'Notes are view-only in this dashboard.',
-        accent:
-          noteErrorCount > 0
-            ? 'from-rose-500 to-orange-500'
-            : 'from-slate-500 to-slate-600',
-      });
-    }
-
     return cards;
   }, [
     rows,
@@ -343,10 +288,6 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
     requireFilters,
     monthDisplay,
     briefOnly,
-    canEditNotes,
-    activeNoteCount,
-    pendingNoteCount,
-    noteErrorCount,
   ]);
 
   const handleNoteChange = (key, value) => {
@@ -867,7 +808,7 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
       className={`rounded-full px-4 py-2 text-sm font-medium transition focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40 ${
         active
           ? 'bg-blue-600 text-white shadow-sm dark:bg-blue-500'
-          : 'text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800'
+          : 'text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-[var(--dark-sidebar-hover)]'
       }`}
       aria-pressed={active}
     >
@@ -876,21 +817,21 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
   );
 
   return (
-    <PageWrapper className="bg-slate-50 dark:bg-slate-950/70">
+    <PageWrapper className="bg-gray-50 dark:bg-[var(--dark-bg)]">
       <div className="mx-auto flex w-full max-w-7xl flex-col gap-6">
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+        <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar)]">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <h1 className="text-3xl font-semibold text-slate-900 dark:text-white">
+              <h1 className="text-3xl font-semibold text-gray-900 dark:text-gray-100">
                 {requireFilters ? 'Shared dashboard' : 'Admin dashboard'}
               </h1>
-              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+              <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">
                 {monthDisplay ? `${monthDisplay} · ${viewLabel}` : viewLabel}
               </p>
             </div>
             <div className="flex flex-wrap items-end gap-4">
               <div>
-                <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
+                <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-gray-500 dark:text-gray-300">
                   Month
                 </span>
                 <div className="mt-2">
@@ -898,16 +839,16 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
                     value={month}
                     onChange={setMonth}
                     className="flex-wrap"
-                    inputClassName="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm transition focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100 dark:focus:border-blue-400 dark:focus:ring-blue-500/40"
+                    inputClassName="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm transition focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar)] dark:text-[var(--dark-text)] dark:focus:border-blue-400 dark:focus:ring-blue-500/40"
                   />
                 </div>
               </div>
               <div>
-                <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
+                <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-gray-500 dark:text-gray-300">
                   Workflow
                 </span>
                 <div
-                  className="mt-2 inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-100 p-1 text-sm font-medium dark:border-slate-700 dark:bg-slate-800"
+                  className="mt-2 inline-flex items-center gap-1 rounded-full border border-gray-200 bg-gray-100 p-1 text-sm font-medium dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-hover)]"
                   role="group"
                   aria-label="Workflow view"
                 >
@@ -939,26 +880,26 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
             {summaryCards.map((card) => (
               <div
                 key={card.key}
-                className="relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:shadow-md dark:border-slate-700 dark:bg-slate-900"
+                className="relative overflow-hidden rounded-2xl border border-gray-200 bg-white p-5 shadow-sm transition hover:shadow-md dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar)]"
               >
                 <div
                   className={`absolute inset-x-0 top-0 h-1 bg-gradient-to-r ${card.accent}`}
                   aria-hidden="true"
                 />
                 <div className="flex flex-col gap-1">
-                  <span className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
+                  <span className="text-xs font-semibold uppercase tracking-[0.12em] text-gray-500 dark:text-gray-300">
                     {card.label}
                   </span>
-                  <span className="text-2xl font-semibold text-slate-900 dark:text-white">
+                  <span className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
                     {card.value}
                   </span>
                   {card.secondary && (
-                    <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
+                    <span className="text-xs font-medium text-gray-600 dark:text-gray-300">
                       {card.secondary}
                     </span>
                   )}
                   {card.description && (
-                    <p className="text-xs leading-relaxed text-slate-500 dark:text-slate-400">
+                    <p className="text-xs leading-relaxed text-gray-600 dark:text-gray-300">
                       {card.description}
                     </p>
                   )}
@@ -969,18 +910,18 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
         )}
 
         {loading ? (
-          <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm dark:border-slate-700 dark:bg-slate-900">
-            <div className="inline-flex items-center gap-2 text-sm font-medium text-slate-500 dark:text-slate-300">
+          <div className="rounded-2xl border border-gray-200 bg-white p-8 text-center shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar)]">
+            <div className="inline-flex items-center gap-2 text-sm font-medium text-gray-600 dark:text-gray-300">
               <span className="h-2 w-2 animate-pulse rounded-full bg-blue-500" aria-hidden="true" />
               Loading dashboard data…
             </div>
           </div>
         ) : rows.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center shadow-sm dark:border-slate-700 dark:bg-slate-900">
-            <h2 className="text-lg font-semibold text-slate-900 dark:text-white">
+          <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-10 text-center shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar)]">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
               No results for {monthDisplay || 'this selection'}
             </h2>
-            <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+            <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
               {requireFilters
                 ? 'Try a different month or ask your admin for access to additional brands.'
                 : 'Adjust the month or review your contracts to see activity here.'}
@@ -1004,11 +945,6 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
                 const contractedValue = getNumericValue(r.contracted);
                 const noteKey = getScopedNoteKey(r);
                 const noteValue = noteDrafts[noteKey] ?? '';
-                const trimmedDraft = noteValue.trim();
-                const savedValue = (notes[noteKey] ?? '').trim();
-                const showSavedBadge =
-                  !savingNotes[noteKey] && !noteErrors[noteKey] && (trimmedDraft || savedValue);
-
                 const renderMetricCell = (
                   key,
                   label,
@@ -1043,33 +979,24 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
                     >
                       <div className="flex flex-col items-center gap-1">
                         <span
-                          className={`text-base font-semibold text-slate-900 dark:text-white ${textClass}`.trim()}
+                          className={`text-base font-semibold text-gray-900 dark:text-gray-100 ${textClass}`.trim()}
                         >
                           {formatMetricDisplay(rawValue)}
                         </span>
                         {subLabel && (
-                          <span className="text-[10px] uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
+                          <span className="text-[10px] uppercase tracking-[0.12em] text-gray-500 dark:text-gray-300">
                             {subLabel}
                           </span>
                         )}
                         {clampedRatio !== null && (
                           <div className="w-full" aria-hidden="true">
-                            <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
+                            <div className="h-1.5 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-[var(--border-color-default)]/40">
                               <div
                                 className={`h-full rounded-full ${accent}`}
                                 style={{ width: `${progressWidth}%` }}
                               />
                             </div>
-                            <span className="mt-1 block text-[10px] uppercase tracking-[0.08em] text-slate-500 dark:text-slate-400">
-                              {clampedRatio}% of goal
-                            </span>
                           </div>
-                        )}
-                        {highlightOnGoal && clampedRatio !== null && clampedRatio >= 100 && (
-                          <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-approve">
-                            <FiCheck className="h-3 w-3" />
-                            Goal met
-                          </span>
                         )}
                       </div>
                     </td>
@@ -1082,15 +1009,15 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
                       {r.code ? (
                         <Link
                           to={`/admin/ad-groups?brandCode=${encodeURIComponent(r.code)}`}
-                          className="inline-flex flex-wrap items-center gap-2 font-semibold text-slate-900 transition hover:text-blue-600 dark:text-white dark:hover:text-blue-300"
+                          className="inline-flex flex-wrap items-center gap-2 font-semibold text-gray-900 transition hover:text-blue-600 dark:text-gray-100 dark:hover:text-blue-300"
                         >
                           <span>{r.name || r.code}</span>
-                          <span className="inline-flex items-center rounded-full border border-slate-300 bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-600 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200">
+                          <span className="inline-flex items-center rounded-full border border-gray-300 bg-gray-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-gray-600 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-hover)] dark:text-[var(--dark-text)]">
                             {r.code}
                           </span>
                         </Link>
                       ) : (
-                        <div className="inline-flex flex-wrap items-center gap-2 font-semibold text-slate-900 dark:text-white">
+                        <div className="inline-flex flex-wrap items-center gap-2 font-semibold text-gray-900 dark:text-gray-100">
                           <span>{r.name || r.id}</span>
                         </div>
                       )}
@@ -1132,7 +1059,7 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
                           style={{ height: 'auto' }}
                           disabled={!canEditNotes}
                           aria-disabled={!canEditNotes}
-                          className="w-full resize-y rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm leading-relaxed text-slate-900 shadow-sm transition focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:focus:border-blue-400 dark:focus:ring-blue-500/30 dark:disabled:border-slate-700 dark:disabled:bg-slate-800 dark:disabled:text-slate-400"
+                          className="w-full resize-y rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm leading-relaxed text-gray-900 shadow-sm transition focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:border-gray-200 disabled:bg-gray-100 disabled:text-gray-500 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar)] dark:text-[var(--dark-text)] dark:focus:border-blue-400 dark:focus:ring-blue-500/30 dark:disabled:border-[var(--border-color-default)] dark:disabled:bg-[var(--dark-sidebar-hover)] dark:disabled:text-gray-400"
                         />
                         <div className="flex flex-wrap items-center gap-2 text-xs">
                           {savingNotes[noteKey] && (
@@ -1145,12 +1072,6 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
                             <span className="note-status inline-flex items-center gap-1 rounded-full bg-rose-100 px-2 py-1 text-rose-700 dark:bg-rose-500/20 dark:text-rose-100">
                               <FiAlertCircle className="h-3 w-3" />
                               {noteErrors[noteKey]}
-                            </span>
-                          )}
-                          {showSavedBadge && (
-                            <span className="note-status inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-1 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-100">
-                              <FiCheck className="h-3 w-3" />
-                              Saved
                             </span>
                           )}
                         </div>
