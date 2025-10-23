@@ -357,12 +357,16 @@ const AdminInvoices: React.FC = () => {
     setError(null);
     setInfo(null);
     try {
-      const freshRows = await fetchDeliveredRows(selectedMonth, invoice.entries);
+      const baselineEntries =
+        invoice.reconciledEntries && invoice.reconciledEntries.length > 0
+          ? invoice.reconciledEntries
+          : invoice.entries;
+      const freshRows = await fetchDeliveredRows(selectedMonth, baselineEntries);
       setCurrentRows(freshRows);
       setLastUpdated(new Date());
 
       const baseline = new Map<string, number>();
-      invoice.entries.forEach((entry) => {
+      baselineEntries.forEach((entry) => {
         const code = entry.brandCode || UNKNOWN_BRAND_LABEL;
         baseline.set(code, Number(entry.deliveredCount) || 0);
       });
@@ -395,6 +399,7 @@ const AdminInvoices: React.FC = () => {
         reconciledAt: serverTimestamp(),
         reconciledBy: userLabel(),
         reconciledEntries: freshRows,
+        entries: freshRows,
       };
       await updateDoc(invoiceRef, updates);
       await refreshInvoice(selectedMonth);
