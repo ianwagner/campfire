@@ -600,16 +600,28 @@ const AdminInvoices: React.FC = () => {
           const normalized = sanitizeBrandCode(code);
           if (!normalized) return null;
           const brand = brandByCode.get(normalized);
-          const baseLabel = brand?.name ? `${brand.name} (${normalized})` : normalized;
+          const brandLabel = brand?.name?.trim() || normalized;
           const agencyName = brand?.agencyId ? agenciesById.get(brand.agencyId)?.name : undefined;
-          const displayLabel = agencyName ? `${baseLabel} · ${agencyName}` : baseLabel;
+          const displayLabel = agencyName
+            ? `${brandLabel} (${normalized}) · ${agencyName}`
+            : brand?.name
+              ? `${brandLabel} (${normalized})`
+              : normalized;
           return {
             code: normalized,
+            brandLabel,
+            agencyName,
             displayLabel,
             active: contractEligibleBrands.has(normalized),
           };
         })
-        .filter(Boolean) as Array<{ code: string; displayLabel: string; active: boolean }>,
+        .filter(Boolean) as Array<{
+          code: string;
+          brandLabel: string;
+          agencyName?: string;
+          displayLabel: string;
+          active: boolean;
+        }>,
     [agenciesById, brandByCode, contractEligibleBrands, selectedBrandCodes]
   );
 
@@ -1346,26 +1358,61 @@ const AdminInvoices: React.FC = () => {
               )}
               <div className="flex flex-wrap gap-2">
                 {selectedBrandDetails.length > 0 ? (
-                  selectedBrandDetails.map((detail) => (
-                    <span
-                      key={detail.code}
-                      className={`tag tag-pill ${
-                        detail.active
-                          ? "bg-[var(--accent-color-10)] text-[var(--accent-color)]"
-                          : "bg-amber-100 text-amber-700 dark:bg-amber-400/20 dark:text-amber-200"
-                      }`}
-                    >
-                      <span>{detail.displayLabel}</span>
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveBrand(detail.code)}
-                        className="rounded-full p-1 text-xs text-current transition hover:bg-black/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-color)]/40"
-                        aria-label={`Remove ${detail.displayLabel}`}
+                  selectedBrandDetails.map((detail) => {
+                    const chipClass = detail.active
+                      ? "border-[var(--accent-color)] bg-white text-gray-900 shadow-sm dark:border-[var(--accent-color)]/60 dark:bg-[var(--dark-sidebar-bg)] dark:text-gray-100"
+                      : "border-amber-200 bg-amber-50 text-amber-800 shadow-sm dark:border-amber-400/60 dark:bg-amber-400/10 dark:text-amber-100";
+                    const statusDotClass = detail.active
+                      ? "bg-[var(--accent-color)]"
+                      : "bg-amber-500 dark:bg-amber-300";
+                    const brandNameClass = detail.active
+                      ? "text-[0.75rem] font-semibold text-gray-900 dark:text-gray-100"
+                      : "text-[0.75rem] font-semibold text-amber-800 dark:text-amber-100";
+                    const metaClass = detail.active
+                      ? "text-[0.65rem] font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400"
+                      : "text-[0.65rem] font-medium uppercase tracking-wide text-amber-600 dark:text-amber-200/80";
+                    return (
+                      <span
+                        key={detail.code}
+                        className={`group inline-flex items-center gap-3 rounded-full border px-3 py-1.5 text-xs transition focus-within:ring-2 focus-within:ring-[var(--accent-color)]/30 focus-within:ring-offset-2 focus-within:ring-offset-white dark:focus-within:ring-[var(--accent-color)]/40 dark:focus-within:ring-offset-[var(--dark-sidebar)] ${chipClass}`}
                       >
-                        ×
-                      </button>
-                    </span>
-                  ))
+                        <span className={`h-2 w-2 flex-shrink-0 rounded-full ${statusDotClass}`} aria-hidden="true" />
+                        <span className="flex flex-col leading-tight">
+                          <span className={brandNameClass}>{detail.brandLabel}</span>
+                          <span className={metaClass}>
+                            {detail.code}
+                            {detail.agencyName ? ` · ${detail.agencyName}` : ""}
+                          </span>
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveBrand(detail.code)}
+                          className={`ml-1 inline-flex h-6 w-6 items-center justify-center rounded-full border border-transparent text-current transition focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-color)]/40 focus-visible:ring-offset-1 focus-visible:ring-offset-white dark:focus-visible:ring-offset-[var(--dark-sidebar)] ${
+                            detail.active
+                              ? "bg-gray-100 hover:bg-gray-200 dark:bg-white/5 dark:hover:bg-white/10"
+                              : "bg-amber-100/70 hover:bg-amber-200/60 dark:bg-white/5 dark:hover:bg-white/10"
+                          }`}
+                          aria-label={`Remove ${detail.displayLabel}`}
+                        >
+                          <svg
+                            viewBox="0 0 12 12"
+                            fill="none"
+                            xmlns="http://www.w3.org/2000/svg"
+                            className="h-3.5 w-3.5"
+                            aria-hidden="true"
+                          >
+                            <path
+                              d="M3 3l6 6M9 3L3 9"
+                              stroke="currentColor"
+                              strokeWidth="1.5"
+                              strokeLinecap="round"
+                            />
+                          </svg>
+                          <span className="sr-only">Remove</span>
+                        </button>
+                      </span>
+                    );
+                  })
                 ) : (
                   <span className="text-sm text-gray-500 dark:text-gray-400">
                     {contractEligibleBrands.size > 0
