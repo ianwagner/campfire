@@ -21,7 +21,7 @@ import debugLog from "./utils/debugLog";
 const UNKNOWN_BRAND_LABEL = "Unassigned";
 
 type InvoiceStatus = "draft" | "sent" | "reconciled";
-type ContractMode = "production" | "brief";
+type ContractMode = "production" | "brief" | "combined";
 
 type InvoiceEntry = {
   brandCode: string;
@@ -51,13 +51,25 @@ type InvoiceDeltaRow = {
   delta: number;
 };
 
-const invoiceDocId = (monthKey: string, mode: ContractMode) => `${monthKey}-${mode}`;
+const escapeHtml = (value: string) =>
+  value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+
+const invoiceDocId = (monthKey: string, mode: ContractMode) => {
+  const suffix = mode === "combined" ? "all" : mode;
+  return `${monthKey}-${suffix}`;
+};
 
 const normalizeContractModeValue = (value: unknown): ContractMode | null => {
   if (typeof value !== "string") return null;
   const normalized = value.trim().toLowerCase();
   if (normalized === "brief" || normalized === "briefs") return "brief";
   if (normalized === "production") return "production";
+  if (normalized === "combined" || normalized === "all" || normalized === "both") return "combined";
   return null;
 };
 
@@ -207,7 +219,7 @@ const readDeliveredCount = (data: DocumentData): number => {
 
 type AggregateOptions = {
   allowedBrands?: Set<string> | null;
-  contractMode?: ContractMode | null;
+  contractModes?: Set<ContractMode> | null;
 };
 
 const aggregateDeliveredCounts = (
@@ -216,7 +228,7 @@ const aggregateDeliveredCounts = (
   options: AggregateOptions = {}
 ): InvoiceEntry[] => {
   const totals = new Map<string, number>();
-  const { allowedBrands = null, contractMode = null } = options;
+  const { allowedBrands = null, contractModes = null } = options;
 
   const allowBrand = (brand: string) => {
     if (!brand) return false;
@@ -231,8 +243,14 @@ const aggregateDeliveredCounts = (
       return;
     }
     const modeFromDoc = readContractModeFromData(data);
-    if (contractMode && modeFromDoc && modeFromDoc !== contractMode) {
-      return;
+    if (contractModes && contractModes.size > 0) {
+      if (modeFromDoc) {
+        if (!contractModes.has(modeFromDoc)) {
+          return;
+        }
+      } else if (!contractModes.has("production") && !contractModes.has("brief")) {
+        return;
+      }
     }
     const delivered = readDeliveredCount(data);
     totals.set(brandCode, (totals.get(brandCode) ?? 0) + delivered);
@@ -369,13 +387,14 @@ const statusStyles: Record<InvoiceStatus, string> = {
 };
 
 const CONTRACT_LABELS: Record<ContractMode, string> = {
+  combined: "All Contracts",
   production: "Production",
   brief: "Briefs",
 };
 
 const AdminInvoices: React.FC = () => {
   const [selectedMonth, setSelectedMonth] = useState(() => toMonthKey(new Date()));
-  const [contractMode, setContractMode] = useState<ContractMode>("production");
+  const [contractMode, setContractMode] = useState<ContractMode>("combined");
   const [invoice, setInvoice] = useState<InvoiceRecord | null>(null);
   const [allRows, setAllRows] = useState<InvoiceEntry[]>([]);
   const [currentRows, setCurrentRows] = useState<InvoiceEntry[]>([]);
@@ -392,8 +411,19 @@ const AdminInvoices: React.FC = () => {
   const [directoryLoading, setDirectoryLoading] = useState(false);
   const [selectedBrandCodes, setSelectedBrandCodes] = useState<string[]>([]);
   const [selectionValue, setSelectionValue] = useState<string>("");
+  const [lastExportedAt, setLastExportedAt] = useState<Date | null>(null);
 
   const contractModeLabel = CONTRACT_LABELS[contractMode];
+  const effectiveContractModes = useMemo<ContractMode[]>(() => {
+    if (contractMode === "combined") {
+      return ["production", "brief"] as ContractMode[];
+    }
+    return [contractMode];
+  }, [contractMode]);
+  const effectiveContractModeSet = useMemo(
+    () => new Set<ContractMode>(effectiveContractModes),
+    [effectiveContractModes]
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -485,15 +515,23 @@ const AdminInvoices: React.FC = () => {
     }
     brandDirectory.forEach((brand) => {
       if (!brand.code) return;
-      const hasActive = brand.contracts.some(
-        (contract) => contract.mode === contractMode && contractCoversMonth(contract, selectedMonth)
-      );
+      const hasActive = brand.contracts.some((contract) => {
+        if (!contractCoversMonth(contract, selectedMonth)) {
+          return false;
+        }
+        if (contract.mode === "combined") {
+          return (
+            effectiveContractModeSet.has("production") || effectiveContractModeSet.has("brief")
+          );
+        }
+        return effectiveContractModeSet.has(contract.mode);
+      });
       if (hasActive) {
         eligible.add(brand.code);
       }
     });
     return eligible;
-  }, [brandDirectory, contractMode, selectedMonth]);
+  }, [brandDirectory, effectiveContractModeSet, selectedMonth]);
 
   const selectedBrandSet = useMemo(() => {
     const set = new Set<string>();
@@ -604,27 +642,37 @@ const AdminInvoices: React.FC = () => {
   const fetchDeliveredRows = useCallback(
     async (
       monthKey: string,
-      mode: ContractMode,
+      modes: ContractMode[],
       invoiceEntries: InvoiceEntry[] = [],
       allowedBrands: Set<string> | null = null
     ) => {
+      const normalizedModes = new Set<ContractMode>();
+      modes.forEach((mode) => {
+        if (mode === "combined") {
+          normalizedModes.add("production");
+          normalizedModes.add("brief");
+        } else {
+          normalizedModes.add(mode);
+        }
+      });
+
       const adsRef = collection(db, "ads");
       const adsQuery = query(adsRef, where("monthKey", "==", monthKey));
       const adsSnap = await getDocs(adsQuery);
       return aggregateDeliveredCounts(adsSnap.docs, invoiceEntries, {
         allowedBrands,
-        contractMode: mode,
+        contractModes: normalizedModes.size > 0 ? normalizedModes : null,
       });
     },
     []
   );
 
   const loadSnapshot = useCallback(
-    async (monthKey: string, mode: ContractMode) => {
+    async (monthKey: string, mode: ContractMode, modes: ContractMode[]) => {
       const invoiceRecord = await fetchInvoiceDoc(monthKey, mode);
       const deliveredRows = await fetchDeliveredRows(
         monthKey,
-        mode,
+        modes,
         invoiceRecord?.entries ?? [],
         null
       );
@@ -643,7 +691,7 @@ const AdminInvoices: React.FC = () => {
     setInfo(null);
     setReconciliationRows(null);
 
-    loadSnapshot(selectedMonth, contractMode)
+    loadSnapshot(selectedMonth, contractMode, effectiveContractModes)
       .then(({ invoiceRecord, deliveredRows }) => {
         if (!active) return;
         setInvoice(invoiceRecord);
@@ -664,7 +712,7 @@ const AdminInvoices: React.FC = () => {
     return () => {
       active = false;
     };
-  }, [contractMode, loadSnapshot, selectedMonth]);
+  }, [contractMode, effectiveContractModes, loadSnapshot, selectedMonth]);
 
   useEffect(() => {
     if (!invoice) {
@@ -706,6 +754,69 @@ const AdminInvoices: React.FC = () => {
     () => invoice?.entries.reduce((sum, entry) => sum + (Number(entry.deliveredCount) || 0), 0) ?? 0,
     [invoice]
   );
+
+  const deltaTotal = useMemo(() => totalDelivered - savedTotal, [savedTotal, totalDelivered]);
+
+  const exportableRows = useMemo(() => {
+    if (invoice && invoice.entries.length > 0) {
+      return invoice.entries;
+    }
+    return currentRows;
+  }, [currentRows, invoice]);
+
+  const hasExportableRows = exportableRows.length > 0;
+
+  const scopeDescription = useMemo(
+    () => (contractMode === "combined" ? "brief and production" : contractModeLabel.toLowerCase()),
+    [contractMode, contractModeLabel]
+  );
+
+  const selectionSummaryLabel = useMemo(() => {
+    if (selectedBrandDetails.length > 0) {
+      const count = selectedBrandDetails.length;
+      return `${count} selected brand${count === 1 ? "" : "s"}`;
+    }
+    if (contractEligibleBrands.size > 0) {
+      return `active ${scopeDescription} contracts`;
+    }
+    return "all brands";
+  }, [contractEligibleBrands, scopeDescription, selectedBrandDetails.length]);
+
+  const comparisonRows = useMemo(() => {
+    const map = new Map<
+      string,
+      {
+        current: number;
+        saved: number;
+      }
+    >();
+
+    currentRows.forEach((row) => {
+      const code = row.brandCode || UNKNOWN_BRAND_LABEL;
+      const delivered = Number(row.deliveredCount) || 0;
+      map.set(code, {
+        current: delivered,
+        saved: map.get(code)?.saved ?? 0,
+      });
+    });
+
+    (invoice?.entries ?? []).forEach((entry) => {
+      const code = entry.brandCode || UNKNOWN_BRAND_LABEL;
+      const delivered = Number(entry.deliveredCount) || 0;
+      const existing = map.get(code) ?? { current: 0, saved: 0 };
+      existing.saved = delivered;
+      map.set(code, existing);
+    });
+
+    return Array.from(map.entries())
+      .map(([brandCode, value]) => ({
+        brandCode,
+        current: value.current,
+        saved: value.saved,
+        delta: value.current - value.saved,
+      }))
+      .sort((a, b) => a.brandCode.localeCompare(b.brandCode));
+  }, [currentRows, invoice]);
 
   const reconciliationTotals = useMemo(() => {
     if (!reconciliationRows) return null;
@@ -782,7 +893,7 @@ const AdminInvoices: React.FC = () => {
         allowedBrandSet && allowedBrandSet.size > 0 ? new Set(allowedBrandSet) : null;
       const freshRows = await fetchDeliveredRows(
         selectedMonth,
-        contractMode,
+        effectiveContractModes,
         invoice?.entries || [],
         allowedForSave
       );
@@ -876,7 +987,7 @@ const AdminInvoices: React.FC = () => {
         allowedBrandSet && allowedBrandSet.size > 0 ? new Set(allowedBrandSet) : null;
       const freshRows = await fetchDeliveredRows(
         selectedMonth,
-        contractMode,
+        effectiveContractModes,
         baselineEntries,
         allowedForReconcile
       );
@@ -942,6 +1053,120 @@ const AdminInvoices: React.FC = () => {
     }
   };
 
+  const handleExport = () => {
+    if (!hasExportableRows) {
+      setError("Save or refresh the invoice before exporting.");
+      return;
+    }
+
+    setError(null);
+    setInfo(null);
+
+    const exportDate = new Date();
+    const monthLabel = formatMonthLabel(selectedMonth) || selectedMonth;
+    const scopeLabel =
+      contractMode === "combined" ? "Briefs & Production" : CONTRACT_LABELS[contractMode];
+    const filterMessage = selectedBrandDetails.length > 0
+      ? `Filtered brands: ${selectedBrandDetails.map((detail) => detail.displayLabel).join(", ")}`
+      : allowedBrandSet && allowedBrandSet.size > 0
+        ? `Active contract filter (${scopeLabel})`
+        : "All brands included";
+
+    const totalLabel = exportableRows
+      .reduce((sum, row) => sum + (Number(row.deliveredCount) || 0), 0)
+      .toLocaleString();
+
+    const rowsHtml = exportableRows
+      .map((row, index) => {
+        const delivered = Number(row.deliveredCount) || 0;
+        const brand = row.brandCode || UNKNOWN_BRAND_LABEL;
+        return `<tr>
+            <td>${index + 1}</td>
+            <td>${escapeHtml(brand)}</td>
+            <td style="text-align:right;">${delivered.toLocaleString()}</td>
+          </tr>`;
+      })
+      .join("");
+
+    const html = `<!doctype html>
+      <html>
+        <head>
+          <meta charset="utf-8" />
+          <title>Studio Tak Invoice — ${escapeHtml(monthLabel)}</title>
+          <style>
+            :root { color-scheme: light; }
+            * { box-sizing: border-box; }
+            body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; padding: 32px; margin: 0; color: #111827; background: #ffffff; }
+            h1 { font-size: 28px; margin: 0 0 4px 0; }
+            h2 { font-size: 16px; margin: 24px 0 12px; text-transform: uppercase; letter-spacing: 0.08em; color: #6b7280; }
+            .meta { margin: 4px 0; font-size: 14px; color: #4b5563; }
+            table { width: 100%; border-collapse: collapse; margin-top: 16px; }
+            th, td { padding: 12px; border-bottom: 1px solid #e5e7eb; text-align: left; font-size: 14px; }
+            th { text-transform: uppercase; font-size: 12px; letter-spacing: 0.06em; color: #6b7280; }
+            tfoot td { font-weight: 600; }
+            .total { text-align: right; }
+            footer { margin-top: 32px; font-size: 12px; color: #6b7280; }
+          </style>
+        </head>
+        <body>
+          <header>
+            <h1>Studio Tak Invoice</h1>
+            <p class="meta">Invoice month: ${escapeHtml(monthLabel)}</p>
+            <p class="meta">Exported: ${escapeHtml(exportDate.toLocaleString())}</p>
+            <p class="meta">Scope: ${escapeHtml(scopeLabel)}</p>
+            <p class="meta">${escapeHtml(filterMessage)}</p>
+          </header>
+          <h2>Delivered Ads</h2>
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 64px;">#</th>
+                <th>Brand</th>
+                <th style="text-align:right;">Delivered</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rowsHtml || '<tr><td colspan="3">No delivered ads recorded for this invoice.</td></tr>'}
+            </tbody>
+            <tfoot>
+              <tr>
+                <td></td>
+                <td>Total Delivered</td>
+                <td class="total">${totalLabel}</td>
+              </tr>
+            </tfoot>
+          </table>
+          <footer>
+            Generated from the Campfire admin tools · Studio Tak
+          </footer>
+        </body>
+      </html>`;
+
+    const exportWindow = window.open("", "_blank", "noopener,noreferrer");
+    if (!exportWindow) {
+      setError("Enable pop-ups to export the invoice.");
+      return;
+    }
+
+    exportWindow.document.write(html);
+    exportWindow.document.close();
+
+    try {
+      exportWindow.focus();
+      setTimeout(() => {
+        try {
+          exportWindow.print();
+        } catch (err) {
+          debugLog("Unable to trigger print dialog", err);
+        }
+      }, 300);
+    } catch (err) {
+      debugLog("Unable to focus export window", err);
+    }
+
+    setLastExportedAt(exportDate);
+  };
+
   const statusBadge = invoice ? (
     <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ${statusStyles[invoice.status]}`}>
       {invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)}
@@ -954,27 +1179,6 @@ const AdminInvoices: React.FC = () => {
 
   const disableMarkAsSent = !invoice || invoice.status === "sent" || invoice.status === "reconciled";
   const disableReconcile = !invoice || invoice.entries.length === 0 || currentRows.length === 0;
-
-  const renderTableRows = (rows: InvoiceEntry[]) => {
-    if (!rows || rows.length === 0) {
-      return (
-        <tr>
-          <td className="px-4 py-6 text-center text-sm text-gray-500 dark:text-gray-400" colSpan={2}>
-            No delivered ads found for {contractModeLabel.toLowerCase()} contracts this month.
-          </td>
-        </tr>
-      );
-    }
-
-    return rows.map((row) => (
-      <tr key={row.brandCode} className="even:bg-gray-50 dark:even:bg-[var(--dark-sidebar-hover)]">
-        <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-gray-100">{row.brandCode}</td>
-        <td className="px-4 py-3 text-right text-sm text-gray-700 dark:text-gray-300">
-          {Number(row.deliveredCount || 0).toLocaleString()}
-        </td>
-      </tr>
-    ));
-  };
 
   const renderReconciliationRows = (rows: InvoiceDeltaRow[]) => {
     if (!rows || rows.length === 0) {
@@ -1018,32 +1222,35 @@ const AdminInvoices: React.FC = () => {
       <div className="px-4 py-6">
         <div className="mx-auto max-w-6xl space-y-6">
           <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar)]">
-            <div className="flex flex-col gap-6">
+            <div className="flex flex-col gap-5">
               <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-                <div className="space-y-2">
-                  <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">Invoices</h1>
+                <div className="space-y-3">
+                  <div className="flex flex-wrap items-center gap-2 text-xs font-medium text-gray-600 dark:text-gray-300">
+                    {statusBadge}
+                    <span className="hidden md:inline-block text-gray-400 dark:text-gray-500">•</span>
+                    <span>
+                      {contractMode === "combined"
+                        ? "Brief & production contracts"
+                        : `${contractModeLabel} contracts`}
+                    </span>
+                  </div>
+                  <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
+                    Studio Tak Invoices
+                  </h1>
                   <p className="text-sm text-gray-600 dark:text-gray-300">
-                    Generate contract-specific invoice snapshots, add brands or agencies, and reconcile delivered counts.
+                    Prepare condensed, export-ready invoices across briefs and production partners.
                   </p>
-                  <div className="flex flex-wrap items-center gap-3 text-sm text-gray-600 dark:text-gray-300">
-                    <span className="flex items-center gap-2">
-                      <span className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Status</span>
-                      {statusBadge}
-                    </span>
-                    <span className="flex items-center gap-2">
-                      <span className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Contract</span>
-                      <span className="rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-700 dark:bg-[var(--dark-sidebar-hover)] dark:text-gray-200">
-                        {contractModeLabel}
-                      </span>
-                    </span>
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-600 dark:text-gray-300">
                     {invoice?.generatedAt && (
                       <span>
-                        Generated {formatTimestamp(invoice.generatedAt)} by {invoice.generatedBy || "Unknown"}
+                        Saved {formatTimestamp(invoice.generatedAt)}
+                        {invoice?.generatedBy ? ` by ${invoice.generatedBy}` : ""}
                       </span>
                     )}
                     {invoice?.sentAt && (
                       <span>
-                        · Sent {formatTimestamp(invoice.sentAt)}{invoice?.sentBy ? ` by ${invoice.sentBy}` : ""}
+                        · Sent {formatTimestamp(invoice.sentAt)}
+                        {invoice?.sentBy ? ` by ${invoice.sentBy}` : ""}
                       </span>
                     )}
                     {invoice?.reconciledAt && (
@@ -1053,60 +1260,55 @@ const AdminInvoices: React.FC = () => {
                       </span>
                     )}
                     {lastUpdated && <span>· Snapshot refreshed {lastUpdated.toLocaleString()}</span>}
+                    {lastExportedAt && <span>· Last export {lastExportedAt.toLocaleString()}</span>}
                   </div>
                 </div>
-                <div className="flex w-full flex-col gap-4 md:w-auto md:items-end">
-                  <div className="flex w-full flex-col gap-4 sm:flex-row sm:items-end md:justify-end">
-                    <FormField label="Invoice Month" className="w-full text-gray-700 dark:text-gray-200 sm:w-48">
-                      <MonthSelector
-                        value={selectedMonth}
-                        onChange={(value) => setSelectedMonth(value)}
-                        className="w-full"
-                        inputClassName="w-full text-sm"
-                      />
-                    </FormField>
-                    <FormField label="Contract Type" className="w-full text-gray-700 dark:text-gray-200 sm:w-48">
-                      <div className="flex gap-2">
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant={contractMode === "production" ? "accentPill" : "accentPillOutline"}
-                          onClick={() => setContractMode("production")}
-                        >
-                          Production
-                        </Button>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant={contractMode === "brief" ? "accentPill" : "accentPillOutline"}
-                          onClick={() => setContractMode("brief")}
-                        >
-                          Briefs
-                        </Button>
-                      </div>
-                    </FormField>
-                  </div>
-                  <div className="flex flex-wrap justify-end gap-2">
-                    <Button variant="accent" onClick={handleSave} disabled={saving}>
-                      {saving ? "Saving..." : "Save Snapshot"}
-                    </Button>
-                    <Button variant="neutral" onClick={handleMarkAsSent} disabled={disableMarkAsSent || marking}>
-                      {marking ? "Marking..." : "Mark as Sent"}
-                    </Button>
-                    <Button
-                      variant="accent"
-                      onClick={handleReconcile}
-                      disabled={disableReconcile || reconciling}
-                      className="!border-emerald-500 !bg-emerald-500 hover:!bg-emerald-600 focus-visible:!ring-emerald-500 disabled:!bg-emerald-400"
-                    >
-                      {reconciling ? "Reconciling..." : "Reconcile Invoice"}
-                    </Button>
-                  </div>
+                <div className="flex flex-wrap items-center gap-2 md:justify-end">
+                  <Button variant="accent" onClick={handleExport} disabled={!hasExportableRows}>
+                    Export Invoice
+                  </Button>
+                  <Button variant="accent" onClick={handleSave} disabled={saving}>
+                    {saving ? "Saving..." : "Save Snapshot"}
+                  </Button>
+                  <Button variant="neutral" onClick={handleMarkAsSent} disabled={disableMarkAsSent || marking}>
+                    {marking ? "Marking..." : "Mark as Sent"}
+                  </Button>
+                  <Button
+                    variant="accent"
+                    onClick={handleReconcile}
+                    disabled={disableReconcile || reconciling}
+                    className="!border-emerald-500 !bg-emerald-500 hover:!bg-emerald-600 focus-visible:!ring-emerald-500 disabled:!bg-emerald-400"
+                  >
+                    {reconciling ? "Reconciling..." : "Reconcile"}
+                  </Button>
                 </div>
               </div>
-
-              <div className="space-y-4">
-                <FormField label="Add brands or agencies" className="text-gray-700 dark:text-gray-200">
+              <div className="grid gap-4 md:grid-cols-3">
+                <FormField label="Invoice month" className="text-gray-700 dark:text-gray-200">
+                  <MonthSelector
+                    value={selectedMonth}
+                    onChange={(value) => setSelectedMonth(value)}
+                    className="w-full"
+                    inputClassName="w-full text-sm"
+                  />
+                </FormField>
+                <FormField label="Contract scope" className="text-gray-700 dark:text-gray-200">
+                  <select
+                    value={contractMode}
+                    onChange={(event: React.ChangeEvent<HTMLSelectElement>) => {
+                      setContractMode(event.target.value as ContractMode);
+                    }}
+                    className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-[var(--accent-color)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)]/20 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]"
+                  >
+                    <option value="combined">All contracts (briefs + production)</option>
+                    <option value="production">Production only</option>
+                    <option value="brief">Briefs only</option>
+                  </select>
+                </FormField>
+                <FormField
+                  label="Add brands or agencies"
+                  className="text-gray-700 dark:text-gray-200 md:col-span-3"
+                >
                   <select
                     value={selectionValue}
                     onChange={(event: React.ChangeEvent<HTMLSelectElement>) => {
@@ -1138,47 +1340,47 @@ const AdminInvoices: React.FC = () => {
                     )}
                   </select>
                 </FormField>
-                {directoryLoading && (
-                  <p className="text-sm text-gray-500 dark:text-gray-400">Loading agencies and brands...</p>
-                )}
-                <div className="flex flex-wrap gap-2">
-                  {selectedBrandDetails.length > 0 ? (
-                    selectedBrandDetails.map((detail) => (
-                      <span
-                        key={detail.code}
-                        className={`tag tag-pill ${
-                          detail.active
-                            ? "bg-[var(--accent-color-10)] text-[var(--accent-color)]"
-                            : "bg-amber-100 text-amber-700 dark:bg-amber-400/20 dark:text-amber-200"
-                        }`}
+              </div>
+              {directoryLoading && (
+                <p className="text-sm text-gray-500 dark:text-gray-400">Loading agencies and brands...</p>
+              )}
+              <div className="flex flex-wrap gap-2">
+                {selectedBrandDetails.length > 0 ? (
+                  selectedBrandDetails.map((detail) => (
+                    <span
+                      key={detail.code}
+                      className={`tag tag-pill ${
+                        detail.active
+                          ? "bg-[var(--accent-color-10)] text-[var(--accent-color)]"
+                          : "bg-amber-100 text-amber-700 dark:bg-amber-400/20 dark:text-amber-200"
+                      }`}
+                    >
+                      <span>{detail.displayLabel}</span>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveBrand(detail.code)}
+                        className="rounded-full p-1 text-xs text-current transition hover:bg-black/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-color)]/40"
+                        aria-label={`Remove ${detail.displayLabel}`}
                       >
-                        <span>{detail.displayLabel}</span>
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveBrand(detail.code)}
-                          className="rounded-full p-1 text-xs text-current transition hover:bg-black/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-color)]/40"
-                          aria-label={`Remove ${detail.displayLabel}`}
-                        >
-                          ×
-                        </button>
-                      </span>
-                    ))
-                  ) : (
-                    <span className="text-sm text-gray-500 dark:text-gray-400">
-                      {contractEligibleBrands.size > 0
-                        ? `All active ${contractModeLabel.toLowerCase()} contracts are included.`
-                        : "All brands are included."}
+                        ×
+                      </button>
                     </span>
-                  )}
-                </div>
-                {inactiveSelectedBrands.length > 0 && (
-                  <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700 dark:border-amber-400/50 dark:bg-amber-400/10 dark:text-amber-200">
-                    <p className="mb-0">
-                      No active {contractModeLabel.toLowerCase()} contracts this month for {inactiveSelectedBrands.join(", ")}.
-                    </p>
-                  </div>
+                  ))
+                ) : (
+                  <span className="text-sm text-gray-500 dark:text-gray-400">
+                    {contractEligibleBrands.size > 0
+                      ? `All active ${scopeDescription} contracts are included.`
+                      : "All brands are included."}
+                  </span>
                 )}
               </div>
+              {inactiveSelectedBrands.length > 0 && (
+                <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700 dark:border-amber-400/50 dark:bg-amber-400/10 dark:text-amber-200">
+                  <p className="mb-0">
+                    No active contracts this month for {inactiveSelectedBrands.join(", ")}.
+                  </p>
+                </div>
+              )}
             </div>
           </section>
 
@@ -1198,14 +1400,23 @@ const AdminInvoices: React.FC = () => {
             <header className="flex flex-wrap items-end justify-between gap-3">
               <div>
                 <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                  Current Delivered Counts — {formatMonthLabel(selectedMonth)} · {contractModeLabel}
+                  Delivered Ads — {formatMonthLabel(selectedMonth)}
                 </h2>
                 <p className="text-sm text-gray-600 dark:text-gray-300">
-                  Snapshot generated from delivered ad counts grouped by brand for this contract type.
+                  Snapshot for {scopeDescription} contracts covering {selectionSummaryLabel}.
                 </p>
               </div>
               <div className="text-right text-sm text-gray-600 dark:text-gray-300">
-                <div>Total delivered: {totalDelivered.toLocaleString()}</div>
+                <div>Current total: {totalDelivered.toLocaleString()}</div>
+                {invoice && (
+                  <>
+                    <div>Saved total: {savedTotal.toLocaleString()}</div>
+                    <div>
+                      Delta: {deltaTotal >= 0 ? "+" : ""}
+                      {deltaTotal.toLocaleString()}
+                    </div>
+                  </>
+                )}
               </div>
             </header>
             <div className="mt-4 overflow-hidden rounded-xl border border-gray-200 dark:border-[var(--border-color-default)]">
@@ -1222,57 +1433,71 @@ const AdminInvoices: React.FC = () => {
                       scope="col"
                       className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300"
                     >
-                      Delivered Ads
+                      Current Delivered
                     </th>
+                    {invoice && (
+                      <>
+                        <th
+                          scope="col"
+                          className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300"
+                        >
+                          Saved Snapshot
+                        </th>
+                        <th
+                          scope="col"
+                          className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300"
+                        >
+                          Delta
+                        </th>
+                      </>
+                    )}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200 dark:divide-[var(--border-color-default)]">
-                  {renderTableRows(currentRows)}
+                  {comparisonRows.length === 0 ? (
+                    <tr>
+                      <td
+                        className="px-4 py-6 text-center text-sm text-gray-500 dark:text-gray-400"
+                        colSpan={invoice ? 4 : 2}
+                      >
+                        No delivered ads found for this selection.
+                      </td>
+                    </tr>
+                  ) : (
+                    comparisonRows.map((row) => {
+                      const deltaClass =
+                        row.delta === 0
+                          ? "text-gray-500 dark:text-gray-300"
+                          : row.delta > 0
+                            ? "text-emerald-600 dark:text-emerald-300"
+                            : "text-rose-600 dark:text-rose-300";
+                      const sign = row.delta > 0 ? "+" : "";
+                      return (
+                        <tr key={row.brandCode} className="even:bg-gray-50 dark:even:bg-[var(--dark-sidebar-hover)]">
+                          <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-gray-100">
+                            {row.brandCode}
+                          </td>
+                          <td className="px-4 py-3 text-right text-sm text-gray-700 dark:text-gray-300">
+                            {row.current.toLocaleString()}
+                          </td>
+                          {invoice && (
+                            <>
+                              <td className="px-4 py-3 text-right text-sm text-gray-700 dark:text-gray-300">
+                                {row.saved.toLocaleString()}
+                              </td>
+                              <td className={`px-4 py-3 text-right text-sm font-medium ${deltaClass}`}>
+                                {`${sign}${row.delta.toLocaleString()}`}
+                              </td>
+                            </>
+                          )}
+                        </tr>
+                      );
+                    })
+                  )}
                 </tbody>
               </table>
             </div>
           </section>
-
-          {invoice && (
-            <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar)]">
-              <header className="flex flex-wrap items-end justify-between gap-3">
-                <div>
-                  <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                    Saved Snapshot — {formatMonthLabel(invoice.monthKey)} · {CONTRACT_LABELS[invoice.contractMode]}
-                  </h2>
-                  <p className="text-sm text-gray-600 dark:text-gray-300">
-                    Stored invoice data captured when the snapshot was last saved.
-                  </p>
-                </div>
-                <div className="text-right text-sm text-gray-600 dark:text-gray-300">
-                  <div>Total delivered: {savedTotal.toLocaleString()}</div>
-                </div>
-              </header>
-              <div className="mt-4 overflow-hidden rounded-xl border border-gray-200 dark:border-[var(--border-color-default)]">
-                <table className="min-w-full divide-y divide-gray-200 dark:divide-[var(--border-color-default)]">
-                  <thead className="bg-gray-50 dark:bg-[var(--dark-sidebar-hover)]">
-                    <tr>
-                      <th
-                        scope="col"
-                        className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300"
-                      >
-                        Brand Code
-                      </th>
-                      <th
-                        scope="col"
-                        className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300"
-                      >
-                        Delivered Ads
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-200 dark:divide-[var(--border-color-default)]">
-                    {renderTableRows(invoice.entries)}
-                  </tbody>
-                </table>
-              </div>
-            </section>
-          )}
 
           {reconciliationRows && (
             <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar)]">
