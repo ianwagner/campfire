@@ -8,6 +8,15 @@ import {
   FiColumns,
   FiArchive,
   FiCalendar,
+  FiSearch,
+  FiRefreshCw,
+  FiFilter,
+  FiLayers,
+  FiClock,
+  FiUsers,
+  FiEye,
+  FiCheckCircle,
+  FiBarChart2,
 } from 'react-icons/fi';
 import { doc, updateDoc } from 'firebase/firestore';
 import Table from './common/Table';
@@ -33,6 +42,22 @@ const statusOrder = {
 };
 
 const DEFAULT_VIEWS = ['cards', 'table', 'kanban', 'gantt'];
+
+const SummaryCard = ({ icon: Icon, label, value, accent = '' }) => (
+  <div
+    className={`flex items-center gap-3 border border-gray-200 dark:border-gray-700 bg-white dark:bg-slate-900 rounded-2xl px-3 py-3 shadow-sm ${accent}`.trim()}
+  >
+    {Icon && (
+      <div className="p-2 rounded-xl bg-[var(--accent-color-10)] text-[var(--accent-color-80)] dark:bg-[var(--accent-color-20)] dark:text-white">
+        <Icon className="w-5 h-5" />
+      </div>
+    )}
+    <div>
+      <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">{label}</p>
+      <p className="text-xl font-semibold text-gray-900 dark:text-gray-100">{value}</p>
+    </div>
+  </div>
+);
 
 const AdGroupListView = ({
   groups = [],
@@ -66,6 +91,20 @@ const AdGroupListView = ({
   const [sortField, setSortField] = useState('title');
   const [reviewVersions, setReviewVersions] = useState({});
   const [updatingReview, setUpdatingReview] = useState(null);
+  const hasDesignerFilter = view === 'kanban' && typeof onDesignerFilterChange === 'function';
+  const hasEditorFilter = view === 'kanban' && typeof onEditorFilterChange === 'function';
+  const hasMonthFilter = typeof onMonthFilterChange === 'function';
+  const hasReviewFilter = typeof onReviewFilterChange === 'function';
+  const hasFilterControls = Boolean(
+    hasDesignerFilter || hasEditorFilter || hasMonthFilter || hasReviewFilter
+  );
+  const hasActiveFilters = Boolean(
+    (filter && filter.trim()) ||
+      (hasDesignerFilter && designerFilter && designerFilter !== '') ||
+      (hasEditorFilter && editorFilter && editorFilter !== '') ||
+      (hasMonthFilter && monthFilter && monthFilter !== '') ||
+      (hasReviewFilter && reviewFilter && reviewFilter !== '')
+  );
 
   const handleReviewTypeChange = async (groupId, newValue, previousValue, hadOverride) => {
     const normalizedValue = normalizeReviewVersion(newValue);
@@ -166,77 +205,182 @@ const AdGroupListView = ({
       }
     });
 
+  const summaryMetrics = useMemo(() => {
+    const statusCounts = {
+      new: 0,
+      blocked: 0,
+      briefed: 0,
+      designed: 0,
+      reviewed: 0,
+      done: 0,
+    };
+
+    let dueSoon = 0;
+    let needsAssignee = 0;
+    const now = new Date();
+    const oneWeekMs = 1000 * 60 * 60 * 24 * 7;
+
+    displayGroups.forEach((group) => {
+      const status = computeKanbanStatus(group);
+      if (status && statusCounts[status] !== undefined) {
+        statusCounts[status] += 1;
+      }
+
+      const dueValue = group?.dueDate;
+      const dueDate =
+        dueValue && typeof dueValue.toDate === 'function'
+          ? dueValue.toDate()
+          : dueValue
+          ? new Date(dueValue)
+          : null;
+
+      if (dueDate) {
+        const diff = dueDate.getTime() - now.getTime();
+        if (diff >= 0 && diff <= oneWeekMs) {
+          dueSoon += 1;
+        }
+      }
+
+      if (!group?.designerId || !group?.editorId) {
+        needsAssignee += 1;
+      }
+    });
+
+    return {
+      total: displayGroups.length,
+      dueSoon,
+      needsAssignee,
+      statusCounts,
+    };
+  }, [displayGroups]);
+
+  const resetFilters = () => {
+    if (onFilterChange) onFilterChange('');
+    if (onDesignerFilterChange) onDesignerFilterChange('');
+    if (onEditorFilterChange) onEditorFilterChange('');
+    if (onMonthFilterChange) onMonthFilterChange('');
+    if (onReviewFilterChange) onReviewFilterChange('');
+  };
+
+  const summaryCards = useMemo(
+    () => [
+      {
+        key: 'total',
+        label: 'Total Groups',
+        value: summaryMetrics.total,
+        icon: FiLayers,
+      },
+      {
+        key: 'dueSoon',
+        label: 'Due In 7 Days',
+        value: summaryMetrics.dueSoon,
+        icon: FiClock,
+      },
+      {
+        key: 'needsAssignee',
+        label: 'Needs Assignments',
+        value: summaryMetrics.needsAssignee,
+        icon: FiUsers,
+      },
+      {
+        key: 'inReview',
+        label: 'In Review',
+        value: summaryMetrics.statusCounts.reviewed,
+        icon: FiEye,
+      },
+      {
+        key: 'completed',
+        label: 'Completed',
+        value: summaryMetrics.statusCounts.done,
+        icon: FiCheckCircle,
+      },
+    ],
+    [summaryMetrics]
+  );
+
   return (
     <div className="mb-8">
       <PageToolbar
         left={(
           <>
-            <input
-              type="text"
-              placeholder="Filter"
-              value={filter}
-              onChange={(e) => onFilterChange(e.target.value)}
-              className="p-1 border rounded"
-            />
-            {view === 'kanban' && onDesignerFilterChange && (
-              <select
-                value={designerFilter}
-                onChange={(e) => onDesignerFilterChange(e.target.value)}
-                className="p-1 border rounded"
-              >
-                <option value="">All designers</option>
-                {designers.map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {d.name}
-                  </option>
-                ))}
-              </select>
-            )}
-            {view === 'kanban' && onEditorFilterChange && (
-              <select
-                value={editorFilter}
-                onChange={(e) => onEditorFilterChange(e.target.value)}
-                className="p-1 border rounded"
-              >
-                <option value="">All editors</option>
-                {editors.map((e) => (
-                  <option key={e.id} value={e.id}>
-                    {e.name}
-                  </option>
-                ))}
-              </select>
-            )}
-            {onMonthFilterChange && (
-              <select
-                value={monthFilter}
-                onChange={(e) => onMonthFilterChange(e.target.value)}
-                className="p-1 border rounded"
-              >
-                <option value="">All months</option>
-                {months.map((m) => (
-                  <option key={m} value={m}>
-                    {m}
-                  </option>
-                ))}
-              </select>
-            )}
-            {onReviewFilterChange && (
-              <select
-                value={reviewFilter}
-                onChange={(e) => onReviewFilterChange(e.target.value)}
-                className="p-1 border rounded"
-                aria-label="Filter by review type"
-              >
-                <option value="">All review types</option>
-                <option value="2">Review 2.0</option>
-                <option value="3">Brief</option>
-                <option value="1">Legacy</option>
-              </select>
+            <div className="relative w-full sm:w-auto sm:min-w-[16rem]">
+              <FiSearch className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" aria-hidden="true" />
+              <input
+                type="text"
+                placeholder="Search ad groups"
+                value={filter}
+                onChange={(e) => onFilterChange(e.target.value)}
+                className="w-full pl-9 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-xl text-sm bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-[var(--accent-color-30)]"
+                aria-label="Search ad groups"
+              />
+            </div>
+            {hasFilterControls && (
+              <div className="flex flex-wrap items-center gap-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-slate-800 px-2 py-1.5">
+                <div className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                  <FiFilter className="w-3.5 h-3.5" aria-hidden="true" />
+                  <span>Filters</span>
+                </div>
+                {hasDesignerFilter && (
+                  <select
+                    value={designerFilter}
+                    onChange={(e) => onDesignerFilterChange(e.target.value)}
+                    className="p-1.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-slate-900 text-sm"
+                  >
+                    <option value="">All designers</option>
+                    {designers.map((d) => (
+                      <option key={d.id} value={d.id}>
+                        {d.name}
+                      </option>
+                    ))}
+                  </select>
+                )}
+                {hasEditorFilter && (
+                  <select
+                    value={editorFilter}
+                    onChange={(e) => onEditorFilterChange(e.target.value)}
+                    className="p-1.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-slate-900 text-sm"
+                  >
+                    <option value="">All editors</option>
+                    {editors.map((e) => (
+                      <option key={e.id} value={e.id}>
+                        {e.name}
+                      </option>
+                    ))}
+                  </select>
+                )}
+                {hasMonthFilter && (
+                  <select
+                    value={monthFilter}
+                    onChange={(e) => onMonthFilterChange(e.target.value)}
+                    className="p-1.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-slate-900 text-sm"
+                  >
+                    <option value="">All months</option>
+                    {months.map((m) => (
+                      <option key={m} value={m}>
+                        {m}
+                      </option>
+                    ))}
+                  </select>
+                )}
+                {hasReviewFilter && (
+                  <select
+                    value={reviewFilter}
+                    onChange={(e) => onReviewFilterChange(e.target.value)}
+                    className="p-1.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-slate-900 text-sm"
+                    aria-label="Filter by review type"
+                  >
+                    <option value="">All review types</option>
+                    <option value="2">Review 2.0</option>
+                    <option value="3">Brief</option>
+                    <option value="1">Legacy</option>
+                  </select>
+                )}
+              </div>
             )}
             <select
               value={sortField}
               onChange={(e) => setSortField(e.target.value)}
-              className="p-1 border rounded"
+              className="p-1.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-slate-900 text-sm"
               aria-label="Sort by"
             >
               <option value="title">Title</option>
@@ -253,6 +397,16 @@ const AdGroupListView = ({
               >
                 <FiArchive />
               </TabButton>
+            )}
+            {hasActiveFilters && (
+              <IconButton
+                onClick={resetFilters}
+                className="text-sm font-medium border border-transparent hover:border-[var(--accent-color-30)]"
+                aria-label="Reset filters"
+              >
+                <FiRefreshCw className="w-4 h-4" />
+                <span>Reset</span>
+              </IconButton>
             )}
             {availableViewButtons.length > 1 && (
               <>
@@ -277,6 +431,44 @@ const AdGroupListView = ({
           </>
         )}
       />
+      {!loading && summaryMetrics.total > 0 && (
+        <div className="mb-4 rounded-3xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-slate-900 p-4 shadow-sm">
+          <div className="flex items-center gap-2 text-sm font-semibold text-gray-600 dark:text-gray-300 mb-3 uppercase tracking-wide">
+            <FiBarChart2 className="w-4 h-4" aria-hidden="true" />
+            <span>Ad group health</span>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+            {summaryCards.map((card) => (
+              <SummaryCard key={card.key} icon={card.icon} label={card.label} value={card.value} />
+            ))}
+          </div>
+          <div className="mt-4">
+            <div className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-2 flex items-center gap-2">
+              <FiColumns className="w-4 h-4" aria-hidden="true" />
+              <span>Status breakdown</span>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {[{ label: 'New', key: 'new' },
+                { label: 'Blocked', key: 'blocked' },
+                { label: 'Briefed', key: 'briefed' },
+                { label: 'Designed', key: 'designed' },
+                { label: 'Reviewed', key: 'reviewed' },
+                { label: 'Done', key: 'done' },
+              ].map((status) => (
+                <div
+                  key={status.key}
+                  className="flex items-center gap-2 rounded-full border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-slate-800 px-3 py-1"
+                >
+                  <StatusBadge status={status.label} className="capitalize" />
+                  <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">
+                    {summaryMetrics.statusCounts[status.key] ?? 0}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
       {loading ? (
         <p>Loading groups...</p>
       ) : displayGroups.length === 0 ? (
