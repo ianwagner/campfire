@@ -29,6 +29,7 @@ import AdminDashboard from "./AdminDashboard";
 import AgencyDashboard from "./AgencyDashboard";
 import Request from "./Request";
 import BrandProfile from "./BrandProfile.jsx";
+import BrandDirectory from "./BrandDirectory.jsx";
 import AccountSettings from "./AccountSettings";
 import DesignerNotifications from "./DesignerNotifications";
 import DesignerAccountSettings from "./DesignerAccountSettings";
@@ -877,11 +878,11 @@ const App = () => {
               element={
                 user ? (
                   <RoleGuard
-                    requiredRole="client"
+                    requiredRole={["client", "editor", "manager", "project-manager", "ops", "admin"]}
                     userRole={role} isAdmin={isAdmin}
                     loading={roleLoading}
                   >
-                    <BrandProfile />
+                    <BrandDirectory />
                   </RoleGuard>
                 ) : (
                   <Navigate to="/login" replace />
