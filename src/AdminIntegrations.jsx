@@ -744,92 +744,29 @@ const AdminIntegrations = () => {
     }
   };
 
-  const buildTransformPreviewPayload = () => {
+  const buildTransformPreviewContext = () => {
     if (!sampleData) {
       return null;
     }
 
-    const review = sampleData.review;
-    const sources = [];
-
-    const pushSource = (value) => {
-      if (isPlainObject(value)) {
-        sources.push(value);
-      }
-    };
-
-    pushSource(review);
-    if (isPlainObject(review?.snapshot)) {
-      pushSource(review.snapshot);
-      pushSource(review.snapshot.review);
-      pushSource(review.snapshot.data);
+    const context = {};
+    if (isPlainObject(sampleData.review)) {
+      context.review = sampleData.review;
     }
-    if (isPlainObject(review?.reviewSnapshot)) {
-      pushSource(review.reviewSnapshot);
-      pushSource(review.reviewSnapshot.review);
-      pushSource(review.reviewSnapshot.data);
+    if (Array.isArray(sampleData.ads)) {
+      context.ads = sampleData.ads;
+    }
+    if (isPlainObject(sampleData.client)) {
+      context.client = sampleData.client;
+    }
+    if (isPlainObject(sampleData.recipeType)) {
+      context.recipeType = sampleData.recipeType;
+    }
+    if (Array.isArray(sampleData.recipeFieldKeys)) {
+      context.recipeFieldKeys = sampleData.recipeFieldKeys;
     }
 
-    const pickObject = (keys) => {
-      for (const source of sources) {
-        if (!isPlainObject(source)) continue;
-        for (const key of keys) {
-          if (!Object.prototype.hasOwnProperty.call(source, key)) {
-            continue;
-          }
-          const candidate = source[key];
-          if (isPlainObject(candidate)) {
-            return candidate;
-          }
-        }
-      }
-      return null;
-    };
-
-    const extractRecipesFromValue = (value) => {
-      if (Array.isArray(value)) {
-        return value.filter(isPlainObject);
-      }
-      if (isPlainObject(value) && Array.isArray(value.items)) {
-        return value.items.filter(isPlainObject);
-      }
-      return [];
-    };
-
-    const recipeKeys = ["recipes", "recipeList", "recipeSnapshots", "items", "values"];
-    let recipes = [];
-    for (const source of sources) {
-      if (!isPlainObject(source)) continue;
-      for (const key of recipeKeys) {
-        if (!Object.prototype.hasOwnProperty.call(source, key)) {
-          continue;
-        }
-        const extracted = extractRecipesFromValue(source[key]);
-        if (extracted.length) {
-          recipes = extracted;
-          break;
-        }
-      }
-      if (recipes.length) {
-        break;
-      }
-    }
-
-    if (!recipes.length && Array.isArray(review?.recipes)) {
-      recipes = review.recipes.filter(isPlainObject);
-    }
-
-    const ads = Array.isArray(sampleData.ads)
-      ? sampleData.ads.filter(isPlainObject)
-      : [];
-
-    return {
-      brand: pickObject(["brand", "brandSnapshot", "brandData", "brandInfo"]) ?? null,
-      adGroup:
-        pickObject(["adGroup", "group", "adgroup", "adGroupSnapshot", "groupSnapshot"]) ?? null,
-      recipes,
-      ads,
-    };
+    return context;
   };
 
   const runTransformPreview = async () => {
@@ -866,8 +803,8 @@ const AdminIntegrations = () => {
       return;
     }
 
-    const payload = buildTransformPreviewPayload();
-    if (!payload) {
+    const context = buildTransformPreviewContext();
+    if (!context) {
       setTransformPreviewRows(null);
       setTransformPreviewError("Load sample data before previewing the transform.");
       return;
@@ -881,7 +818,7 @@ const AdminIntegrations = () => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           spec: parsedSpec,
-          ...payload,
+          context,
         }),
       });
       if (!response.ok) {
