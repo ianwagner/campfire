@@ -24,6 +24,16 @@ import type {
   MappingEngine,
 } from "./types";
 import { getFirestore } from "../firebase/admin";
+import {
+  buildTransformInput,
+  isTransformSpecCandidate,
+} from "../transform/context";
+import {
+  TransformSpecError,
+  transformReview,
+  type TransformInput,
+  type TransformRow,
+} from "../transform/engine";
 
 export interface FirestoreRecord extends Record<string, unknown> {
   id: string;
@@ -50,6 +60,11 @@ export interface MappingContext {
   recipeFieldKeys: string[];
   generatedAt: string;
   data: Record<string, unknown>;
+  transform: {
+    spec: Record<string, unknown> | null;
+    rows: TransformRow[];
+    input: TransformInput;
+  };
 }
 
 export interface MappingResult {
@@ -1211,6 +1226,39 @@ export async function createMappingContext(
       })
     : ads;
 
+  const transformInput = buildTransformInput({
+    review: reviewData.review,
+    ads: enrichedAds,
+  });
+
+  const transformSpec =
+    integration.transformSpec &&
+    typeof integration.transformSpec === "object" &&
+    !Array.isArray(integration.transformSpec)
+      ? (integration.transformSpec as Record<string, unknown>)
+      : null;
+
+  let transformRows: TransformRow[] = [];
+  if (transformSpec) {
+    try {
+      transformRows = transformReview(transformSpec, transformInput);
+    } catch (error) {
+      if (error instanceof TransformSpecError) {
+        throw new IntegrationMappingError(
+          error.message,
+          "mapping/transform_invalid_spec",
+          { details: { spec: transformSpec } },
+        );
+      }
+      throw new IntegrationMappingError(
+        error instanceof Error
+          ? error.message
+          : "Failed to execute transform spec.",
+        "mapping/transform_execution_failed",
+      );
+    }
+  }
+
   const data = {
     integration,
     review: reviewData.review,
@@ -1223,6 +1271,10 @@ export async function createMappingContext(
     reviewId,
     dryRun,
     generatedAt,
+    transform: {
+      spec: transformSpec,
+      rows: transformRows,
+    },
   } satisfies Record<string, unknown>;
 
   return {
@@ -1237,6 +1289,11 @@ export async function createMappingContext(
     recipeFieldKeys,
     generatedAt,
     data,
+    transform: {
+      spec: transformSpec,
+      rows: transformRows,
+      input: transformInput,
+    },
   };
 }
 
@@ -1405,6 +1462,54 @@ function renderLiteral(
   return rendered as Record<string, unknown>;
 }
 
+function resolveTransformPayloadIfNeeded(
+  payload: Record<string, unknown>,
+  context: MappingContext,
+): Record<string, unknown> {
+  if (!isTransformSpecCandidate(payload)) {
+    return payload;
+  }
+
+  const input = context.transform?.input ??
+    buildTransformInput({ review: context.review, ads: context.ads });
+
+  try {
+    const rows = transformReview(payload, input);
+    context.transform = {
+      spec: payload,
+      rows,
+      input,
+    };
+
+    const currentTransform = isRecord(context.data.transform)
+      ? (context.data.transform as Record<string, unknown>)
+      : {};
+
+    context.data.transform = {
+      ...currentTransform,
+      spec: payload,
+      rows,
+    };
+
+    return { rows };
+  } catch (error) {
+    if (error instanceof TransformSpecError) {
+      throw new IntegrationMappingError(
+        error.message,
+        "mapping/transform_invalid_spec",
+        { details: { spec: payload } },
+      );
+    }
+
+    throw new IntegrationMappingError(
+      error instanceof Error
+        ? error.message
+        : "Failed to execute transform spec.",
+      "mapping/transform_execution_failed",
+    );
+  }
+}
+
 export async function renderPayload(
   integration: Integration,
   context: MappingContext
@@ -1506,7 +1611,8 @@ export async function executeMapping(
   context: MappingContext
 ): Promise<MappingResult> {
   const started = performance.now();
-  const payload = await renderPayload(context.integration, context);
+  const rendered = await renderPayload(context.integration, context);
+  const payload = resolveTransformPayloadIfNeeded(rendered, context);
   await validatePayloadAgainstSchema(context.integration, payload);
   const durationMs = performance.now() - started;
 
