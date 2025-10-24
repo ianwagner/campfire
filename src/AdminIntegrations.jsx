@@ -13,6 +13,7 @@ import {
   FiPlay,
   FiSend,
   FiSearch,
+  FiDownload,
 } from "react-icons/fi";
 import { db } from "./firebase/config";
 
@@ -106,6 +107,13 @@ function normalizeIntegration(docId, raw) {
       allowUndefined: Boolean(mapping.allowUndefined),
       delimiters: mapping.delimiters,
     },
+    transformSpec:
+      raw?.transformSpec === null
+        ? null
+        : raw?.transformSpec && typeof raw.transformSpec === "object" &&
+          !Array.isArray(raw.transformSpec)
+        ? raw.transformSpec
+        : undefined,
     schemaRef: raw?.schemaRef ?? "",
     recipeTypeId:
       typeof raw?.recipeTypeId === "string"
@@ -155,6 +163,7 @@ function createNewIntegration() {
       expression: "",
       allowUndefined: false,
     },
+    transformSpec: null,
     schemaRef: "",
     recipeTypeId: "",
     retryPolicy: { ...DEFAULT_RETRY_POLICY },
@@ -201,6 +210,10 @@ function pruneUndefined(value) {
   return value === undefined ? undefined : value;
 }
 
+function isPlainObject(value) {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
 function buildIntegrationPayload(form, headerRows) {
   const now = new Date().toISOString();
   const headers = rowsToHeaders(headerRows);
@@ -241,6 +254,12 @@ function buildIntegrationPayload(form, headerRows) {
           : undefined,
     },
     mapping: form.mapping,
+    transformSpec:
+      form.transformSpec === null
+        ? null
+        : form.transformSpec && typeof form.transformSpec === "object"
+        ? form.transformSpec
+        : undefined,
     schemaRef: form.schemaRef?.trim() ? form.schemaRef.trim() : null,
     recipeTypeId: recipeTypeId ? recipeTypeId : null,
     retryPolicy: {
@@ -311,6 +330,11 @@ const AdminIntegrations = () => {
   const [helpersError, setHelpersError] = useState(null);
   const [metadataInput, setMetadataInput] = useState("");
   const [metadataError, setMetadataError] = useState(null);
+  const [transformSpecInput, setTransformSpecInput] = useState("");
+  const [transformSpecError, setTransformSpecError] = useState(null);
+  const [transformPreviewRows, setTransformPreviewRows] = useState(null);
+  const [transformPreviewError, setTransformPreviewError] = useState(null);
+  const [transformPreviewLoading, setTransformPreviewLoading] = useState(false);
   const [scopesInput, setScopesInput] = useState("");
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState(null);
@@ -405,7 +429,26 @@ const AdminIntegrations = () => {
         : ""
     );
     setMetadataError(null);
+    if (
+      form.transformSpec &&
+      typeof form.transformSpec === "object" &&
+      !Array.isArray(form.transformSpec)
+    ) {
+      setTransformSpecInput(JSON.stringify(form.transformSpec, null, 2));
+    } else {
+      setTransformSpecInput("");
+    }
+    setTransformSpecError(null);
+    setTransformPreviewRows(null);
+    setTransformPreviewError(null);
+    setTransformPreviewLoading(false);
   }, [form?.id]);
+
+  useEffect(() => {
+    setTransformPreviewRows(null);
+    setTransformPreviewError(null);
+    setTransformPreviewLoading(false);
+  }, [sampleData]);
 
   const selectedIntegration = useMemo(() => {
     if (!selectedId) return null;
@@ -430,6 +473,11 @@ const AdminIntegrations = () => {
     setPartialsInput("");
     setHelpersInput("");
     setMetadataInput("");
+    setTransformSpecInput("");
+    setTransformSpecError(null);
+    setTransformPreviewRows(null);
+    setTransformPreviewError(null);
+    setTransformPreviewLoading(false);
     setScopesInput("");
     setTestResult(null);
     setTestError(null);
@@ -637,6 +685,240 @@ const AdminIntegrations = () => {
       );
     } catch (error) {
       setMetadataError(error instanceof Error ? error.message : String(error));
+      setForm((current) =>
+        current
+          ? {
+              ...current,
+              auth: { ...current.auth, metadata: undefined },
+            }
+          : current
+      );
+    }
+  };
+
+  const handleTransformSpecChange = (value) => {
+    setTransformSpecInput(value);
+    if (!form) {
+      return;
+    }
+    const trimmed = value.trim();
+    if (!trimmed) {
+      setTransformSpecError(null);
+      setForm((current) =>
+        current
+          ? {
+              ...current,
+              transformSpec: null,
+            }
+          : current
+      );
+      return;
+    }
+
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+        throw new Error("Transform spec must be a JSON object.");
+      }
+      setTransformSpecError(null);
+      setForm((current) =>
+        current
+          ? {
+              ...current,
+              transformSpec: parsed,
+            }
+          : current
+      );
+    } catch (error) {
+      setTransformSpecError(
+        error instanceof Error ? error.message : "Transform spec must be valid JSON."
+      );
+      setForm((current) =>
+        current
+          ? {
+              ...current,
+              transformSpec: undefined,
+            }
+          : current
+      );
+    }
+  };
+
+  const buildTransformPreviewPayload = () => {
+    if (!sampleData) {
+      return null;
+    }
+
+    const review = sampleData.review;
+    const sources = [];
+
+    const pushSource = (value) => {
+      if (isPlainObject(value)) {
+        sources.push(value);
+      }
+    };
+
+    pushSource(review);
+    if (isPlainObject(review?.snapshot)) {
+      pushSource(review.snapshot);
+      pushSource(review.snapshot.review);
+      pushSource(review.snapshot.data);
+    }
+    if (isPlainObject(review?.reviewSnapshot)) {
+      pushSource(review.reviewSnapshot);
+      pushSource(review.reviewSnapshot.review);
+      pushSource(review.reviewSnapshot.data);
+    }
+
+    const pickObject = (keys) => {
+      for (const source of sources) {
+        if (!isPlainObject(source)) continue;
+        for (const key of keys) {
+          if (!Object.prototype.hasOwnProperty.call(source, key)) {
+            continue;
+          }
+          const candidate = source[key];
+          if (isPlainObject(candidate)) {
+            return candidate;
+          }
+        }
+      }
+      return null;
+    };
+
+    const extractRecipesFromValue = (value) => {
+      if (Array.isArray(value)) {
+        return value.filter(isPlainObject);
+      }
+      if (isPlainObject(value) && Array.isArray(value.items)) {
+        return value.items.filter(isPlainObject);
+      }
+      return [];
+    };
+
+    const recipeKeys = ["recipes", "recipeList", "recipeSnapshots", "items", "values"];
+    let recipes = [];
+    for (const source of sources) {
+      if (!isPlainObject(source)) continue;
+      for (const key of recipeKeys) {
+        if (!Object.prototype.hasOwnProperty.call(source, key)) {
+          continue;
+        }
+        const extracted = extractRecipesFromValue(source[key]);
+        if (extracted.length) {
+          recipes = extracted;
+          break;
+        }
+      }
+      if (recipes.length) {
+        break;
+      }
+    }
+
+    if (!recipes.length && Array.isArray(review?.recipes)) {
+      recipes = review.recipes.filter(isPlainObject);
+    }
+
+    const ads = Array.isArray(sampleData.ads)
+      ? sampleData.ads.filter(isPlainObject)
+      : [];
+
+    return {
+      brand: pickObject(["brand", "brandSnapshot", "brandData", "brandInfo"]) ?? null,
+      adGroup:
+        pickObject(["adGroup", "group", "adgroup", "adGroupSnapshot", "groupSnapshot"]) ?? null,
+      recipes,
+      ads,
+    };
+  };
+
+  const runTransformPreview = async () => {
+    if (!form) {
+      return;
+    }
+
+    const specText = transformSpecInput.trim();
+    if (!specText) {
+      const message = "Transform spec cannot be empty.";
+      setTransformSpecError(message);
+      setTransformPreviewRows(null);
+      setTransformPreviewError("Add a transform spec before previewing.");
+      return;
+    }
+
+    if (transformSpecError) {
+      setTransformPreviewError("Resolve transform spec errors before previewing.");
+      return;
+    }
+
+    let parsedSpec;
+    try {
+      parsedSpec = JSON.parse(specText);
+      if (!parsedSpec || typeof parsedSpec !== "object" || Array.isArray(parsedSpec)) {
+        throw new Error("Transform spec must be a JSON object.");
+      }
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Transform spec must be valid JSON.";
+      setTransformSpecError(message);
+      setTransformPreviewRows(null);
+      setTransformPreviewError("Fix transform spec JSON before previewing.");
+      return;
+    }
+
+    const payload = buildTransformPreviewPayload();
+    if (!payload) {
+      setTransformPreviewRows(null);
+      setTransformPreviewError("Load sample data before previewing the transform.");
+      return;
+    }
+
+    setTransformPreviewLoading(true);
+    setTransformPreviewError(null);
+    try {
+      const response = await fetch("/api/integrations/transform-preview", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          spec: parsedSpec,
+          ...payload,
+        }),
+      });
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        throw new Error(error.error || `Transform preview failed (${response.status})`);
+      }
+      const data = await response.json();
+      setTransformPreviewRows(Array.isArray(data.rows) ? data.rows : []);
+      setTransformPreviewError(null);
+    } catch (error) {
+      setTransformPreviewRows(null);
+      setTransformPreviewError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setTransformPreviewLoading(false);
+    }
+  };
+
+  const handleDownloadTransform = () => {
+    if (transformPreviewRows == null) {
+      return;
+    }
+    try {
+      const blob = new Blob([
+        JSON.stringify(transformPreviewRows, null, 2),
+      ], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "transform-preview.json";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      setTransformPreviewError(
+        error instanceof Error ? error.message : "Failed to download transform preview."
+      );
     }
   };
 
@@ -737,6 +1019,10 @@ const AdminIntegrations = () => {
       setValidationError("Resolve JSON parsing errors before saving.");
       return;
     }
+    if (transformSpecError) {
+      setValidationError("Resolve transform spec JSON errors before saving.");
+      return;
+    }
     const payload = buildIntegrationPayload(form, headerRows);
     try {
       setSaving(true);
@@ -791,6 +1077,10 @@ const AdminIntegrations = () => {
     }
     if (partialsError || helpersError || metadataError) {
       setTestError("Resolve JSON parsing errors before testing.");
+      return;
+    }
+    if (transformSpecError) {
+      setTestError("Resolve transform spec JSON errors before testing.");
       return;
     }
     setTestError(null);
@@ -1104,6 +1394,48 @@ const AdminIntegrations = () => {
               </div>
             ) : (
               <div className="text-slate-500">Select or create an integration to begin.</div>
+            )}
+          </div>
+
+          <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6">
+            <h2 className="text-lg font-semibold text-slate-900 mb-2">Transform Spec</h2>
+            <p className="text-sm text-slate-500 mb-4">
+              Configure the partner-agnostic export schema. Each row is generated per recipe
+              using dotted paths, date helpers, and image selection.
+            </p>
+            {form ? (
+              <div>
+                <textarea
+                  value={transformSpecInput}
+                  onChange={(event) => handleTransformSpecChange(event.target.value)}
+                  className={`w-full rounded-md border px-3 py-2 focus:outline-none focus:ring ${
+                    transformSpecError
+                      ? "border-red-500 focus:border-red-500"
+                      : "border-slate-300 focus:border-blue-500"
+                  }`}
+                  rows={12}
+                  spellCheck={false}
+                  placeholder={`{
+  "rows": {
+    "source": "recipes",
+    "fields": {
+      "recipeCode": "recipe.recipeCode",
+      "goLiveDate": { "path": "recipe.goLive", "format": "date" },
+      "portraitUrl": { "image": "9x16" }
+    }
+  }
+}`}
+                />
+                {transformSpecError && (
+                  <p className="mt-2 text-xs text-red-600">{transformSpecError}</p>
+                )}
+                <p className="mt-2 text-xs text-slate-500">
+                  Preview results from the live review payload in the Preview &amp; Test section
+                  below.
+                </p>
+              </div>
+            ) : (
+              <div className="text-slate-500">Select an integration to edit the transform spec.</div>
             )}
           </div>
 
@@ -1658,6 +1990,57 @@ const AdminIntegrations = () => {
               </div>
             </div>
             {testError && <p className="text-sm text-red-600 mb-3">{testError}</p>}
+            <div className="mt-4 border-t border-slate-200 pt-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h3 className="text-sm font-semibold text-slate-700">Transform &amp; Preview</h3>
+                  <p className="text-xs text-slate-500">
+                    Generate partner-agnostic rows from the loaded review snapshot.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={runTransformPreview}
+                  disabled={transformPreviewLoading || !form || !sampleData}
+                  className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium text-white ${
+                    transformPreviewLoading
+                      ? "bg-indigo-400 cursor-not-allowed"
+                      : "bg-indigo-600 hover:bg-indigo-700"
+                  }`}
+                >
+                  <FiSearch className="h-4 w-4" />
+                  {transformPreviewLoading ? "Generating..." : "Preview Transform"}
+                </button>
+              </div>
+              {!sampleData && !sampleLoading && (
+                <p className="mt-2 text-xs text-slate-500">
+                  Load sample data to enable the transform preview.
+                </p>
+              )}
+              {transformPreviewError && (
+                <p className="mt-2 text-xs text-red-600">{transformPreviewError}</p>
+              )}
+              {transformPreviewRows !== null && (
+                <div className="mt-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <h4 className="text-xs font-semibold text-slate-600 uppercase tracking-wide">
+                      Preview Rows
+                    </h4>
+                    <button
+                      type="button"
+                      onClick={handleDownloadTransform}
+                      className="inline-flex items-center gap-2 px-2.5 py-1 text-xs font-medium rounded-md border border-slate-300 text-slate-700 hover:bg-slate-100"
+                    >
+                      <FiDownload className="h-3.5 w-3.5" />
+                      Download JSON
+                    </button>
+                  </div>
+                  <pre className="bg-slate-100 rounded-md p-3 text-xs overflow-x-auto whitespace-pre-wrap">
+                    {formatJson(transformPreviewRows, "[]")}
+                  </pre>
+                </div>
+              )}
+            </div>
             {testResult ? (
               <div className="grid gap-4 lg:grid-cols-2">
                 <div>

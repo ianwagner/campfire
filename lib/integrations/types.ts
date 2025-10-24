@@ -130,6 +130,8 @@ export interface Integration {
   auth: AuthConfig;
   /** Export payload mapping metadata. */
   mapping: MappingEngine;
+  /** Optional transform spec used for partner-agnostic exports. */
+  transformSpec?: Record<string, unknown> | null;
   /** Optional JSON Schema reference used to validate rendered payloads. */
   schemaRef?: string | null;
   /** Recipe type that provides the source fields for this integration. */
