@@ -3690,15 +3690,16 @@ useEffect(() => {
       (pendingResponseContext && pendingResponseContext.existingComment) || '';
     const trimmedInputComment = comment.trim();
     const trimmedReplacementNotes = (replacementNotes || '').trim();
+    const reviewerDisplayName =
+      reviewerName ||
+      user?.displayName ||
+      user?.email ||
+      user?.uid ||
+      'unknown';
     const formatComment = (note) => {
       const trimmed = (note || '').trim();
       if (!trimmed) return '';
-      const name =
-        reviewerName ||
-        user?.displayName ||
-        user?.email ||
-        user?.uid ||
-        'unknown';
+      const name = reviewerDisplayName;
       const formatter = new Intl.DateTimeFormat(undefined, {
         dateStyle: 'medium',
         timeStyle: 'short',
@@ -3726,6 +3727,33 @@ useEffect(() => {
         const url = asset.adUrl || asset.firebaseUrl;
         const copyChanged =
           responseType === 'edit' && editCopy.trim() !== origCopy.trim();
+        const buildUpdatedAsset = (existing) => {
+          const updatedAsset = {
+            ...existing,
+            status: newStatus,
+            comment: responseType === 'edit' ? finalComment : '',
+            copyEdit: copyChanged ? editCopy : '',
+            ...(responseType === 'approve'
+              ? { isResolved: true }
+              : responseType === 'edit'
+              ? { isResolved: false }
+              : {}),
+          };
+          if (responseType === 'reject') {
+            if (trimmedReplacementNotes) {
+              updatedAsset.replacementRequest = {
+                note: trimmedReplacementNotes,
+                requestedBy: reviewerDisplayName,
+                requestedAt: new Date().toISOString(),
+              };
+            } else {
+              delete updatedAsset.replacementRequest;
+            }
+          } else {
+            delete updatedAsset.replacementRequest;
+          }
+          return updatedAsset;
+        };
         const respObj = {
           adUrl: url,
           response: responseType,
@@ -3748,26 +3776,37 @@ useEffect(() => {
           );
         }
         const assetDocId = getAssetDocumentId(asset);
-        if (assetDocId && asset.adGroupId) {
-          const assetRef = doc(
-            db,
-            'adGroups',
-            asset.adGroupId,
-            'assets',
-            assetDocId,
-          );
-          const updateData = {
-            status: newStatus,
-            comment: finalComment,
-            copyEdit: copyChanged ? editCopy : '',
-            lastUpdatedBy: user.uid,
-            lastUpdatedAt: serverTimestamp(),
-            ...(responseType === 'approve' ? { isResolved: true } : {}),
-            ...(responseType === 'edit' ? { isResolved: false } : {}),
-          };
-          updates.push(updateDoc(assetRef, updateData));
+          if (assetDocId && asset.adGroupId) {
+            const assetRef = doc(
+              db,
+              'adGroups',
+              asset.adGroupId,
+              'assets',
+              assetDocId,
+            );
+            const updateData = {
+              status: newStatus,
+              comment: finalComment,
+              copyEdit: copyChanged ? editCopy : '',
+              lastUpdatedBy: user.uid,
+              lastUpdatedAt: serverTimestamp(),
+              ...(responseType === 'approve' ? { isResolved: true } : {}),
+              ...(responseType === 'edit' ? { isResolved: false } : {}),
+              ...(responseType === 'reject'
+                ? trimmedReplacementNotes
+                  ? {
+                      replacementRequest: {
+                        note: trimmedReplacementNotes,
+                        requestedBy: reviewerDisplayName,
+                        requestedAt: serverTimestamp(),
+                      },
+                    }
+                  : { replacementRequest: deleteField() }
+                : { replacementRequest: deleteField() }),
+            };
+            updates.push(updateDoc(assetRef, updateData));
 
-          const name = reviewerName || user.displayName || user.uid || 'unknown';
+          const name = reviewerDisplayName;
           updates.push(
             addDoc(
               collection(
@@ -3802,17 +3841,7 @@ useEffect(() => {
           setAds((prev) => {
             const updated = prev.map((a) =>
               assetsReferToSameDoc(a, asset)
-                ? {
-                    ...a,
-                    status: newStatus,
-                    comment: responseType === 'edit' ? finalComment : '',
-                    copyEdit: copyChanged ? editCopy : '',
-                    ...(responseType === 'approve'
-                      ? { isResolved: true }
-                      : responseType === 'edit'
-                      ? { isResolved: false }
-                      : {}),
-                  }
+                ? buildUpdatedAsset(a)
                 : a,
             );
             updatedAdsState = updated;
@@ -3821,34 +3850,14 @@ useEffect(() => {
           setReviewAds((prev) =>
             prev.map((a) =>
               assetsReferToSameDoc(a, asset)
-                ? {
-                    ...a,
-                    status: newStatus,
-                    comment: responseType === 'edit' ? finalComment : '',
-                    copyEdit: copyChanged ? editCopy : '',
-                    ...(responseType === 'approve'
-                      ? { isResolved: true }
-                      : responseType === 'edit'
-                      ? { isResolved: false }
-                      : {}),
-                  }
+                ? buildUpdatedAsset(a)
                 : a,
             ),
           );
           setAllAds((prev) =>
             prev.map((a) =>
               assetsReferToSameDoc(a, asset)
-                ? {
-                    ...a,
-                    status: newStatus,
-                    comment: responseType === 'edit' ? finalComment : '',
-                    copyEdit: copyChanged ? editCopy : '',
-                    ...(responseType === 'approve'
-                      ? { isResolved: true }
-                      : responseType === 'edit'
-                      ? { isResolved: false }
-                      : {}),
-                  }
+                ? buildUpdatedAsset(a)
                 : a,
             ),
           );
@@ -5410,11 +5419,8 @@ useEffect(() => {
                           ...prev[cardKey],
                           showPrompt: true,
                           collapsed: false,
-                          response:
-                            prev[cardKey]?.response === 'yes'
-                              ? 'yes'
-                              : null,
-                          note: prev[cardKey]?.note || '',
+                          response: replacementResponse,
+                          note: replacementNote,
                           error: '',
                           submitting: false,
                         },
@@ -5465,14 +5471,37 @@ useEffect(() => {
                   };
 
                   const replacementState = replacementPrompts[cardKey] || {};
+                  const existingReplacementRequest = ad?.replacementRequest || null;
                   const isRejectedStatus = statusValue === 'reject';
+                  const hasStoredResponse = Object.prototype.hasOwnProperty.call(
+                    replacementState,
+                    'response',
+                  );
+                  let replacementResponse = null;
+                  if (isRejectedStatus) {
+                    if (hasStoredResponse) {
+                      replacementResponse = replacementState.response;
+                    } else if (existingReplacementRequest?.note) {
+                      replacementResponse = 'yes';
+                    }
+                  }
+                  const hasStoredNote = Object.prototype.hasOwnProperty.call(
+                    replacementState,
+                    'note',
+                  );
+                  const replacementNote = hasStoredNote
+                    ? replacementState.note
+                    : existingReplacementRequest?.note || '';
+                  const hasStoredCollapsed =
+                    Object.prototype.hasOwnProperty.call(
+                      replacementState,
+                      'collapsed',
+                    );
                   const replacementCollapsed =
-                    isRejectedStatus && !!replacementState.collapsed;
+                    isRejectedStatus &&
+                    (hasStoredCollapsed ? !!replacementState.collapsed : true);
                   const showReplacementPrompt =
                     isRejectedStatus && !!replacementState.showPrompt;
-                  const replacementResponse =
-                    isRejectedStatus ? replacementState.response || null : null;
-                  const replacementNote = replacementState.note || '';
                   const replacementError = replacementState.error || '';
                   const isReplacementBusy =
                     !!replacementState.submitting || submitting;
@@ -5488,6 +5517,7 @@ useEffect(() => {
                       [cardKey]: {
                         ...prev[cardKey],
                         response: 'yes',
+                        note: replacementNote,
                         error: '',
                         submitting: false,
                       },
@@ -5513,14 +5543,26 @@ useEffect(() => {
                       [cardKey]: {
                         ...prev[cardKey],
                         note: nextValue,
+                        error: '',
                       },
                     }));
                   };
 
                   const handleReplacementDecision = async (decision) => {
                     if (isReplacementBusy) return;
-                    const noteToSend =
-                      decision === 'yes' ? (replacementNote || '').trim() : '';
+                    const trimmedNote = (replacementNote || '').trim();
+                    if (decision === 'yes' && !trimmedNote) {
+                      setReplacementPrompts((prev) => ({
+                        ...prev,
+                        [cardKey]: {
+                          ...prev[cardKey],
+                          error:
+                            'Please share replacement direction before sending.',
+                        },
+                      }));
+                      return;
+                    }
+                    const noteToSend = decision === 'yes' ? trimmedNote : '';
                     setReplacementPrompts((prev) => ({
                       ...prev,
                       [cardKey]: {
@@ -5549,7 +5591,7 @@ useEffect(() => {
                           showPrompt: false,
                           submitting: false,
                           response: decision === 'yes' ? 'yes' : 'no',
-                          collapsed: decision === 'no',
+                          collapsed: true,
                           note: noteToSend,
                           error: '',
                         },
@@ -5603,8 +5645,12 @@ useEffect(() => {
                         : 'Request a replacement?';
                     const description =
                       replacementResponse === 'yes'
-                        ? 'Let us know what you would like to see in the next version. This is optional.'
-                        : 'Would you like us to replace this ad with a new concept?';
+                        ? 'Let us know what you would like to see in the next version.'
+                        : 'Would you like us to replace this ad with a new ad?';
+                    const canSubmitReplacement =
+                      replacementResponse === 'yes'
+                        ? (replacementNote || '').trim().length > 0
+                        : true;
                     return (
                       <div className="absolute inset-0 z-20 flex items-center justify-center bg-white/95 px-4 py-6 backdrop-blur-sm dark:bg-[rgba(15,23,42,0.95)]">
                         <div className="w-full max-w-md rounded-2xl border border-gray-200 bg-white p-5 shadow-lg dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)]">
@@ -5616,7 +5662,7 @@ useEffect(() => {
                                 className="mt-4 block text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-300"
                                 htmlFor={`${cardKey}-replacement-note`}
                               >
-                                Replacement direction (optional)
+                                Replacement direction
                               </label>
                               <textarea
                                 id={`${cardKey}-replacement-note`}
@@ -5649,7 +5695,7 @@ useEffect(() => {
                                   size="sm"
                                   type="button"
                                   onClick={() => handleReplacementDecision('yes')}
-                                  disabled={isReplacementBusy}
+                                  disabled={isReplacementBusy || !canSubmitReplacement}
                                 >
                                   {isReplacementBusy ? 'Sending…' : 'Send request'}
                                 </Button>
@@ -5731,7 +5777,7 @@ useEffect(() => {
                               <span className="font-medium">{statusLabel}</span>
                             </div>
                             <p className="text-sm text-gray-600 dark:text-gray-300">
-                              This ad is hidden after being rejected. You can bring it back anytime.
+                              This ad is hidden after being rejected. Use the actions below to bring it back or request a replacement.
                             </p>
                             <div className="flex flex-wrap gap-2">
                               <Button
@@ -6065,7 +6111,7 @@ useEffect(() => {
                             </div>
                           </div>
                           <p className="text-sm text-gray-600 dark:text-gray-300">
-                            This ad is hidden after being rejected. Use the actions below to bring it back or request a replacement concept.
+                            This ad is hidden after being rejected. Use the actions below to bring it back or request a replacement.
                           </p>
                         </div>
                         <div className="flex flex-wrap gap-2 border-t border-gray-200 px-4 pb-4 pt-3 dark:border-[var(--border-color-default)]">
