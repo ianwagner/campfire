@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { FiAlertCircle, FiClock, FiShare2, FiBarChart2, FiTable } from 'react-icons/fi';
+import { FiAlertCircle, FiClock, FiBarChart2, FiTable } from 'react-icons/fi';
 import {
   collection,
   getDocs,
@@ -209,6 +209,20 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
     }
     return monthDisplay ? `${monthDisplay} · ${viewLabel}` : viewLabel;
   }, [activeTab, monthDisplay, rangeLabel, viewLabel]);
+
+  const adGroupListPath = useMemo(() => {
+    switch (role) {
+      case 'project-manager':
+      case 'ops':
+        return '/pm/ad-groups';
+      case 'agency':
+        return '/agency/ad-groups';
+      case 'client':
+        return '/ad-groups';
+      default:
+        return '/admin/ad-groups';
+    }
+  }, [role]);
 
   const relevantNoteKeys = useMemo(() => {
     const unique = new Set();
@@ -1126,7 +1140,7 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <h1 className="text-3xl font-semibold text-gray-900 dark:text-gray-100">
-                {requireFilters ? 'Shared dashboard' : 'Admin dashboard'}
+                {requireFilters ? 'Dashboard' : 'Admin dashboard'}
               </h1>
               {headerSubtitle && (
                 <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">{headerSubtitle}</p>
@@ -1199,8 +1213,9 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
                   </ToggleButton>
                 </div>
               </div>
-              </div>
             </div>
+          </div>
+
           <div className="mt-4 flex flex-wrap items-center gap-2">
             <TabButton
               type="button"
@@ -1229,17 +1244,6 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
               <span>Range trends</span>
             </TabButton>
           </div>
-          {requireFilters && (
-            <div className="mt-4 inline-flex items-start gap-3 rounded-xl border border-[var(--accent-color)]/40 bg-[var(--accent-color-10)]/80 px-4 py-3 text-sm text-[var(--accent-color)] dark:border-[var(--accent-color)]/30 dark:bg-[var(--accent-color-10)]/20 dark:text-[var(--accent-color)]">
-              <FiShare2 className="mt-1 h-5 w-5 shrink-0 text-[var(--accent-color)]" aria-hidden="true" />
-              <div>
-                <p className="font-medium">Shared dashboard view</p>
-                <p className="text-xs text-[var(--accent-color)] opacity-80 dark:text-[var(--accent-color)] dark:opacity-70">
-                  This dashboard is filtered to the brands assigned to your team.
-                </p>
-              </div>
-            </div>
-          )}
         </div>
 
         {activeTab === 'brands' ? (
@@ -1368,7 +1372,7 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
                         <td data-label="Brand" className="align-middle">
                           {r.code ? (
                             <Link
-                              to={`/admin/ad-groups?brandCode=${encodeURIComponent(r.code)}`}
+                              to={`${adGroupListPath}?brandCode=${encodeURIComponent(r.code)}`}
                               className="inline-flex flex-wrap items-center gap-2 font-semibold text-gray-900 transition hover:text-[var(--accent-color)] dark:text-gray-100 dark:hover:text-[var(--accent-color)]"
                             >
                               <span>{r.name || r.code}</span>
