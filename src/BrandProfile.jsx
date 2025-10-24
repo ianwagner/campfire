@@ -1,6 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
-import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
+import { useParams, Link, useNavigate } from 'react-router-dom';
+import {
+  doc,
+  getDoc,
+  collection,
+  query,
+  where,
+  getDocs,
+  updateDoc,
+  deleteDoc,
+  serverTimestamp,
+} from 'firebase/firestore';
 import { auth, db } from './firebase/config';
 import useUserRole from './useUserRole';
 import BrandSetup from './BrandSetup';
@@ -21,6 +31,7 @@ import {
   FiFlag,
   FiBookOpen,
   FiMessageSquare,
+  FiUser,
 } from 'react-icons/fi';
 import BrandTone from './BrandTone.jsx';
 import BrandContracts from './BrandContracts.jsx';
@@ -28,16 +39,25 @@ import BrandAIArtStyle from './BrandAIArtStyle.jsx';
 import BrandNotes from './BrandNotes.jsx';
 import BrandFeedback from './BrandFeedback.jsx';
 
-const BrandProfile = ({ brandId: propId = null, backPath = '/brand-profile' }) => {
+const BrandProfile = ({ brandId: propId = null, backPath }) => {
   const { id } = useParams();
+  const navigate = useNavigate();
   const brandId = propId || id || null;
   const user = auth.currentUser;
-  const { brandCodes } = useUserRole(user?.uid);
+  const { role, brandCodes } = useUserRole(user?.uid);
   const [brandCode, setBrandCode] = useState('');
   const [brandName, setBrandName] = useState('');
   const [tab, setTab] = useState('setup');
   const [brands, setBrands] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [brand, setBrand] = useState(null);
+  const [actionMessage, setActionMessage] = useState('');
+  const [actionError, setActionError] = useState('');
+  const [actionBusy, setActionBusy] = useState(false);
+
+  const isAdmin = role === 'admin';
+  const adminDirectoryRole = ['admin', 'manager', 'project-manager'].includes(role);
+  const resolvedBackPath = backPath || (adminDirectoryRole ? '/admin/brands' : '/brand-profile');
 
   useEffect(() => {
     const load = async () => {
@@ -46,11 +66,19 @@ const BrandProfile = ({ brandId: propId = null, backPath = '/brand-profile' }) =
           const snap = await getDoc(doc(db, 'brands', brandId));
           if (snap.exists()) {
             const data = snap.data();
+            setBrand({ id: snap.id, ...data });
             setBrandCode(data.code || '');
             setBrandName(data.name || '');
+          } else {
+            setBrand(null);
+            setBrandCode('');
+            setBrandName('');
           }
         } catch (err) {
           console.error('Failed to load brand', err);
+          setBrand(null);
+          setBrandCode('');
+          setBrandName('');
         }
       } else if (brandCodes.length === 1) {
         const code = brandCodes[0];
@@ -59,12 +87,16 @@ const BrandProfile = ({ brandId: propId = null, backPath = '/brand-profile' }) =
           const q = query(collection(db, 'brands'), where('code', '==', code));
           const snap = await getDocs(q);
           if (!snap.empty) {
-            setBrandName(snap.docs[0].data().name || code);
+            const data = snap.docs[0].data();
+            setBrand({ id: snap.docs[0].id, ...data });
+            setBrandName(data.name || code);
           } else {
+            setBrand(null);
             setBrandName(code);
           }
         } catch (err) {
           console.error('Failed to load brand by code', err);
+          setBrand(null);
           setBrandName(code);
         }
       } else if (brandCodes.length > 1) {
@@ -92,6 +124,89 @@ const BrandProfile = ({ brandId: propId = null, backPath = '/brand-profile' }) =
     };
     load();
   }, [brandId, brandCodes]);
+
+  useEffect(() => {
+    setActionMessage('');
+    setActionError('');
+  }, [tab, brandId]);
+
+  const handleArchive = async () => {
+    if (!brandId) return;
+    setActionBusy(true);
+    setActionMessage('');
+    setActionError('');
+    try {
+      await updateDoc(doc(db, 'brands', brandId), {
+        archived: true,
+        archivedAt: serverTimestamp(),
+        archivedBy: user?.uid || null,
+      });
+      setBrand((prev) =>
+        prev
+          ? {
+              ...prev,
+              archived: true,
+              archivedAt: new Date(),
+              archivedBy: user?.uid || null,
+            }
+          : prev
+      );
+      setActionMessage('Brand archived.');
+    } catch (err) {
+      console.error('Failed to archive brand', err);
+      setActionError('Failed to archive brand.');
+    } finally {
+      setActionBusy(false);
+    }
+  };
+
+  const handleRestore = async () => {
+    if (!brandId) return;
+    setActionBusy(true);
+    setActionMessage('');
+    setActionError('');
+    try {
+      await updateDoc(doc(db, 'brands', brandId), {
+        archived: false,
+        archivedAt: null,
+        archivedBy: null,
+      });
+      setBrand((prev) =>
+        prev
+          ? {
+              ...prev,
+              archived: false,
+              archivedAt: null,
+              archivedBy: null,
+            }
+          : prev
+      );
+      setActionMessage('Brand restored.');
+    } catch (err) {
+      console.error('Failed to restore brand', err);
+      setActionError('Failed to restore brand.');
+    } finally {
+      setActionBusy(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!brandId) return;
+    if (!window.confirm('Delete this brand? This cannot be undone.')) return;
+    setActionBusy(true);
+    setActionMessage('');
+    setActionError('');
+    try {
+      await deleteDoc(doc(db, 'brands', brandId));
+      setActionMessage('Brand deleted.');
+      navigate(resolvedBackPath);
+    } catch (err) {
+      console.error('Failed to delete brand', err);
+      setActionError('Failed to delete brand.');
+    } finally {
+      setActionBusy(false);
+    }
+  };
   if (!brandId && brandCodes.length > 1) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-[var(--dark-bg)]">
@@ -142,7 +257,7 @@ const BrandProfile = ({ brandId: propId = null, backPath = '/brand-profile' }) =
         <div className="mx-auto flex max-w-6xl flex-col gap-4">
           <div className="flex items-center">
             {id && (
-              <Link to={backPath} className="btn-arrow mr-2" aria-label="Back">
+              <Link to={resolvedBackPath} className="btn-arrow mr-2" aria-label="Back">
                 &lt;
               </Link>
             )}
@@ -179,6 +294,11 @@ const BrandProfile = ({ brandId: propId = null, backPath = '/brand-profile' }) =
             <TabButton active={tab === 'contracts'} onClick={() => setTab('contracts')}>
               <FiFileText /> <span>Contracts</span>
             </TabButton>
+            {isAdmin && brandId && (
+              <TabButton active={tab === 'account'} onClick={() => setTab('account')}>
+                <FiUser /> <span>Account</span>
+              </TabButton>
+            )}
           </div>
           <div className="pb-6">
             {tab === 'setup' && <BrandSetup brandId={brandId} />}
@@ -194,6 +314,80 @@ const BrandProfile = ({ brandId: propId = null, backPath = '/brand-profile' }) =
             {tab === 'notes' && <BrandNotes brandId={brandId} />}
             {tab === 'contracts' && (
               <BrandContracts brandId={brandId} brandCode={brandCode} />
+            )}
+            {tab === 'account' && isAdmin && brandId && (
+              <div className="space-y-6 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar)]">
+                <div>
+                  <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Brand account</h2>
+                  <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">
+                    Archive the brand to hide it from most listings, restore it to reactivate, or permanently delete it.
+                  </p>
+                </div>
+                {actionMessage && (
+                  <div className="rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700 dark:border-green-900/40 dark:bg-green-900/20 dark:text-green-200">
+                    {actionMessage}
+                  </div>
+                )}
+                {actionError && (
+                  <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-900/20 dark:text-red-200">
+                    {actionError}
+                  </div>
+                )}
+                <dl className="grid gap-4 sm:grid-cols-2">
+                  <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 text-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-bg)]">
+                    <dt className="font-medium text-gray-700 dark:text-gray-200">Status</dt>
+                    <dd className="mt-1 text-base font-semibold text-gray-900 dark:text-gray-100">
+                      {brand ? (brand.archived ? 'Archived' : 'Active') : 'Unknown'}
+                    </dd>
+                  </div>
+                  <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 text-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-bg)]">
+                    <dt className="font-medium text-gray-700 dark:text-gray-200">Brand code</dt>
+                    <dd className="mt-1 text-base font-semibold text-gray-900 dark:text-gray-100">{brandCode || '—'}</dd>
+                  </div>
+                </dl>
+                {!brand && (
+                  <p className="text-sm text-gray-500 dark:text-gray-300">
+                    Brand details are still loading. Account actions will be enabled once the brand information is available.
+                  </p>
+                )}
+                <div className="flex flex-wrap gap-3">
+                  {brand?.archived ? (
+                    <button
+                      type="button"
+                      onClick={handleRestore}
+                      disabled={actionBusy || !brand}
+                      className={`btn-primary ${
+                        actionBusy || !brand ? 'cursor-not-allowed opacity-70' : ''
+                      }`}
+                    >
+                      Restore Brand
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={handleArchive}
+                      disabled={actionBusy || !brand}
+                      className={`btn-secondary ${
+                        actionBusy || !brand ? 'cursor-not-allowed opacity-70' : ''
+                      }`}
+                    >
+                      Archive Brand
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={handleDelete}
+                    disabled={actionBusy}
+                    className={[
+                      'rounded-lg border border-red-300 bg-red-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition',
+                      'hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2',
+                      'disabled:cursor-not-allowed disabled:opacity-70 dark:border-red-500 dark:bg-red-600',
+                    ].join(' ')}
+                  >
+                    Delete Brand
+                  </button>
+                </div>
+              </div>
             )}
           </div>
         </div>
