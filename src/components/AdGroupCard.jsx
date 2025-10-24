@@ -17,13 +17,13 @@ import {
   FiTrash,
   FiClock,
   FiUser,
+  FiCheckCircle,
 } from 'react-icons/fi';
 import { auth } from '../firebase/config';
 import useUserRole from '../useUserRole';
 import IconButton from './IconButton.jsx';
 import MonthTag from './MonthTag.jsx';
 import InfoTooltip from './InfoTooltip.jsx';
-import { getReviewTypeLabel } from '../utils/reviewVersion';
 
 
 const AdGroupCard = ({
@@ -46,7 +46,6 @@ const AdGroupCard = ({
   const [menuOpen, setMenuOpen] = useState(false);
   const user = auth.currentUser;
   const { role } = useUserRole(user?.uid);
-  const isAdmin = role === 'admin';
   const hideStaff = role === 'client';
   const formatDate = (value) => {
     if (!value) return null;
@@ -56,6 +55,7 @@ const AdGroupCard = ({
   };
 
   const dueDates = [];
+  const overallDueDate = formatDate(group.dueDate);
 
   if (role === 'designer' && group.designDueDate) {
     dueDates.push({
@@ -71,16 +71,6 @@ const AdGroupCard = ({
     });
   }
 
-  if (group.dueDate) {
-    dueDates.push({
-      key: 'overall',
-      label: 'Overall Due',
-      value: formatDate(group.dueDate),
-    });
-  }
-  const reviewTypeLabel = isAdmin
-    ? getReviewTypeLabel(group.reviewVersion ?? group.reviewType ?? 1)
-    : null;
   const unitCount =
     group.unitCount ?? group.recipeCount ?? group.assetCount ?? 0;
   const pendingTotal = group.pendingCount ?? 0;
@@ -105,11 +95,24 @@ const AdGroupCard = ({
             <p className="font-bold text-[14px] text-black dark:text-[var(--dark-text)] mb-0 line-clamp-2">
               {group.name}
             </p>
-            {(group.brandName || group.brandCode) && (
-              <p className="text-[12px] text-black dark:text-[var(--dark-text)] mb-0 line-clamp-2">
-                {group.brandName || group.brandCode}
-                {group.brandName && group.brandCode ? ` · ${group.brandCode}` : ''}
+            {group.brandName && (
+              <p className="text-[12px] text-black dark:text-[var(--dark-text)] mb-1 line-clamp-2">
+                {group.brandName}
               </p>
+            )}
+            {group.brandCode && (
+              <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700 text-[10px] uppercase tracking-wide text-gray-600 dark:text-gray-200">
+                {group.brandCode}
+              </span>
+            )}
+            {overallDueDate && (
+              <div
+                className="mt-1 flex items-center gap-1 text-[12px] text-gray-600 dark:text-gray-300"
+                data-testid="due-date"
+              >
+                <FiCalendar className="text-gray-500 dark:text-gray-400" />
+                <span>{overallDueDate}</span>
+              </div>
             )}
             {group.designerName && role !== 'ops' && !hideStaff && (
               <p className="text-[12px] text-black dark:text-[var(--dark-text)] mb-0">
@@ -119,11 +122,6 @@ const AdGroupCard = ({
             {group.editorName && role !== 'ops' && !hideStaff && (
               <p className="text-[12px] text-black dark:text-[var(--dark-text)] mb-0">
                 {group.editorName}
-              </p>
-            )}
-            {isAdmin && (
-              <p className="text-[12px] text-black dark:text-[var(--dark-text)] mb-0">
-                Review Type: {reviewTypeLabel}
               </p>
             )}
           </div>
@@ -249,7 +247,6 @@ const AdGroupCard = ({
               <p
                 key={due.key}
                 className="text-[12px] text-black dark:text-[var(--dark-text)] flex flex-col items-end text-right"
-                data-testid={due.key === 'overall' ? 'due-date' : undefined}
               >
                 <span className="flex items-center gap-1 text-gray-500 dark:text-gray-300 uppercase tracking-wide text-[10px]">
                   <FiCalendar className="text-gray-600 dark:text-gray-300" />

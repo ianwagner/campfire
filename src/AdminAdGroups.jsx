@@ -474,7 +474,8 @@ const AdminAdGroups = () => {
       (g) =>
         !term ||
         g.name?.toLowerCase().includes(term) ||
-        g.brandCode?.toLowerCase().includes(term),
+        g.brandCode?.toLowerCase().includes(term) ||
+        g.brandName?.toLowerCase().includes(term),
     )
     .filter((g) => !designerFilter || g.designerId === designerFilter)
     .filter((g) => !editorFilter || g.editorId === editorFilter)
