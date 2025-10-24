@@ -1,48 +1,30 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import {
-  FiPlus,
-  FiEdit2,
-  FiTrash,
-  FiArchive,
-  FiRotateCcw,
-  FiList,
-  FiGrid,
-} from 'react-icons/fi';
-import { collection, getDocs, deleteDoc, doc, updateDoc, serverTimestamp, query, where } from 'firebase/firestore';
+import { FiArchive, FiEdit2, FiRotateCcw, FiTrash } from 'react-icons/fi';
+import { collection, deleteDoc, doc, getDocs, query, serverTimestamp, updateDoc, where } from 'firebase/firestore';
 import { db, auth } from './firebase/config';
 import useUserRole from './useUserRole';
 import createArchiveTicket from './utils/createArchiveTicket';
 import useAgencies from './useAgencies';
-import Table from './components/common/Table';
 import IconButton from './components/IconButton.jsx';
 import TabButton from './components/TabButton.jsx';
-import SortButton from './components/SortButton.jsx';
 import PageToolbar from './components/PageToolbar.jsx';
 import CreateButton from './components/CreateButton.jsx';
 import BrandCard from './components/BrandCard.jsx';
-import useSubscriptionPlans from './useSubscriptionPlans';
 
 const AdminBrands = () => {
   const [brands, setBrands] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('');
-  const [sortField, setSortField] = useState('code');
   const [showArchived, setShowArchived] = useState(false);
-  const [view, setView] = useState('cards');
   const user = auth.currentUser;
   const { role, brandCodes } = useUserRole(user?.uid);
   const isAdmin = role === 'admin';
   const isManager = role === 'manager' || role === 'editor';
   const { agencies } = useAgencies();
   const agencyMap = useMemo(
-    () => Object.fromEntries(agencies.map((a) => [a.id, a.name])),
+    () => Object.fromEntries(agencies.map((agency) => [agency.id, agency.name])),
     [agencies]
-  );
-  const { plans } = useSubscriptionPlans();
-  const planMap = useMemo(
-    () => Object.fromEntries(plans.map((p) => [p.id, p.name])),
-    [plans]
   );
 
   useEffect(() => {
@@ -68,15 +50,15 @@ const AdminBrands = () => {
         }
         const seen = new Set();
         const list = docs
-          .filter((d) => {
-            if (seen.has(d.id)) return false;
-            seen.add(d.id);
+          .filter((docSnap) => {
+            if (seen.has(docSnap.id)) return false;
+            seen.add(docSnap.id);
             return true;
           })
-          .map((d) => {
-            const data = d.data();
+          .map((docSnap) => {
+            const data = docSnap.data();
             return {
-              id: d.id,
+              id: docSnap.id,
               ...data,
               credits: typeof data.credits === 'number' ? data.credits : 0,
             };
@@ -91,13 +73,13 @@ const AdminBrands = () => {
     };
 
     fetchBrands();
-  }, [showArchived, role, brandCodes]);
+  }, [role, brandCodes]);
 
   const handleDelete = async (id) => {
     if (!window.confirm('Delete this brand?')) return;
     try {
       await deleteDoc(doc(db, 'brands', id));
-      setBrands((prev) => prev.filter((b) => b.id !== id));
+      setBrands((prev) => prev.filter((brand) => brand.id !== id));
     } catch (err) {
       console.error('Failed to delete brand', err);
     }
@@ -106,6 +88,7 @@ const AdminBrands = () => {
   const handleArchive = async (id) => {
     if (!window.confirm('Archive this brand?')) return;
     try {
+      const brand = brands.find((b) => b.id === id);
       await updateDoc(doc(db, 'brands', id), {
         archived: true,
         archivedAt: serverTimestamp(),
@@ -114,8 +97,9 @@ const AdminBrands = () => {
       setBrands((prev) =>
         prev.map((b) => (b.id === id ? { ...b, archived: true } : b))
       );
-      const brand = brands.find((b) => b.id === id);
-      await createArchiveTicket({ target: 'brand', brandId: id, brandCode: brand?.code });
+      if (brand) {
+        await createArchiveTicket({ target: 'brand', brandId: id, brandCode: brand.code });
+      }
     } catch (err) {
       console.error('Failed to archive brand', err);
     }
@@ -136,151 +120,155 @@ const AdminBrands = () => {
     }
   };
 
-  const term = filter.toLowerCase();
-  const displayBrands = brands
-    .filter(
-      (b) =>
-        (showArchived || !b.archived) &&
-        (!term ||
-          b.code?.toLowerCase().includes(term) ||
-          b.name?.toLowerCase().includes(term))
-    )
-    .sort((a, b) => {
-      if (sortField === 'name') return (a.name || '').localeCompare(b.name || '');
-      return (a.code || '').localeCompare(b.code || '');
-    });
+  const displayBrands = useMemo(() => {
+    const term = filter.trim().toLowerCase();
+    return [...brands]
+      .filter((brand) => {
+        if (!showArchived && brand.archived) return false;
+        if (!term) return true;
+        const values = [
+          brand.name,
+          brand.code,
+          brand.description,
+          brand.agencyId,
+          agencyMap[brand.agencyId],
+        ];
+        return values.some((value) =>
+          value ? String(value).toLowerCase().includes(term) : false
+        );
+      })
+      .sort((a, b) => {
+        const nameA = (a.name || a.code || '').toLowerCase();
+        const nameB = (b.name || b.code || '').toLowerCase();
+        return nameA.localeCompare(nameB);
+      });
+  }, [agencyMap, brands, filter, showArchived]);
+
+  const hasFilter = Boolean(filter.trim());
 
   return (
-    <div className="min-h-screen p-4">
-        <h1 className="text-2xl mb-4">Brands</h1>
-        <PageToolbar
-          left={(
-            <>
-              <input
-                type="text"
-                placeholder="Filter"
-                value={filter}
-                onChange={(e) => setFilter(e.target.value)}
-                className="p-1 border rounded"
-              />
-              <SortButton
-                value={sortField}
-                onChange={setSortField}
-                options={[
-                  { value: 'code', label: 'Code' },
-                  { value: 'name', label: 'Name' },
-                ]}
-              />
-              <TabButton
-                type="button"
-                active={showArchived}
-                onClick={() => setShowArchived((p) => !p)}
-                aria-label={showArchived ? 'Hide archived' : 'Show archived'}
-              >
-                <FiArchive />
-              </TabButton>
-              <div className="border-l h-6 mx-2" />
-              <TabButton active={view === 'list'} onClick={() => setView('list')} aria-label="List view">
-                <FiList />
-              </TabButton>
-              <TabButton active={view === 'cards'} onClick={() => setView('cards')} aria-label="Card view">
-                <FiGrid />
-              </TabButton>
-            </>
-          )}
-          right={<CreateButton onClick={() => (window.location.href = '/admin/brands/new')} ariaLabel="Create Brand" />}
-        />
-        {loading ? (
-          <p>Loading brands...</p>
-        ) : brands.length === 0 ? (
-          <p>No brands found.</p>
-        ) : view === 'list' ? (
-          <Table>
-            <thead>
-              <tr>
-                <th>Code</th>
-                <th>Name</th>
-                <th>Agency</th>
-                <th>Plan</th>
-                <th>Credits</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {displayBrands.map((brand) => (
-                <tr key={brand.id}>
-                  <td>{brand.code}</td>
-                  <td>{brand.name}</td>
-                  <td>{agencyMap[brand.agencyId] || brand.agencyId}</td>
-                  <td>{planMap[brand.subscriptionPlanId] || ''}</td>
-                  <td
-                    className={
-                      brand.credits < 0 ? 'text-red-600 dark:text-red-400' : ''
-                    }
-                  >
-                    {brand.credits}
-                  </td>
-                  <td className="text-center">
-                    <div className="flex items-center justify-center gap-2">
-                      <IconButton
-                        as="a"
-                        href={`/admin/brands/${brand.id}/edit`}
-                        aria-label="Edit details"
-                      >
-                        <FiEdit2 />
-                      </IconButton>
-                      {(isAdmin || isManager) && (
-                        brand.archived ? (
-                          <IconButton
-                            onClick={() => handleRestore(brand.id)}
-                            aria-label="Restore"
-                          >
-                            <FiRotateCcw />
-                          </IconButton>
-                        ) : (
-                          <IconButton
-                            onClick={() => handleArchive(brand.id)}
-                            aria-label="Archive"
-                          >
-                            <FiArchive />
-                          </IconButton>
-                        )
-                      )}
-                      {isAdmin && (
-                        <IconButton
-                          onClick={() => handleDelete(brand.id)}
-                          aria-label="Delete"
-                        >
-                          <FiTrash />
-                        </IconButton>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </Table>
-        ) : (
-          <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-            {displayBrands.map((brand) => (
-              <div key={brand.id} className="relative">
-                <Link to={`/admin/brands/${brand.id}`}>
-                  <BrandCard brand={brand} />
-                </Link>
-                <IconButton
+    <div className="min-h-screen bg-gray-50 dark:bg-[var(--dark-bg)]">
+      <div className="px-4 py-6">
+        <div className="mx-auto max-w-6xl space-y-6">
+          <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar)]">
+            <div className="space-y-4">
+              <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                <div className="space-y-1">
+                  <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">Brand Directory</h1>
+                  <p className="text-sm text-gray-600 dark:text-gray-300">
+                    Browse every brand, search quickly, and jump into a brand to manage assets, campaigns, and settings.
+                  </p>
+                </div>
+                <CreateButton
                   as={Link}
-                  to={`/admin/brands/${brand.id}/edit`}
-                  aria-label="Edit brand"
-                  className="absolute top-2 right-2 bg-white dark:bg-[var(--dark-sidebar-bg)]"
+                  to="/admin/brands/new"
+                  ariaLabel="Create brand"
+                  className="self-start"
                 >
-                  <FiEdit2 />
-                </IconButton>
+                  <span className="hidden sm:inline">New Brand</span>
+                </CreateButton>
               </div>
-            ))}
-          </div>
-        )}
+              <PageToolbar
+                left={
+                  <input
+                    type="search"
+                    value={filter}
+                    onChange={(e) => setFilter(e.target.value)}
+                    placeholder="Search brands"
+                    aria-label="Search brands"
+                    className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-[var(--accent-color)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)] focus:ring-offset-0 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-bg)] dark:text-gray-200"
+                  />
+                }
+                right={
+                  <TabButton
+                    type="button"
+                    active={showArchived}
+                    onClick={() => setShowArchived((prev) => !prev)}
+                    aria-label={showArchived ? 'Hide archived brands' : 'Show archived brands'}
+                    className="text-sm"
+                  >
+                    <FiArchive className="shrink-0" />
+                    <span>{showArchived ? 'Showing archived' : 'Show archived'}</span>
+                  </TabButton>
+                }
+              />
+              {loading ? (
+                <div className="flex justify-center py-12 text-sm text-gray-500 dark:text-gray-400">
+                  Loading brands...
+                </div>
+              ) : displayBrands.length ? (
+                <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+                  {displayBrands.map((brand) => (
+                    <div key={brand.id} className="relative">
+                      <Link
+                        to={`/admin/brands/${brand.id}`}
+                        className="group block h-full focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-color)] focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-[var(--dark-sidebar)]"
+                      >
+                        <BrandCard brand={brand} />
+                      </Link>
+                      {brand.archived && (
+                        <span className="absolute left-3 top-3 rounded-full bg-amber-100 px-2 py-1 text-xs font-medium uppercase tracking-wide text-amber-700 shadow-sm dark:bg-amber-500/10 dark:text-amber-200">
+                          Archived
+                        </span>
+                      )}
+                      <div className="absolute top-2 right-2 flex flex-col gap-2">
+                        <IconButton
+                          as={Link}
+                          to={`/admin/brands/${brand.id}/edit`}
+                          aria-label={`Edit ${brand.name || brand.code || 'brand'}`}
+                          className="bg-white shadow-sm dark:bg-[var(--dark-sidebar)]"
+                        >
+                          <FiEdit2 />
+                        </IconButton>
+                        {(isAdmin || isManager) && (
+                          brand.archived ? (
+                            <IconButton
+                              onClick={() => handleRestore(brand.id)}
+                              aria-label={`Restore ${brand.name || brand.code || 'brand'}`}
+                              className="bg-white shadow-sm dark:bg-[var(--dark-sidebar)]"
+                            >
+                              <FiRotateCcw />
+                            </IconButton>
+                          ) : (
+                            <IconButton
+                              onClick={() => handleArchive(brand.id)}
+                              aria-label={`Archive ${brand.name || brand.code || 'brand'}`}
+                              className="bg-white shadow-sm dark:bg-[var(--dark-sidebar)]"
+                            >
+                              <FiArchive />
+                            </IconButton>
+                          )
+                        )}
+                        {isAdmin && (
+                          <IconButton
+                            onClick={() => handleDelete(brand.id)}
+                            aria-label={`Delete ${brand.name || brand.code || 'brand'}`}
+                            className="bg-white shadow-sm text-red-600 hover:text-red-700 dark:bg-[var(--dark-sidebar)] dark:text-red-400 dark:hover:text-red-300"
+                          >
+                            <FiTrash />
+                          </IconButton>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 px-6 py-12 text-center text-sm text-gray-500 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar)] dark:text-gray-400">
+                  {hasFilter ? (
+                    <p className="mb-0">No brands match “{filter.trim()}”. Try a different search term.</p>
+                  ) : showArchived ? (
+                    <p className="mb-0">No archived brands to display.</p>
+                  ) : (
+                    <p className="mb-0">No brands created yet. Use the New Brand button to get started.</p>
+                  )}
+                </div>
+              )}
+            </div>
+          </section>
+        </div>
       </div>
-    );
+    </div>
+  );
 };
 
 export default AdminBrands;
