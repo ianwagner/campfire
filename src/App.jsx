@@ -66,7 +66,7 @@ import PmAdGroups from "./PmAdGroups";
 import PmDashboard from "./PmDashboard";
 import PmRequests from "./PmRequests";
 import PmData from "./PmData";
-import OpsContracts from "./OpsContracts";
+import OpsBrands from "./OpsBrands";
 import OpsBrandProfile from "./OpsBrandProfile";
 import OpsClientProjects from "./OpsClientProjects";
 import useTheme from "./useTheme";
@@ -827,7 +827,7 @@ const App = () => {
                     userRole={role} isAdmin={isAdmin}
                     loading={roleLoading}
                   >
-                    <OpsContracts />
+                    <OpsBrands />
                   </RoleGuard>
                 ) : (
                   <Navigate to="/login" replace />
