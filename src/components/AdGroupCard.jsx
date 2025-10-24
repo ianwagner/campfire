@@ -47,6 +47,8 @@ const AdGroupCard = ({
   const user = auth.currentUser;
   const { role } = useUserRole(user?.uid);
   const hideStaff = role === 'client';
+  const menuItemClass =
+    'block w-full text-left px-3 py-1 hover:bg-gray-100 dark:hover:bg-[var(--dark-sidebar-hover)] flex items-center gap-1 text-gray-800 dark:text-[var(--dark-text)]';
   const formatDate = (value) => {
     if (!value) return null;
     const date = value.toDate ? value.toDate() : new Date(value);
@@ -95,15 +97,17 @@ const AdGroupCard = ({
             <p className="font-bold text-[14px] text-black dark:text-[var(--dark-text)] mb-0 line-clamp-2">
               {group.name}
             </p>
-            {group.brandName && (
-              <p className="text-[12px] text-black dark:text-[var(--dark-text)] mb-1 line-clamp-2">
-                {group.brandName}
-              </p>
-            )}
-            {group.brandCode && (
-              <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700 text-[10px] uppercase tracking-wide text-gray-600 dark:text-gray-200">
-                {group.brandCode}
-              </span>
+            {(group.brandName || group.brandCode) && (
+              <div className="mt-1 flex flex-wrap items-center gap-2 text-[12px] text-black dark:text-[var(--dark-text)]">
+                {group.brandName && (
+                  <span className="flex-1 min-w-0 max-w-full line-clamp-2">{group.brandName}</span>
+                )}
+                {group.brandCode && (
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700 text-[10px] uppercase tracking-wide text-gray-600 dark:text-gray-200">
+                    {group.brandCode}
+                  </span>
+                )}
+              </div>
             )}
             {overallDueDate && (
               <div
@@ -146,7 +150,7 @@ const AdGroupCard = ({
                     {onReview && (
                       <button
                         onClick={(e) => handleClick(e, onReview)}
-                        className="block w-full text-left px-3 py-1 hover:bg-gray-100 dark:hover:bg-[var(--dark-sidebar-hover)] flex items-center gap-1"
+                        className={menuItemClass}
                       >
                         <FiCheckCircle /> Review
                       </button>
@@ -154,7 +158,7 @@ const AdGroupCard = ({
                     {onShare && (
                       <button
                         onClick={(e) => handleClick(e, onShare)}
-                        className="block w-full text-left px-3 py-1 hover:bg-gray-100 dark:hover:bg-[var(--dark-sidebar-hover)] flex items-center gap-1"
+                        className={menuItemClass}
                       >
                         <FiLink /> Share Link
                       </button>
@@ -162,7 +166,7 @@ const AdGroupCard = ({
                     {onGallery && (
                       <button
                         onClick={(e) => handleClick(e, onGallery)}
-                        className="block w-full text-left px-3 py-1 hover:bg-gray-100 dark:hover:bg-[var(--dark-sidebar-hover)] flex items-center gap-1"
+                        className={menuItemClass}
                       >
                         <FiGrid /> See Gallery
                       </button>
@@ -170,7 +174,7 @@ const AdGroupCard = ({
                     {onCopy && (
                       <button
                         onClick={(e) => handleClick(e, onCopy)}
-                        className="block w-full text-left px-3 py-1 hover:bg-gray-100 dark:hover:bg-[var(--dark-sidebar-hover)] flex items-center gap-1"
+                        className={menuItemClass}
                       >
                         <FiType /> Platform Copy
                       </button>
@@ -178,7 +182,7 @@ const AdGroupCard = ({
                     {onDownload && (
                       <button
                         onClick={(e) => handleClick(e, onDownload)}
-                        className="block w-full text-left px-3 py-1 hover:bg-gray-100 dark:hover:bg-[var(--dark-sidebar-hover)] flex items-center gap-1"
+                        className={menuItemClass}
                       >
                         <FiDownload /> Download Approved
                       </button>
@@ -186,7 +190,7 @@ const AdGroupCard = ({
                     {onChangeMonth && (
                       <button
                         onClick={(e) => handleClick(e, onChangeMonth)}
-                        className="block w-full text-left px-3 py-1 hover:bg-gray-100 dark:hover:bg-[var(--dark-sidebar-hover)] flex items-center gap-1"
+                        className={menuItemClass}
                       >
                         <FiClock /> Change Month
                       </button>
@@ -194,7 +198,7 @@ const AdGroupCard = ({
                     {onChangeDueDate && (
                       <button
                         onClick={(e) => handleClick(e, onChangeDueDate)}
-                        className="block w-full text-left px-3 py-1 hover:bg-gray-100 dark:hover:bg-[var(--dark-sidebar-hover)] flex items-center gap-1"
+                        className={menuItemClass}
                       >
                         <FiCalendar /> Change Due Date
                       </button>
@@ -202,7 +206,7 @@ const AdGroupCard = ({
                     {onChangeDesigner && (
                       <button
                         onClick={(e) => handleClick(e, onChangeDesigner)}
-                        className="block w-full text-left px-3 py-1 hover:bg-gray-100 dark:hover:bg-[var(--dark-sidebar-hover)] flex items-center gap-1"
+                        className={menuItemClass}
                       >
                         <FiUser /> Change Designer
                       </button>
@@ -210,7 +214,7 @@ const AdGroupCard = ({
                     {onRename && (
                       <button
                         onClick={(e) => handleClick(e, onRename)}
-                        className="block w-full text-left px-3 py-1 hover:bg-gray-100 dark:hover:bg-[var(--dark-sidebar-hover)] flex items-center gap-1"
+                        className={menuItemClass}
                       >
                         <FiEdit2 /> Rename
                       </button>
@@ -218,7 +222,7 @@ const AdGroupCard = ({
                     {onArchive && (
                       <button
                         onClick={(e) => handleClick(e, onArchive)}
-                        className="block w-full text-left px-3 py-1 hover:bg-gray-100 dark:hover:bg-[var(--dark-sidebar-hover)] flex items-center gap-1"
+                        className={menuItemClass}
                       >
                         <FiArchive /> Archive
                       </button>
@@ -226,7 +230,7 @@ const AdGroupCard = ({
                     {onRestore && (
                       <button
                         onClick={(e) => handleClick(e, onRestore)}
-                        className="block w-full text-left px-3 py-1 hover:bg-gray-100 dark:hover:bg-[var(--dark-sidebar-hover)] flex items-center gap-1"
+                        className={menuItemClass}
                       >
                         <FiRotateCcw /> Restore
                       </button>
