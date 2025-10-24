@@ -12,6 +12,7 @@ match /assets/{assetId} {
     function isAdmin() {
       return request.auth != null && (
         request.auth.token.admin == true ||
+        request.auth.token.role == 'admin' ||
         (userData() != null && userData().role == 'admin')
       );
     }
@@ -23,6 +24,8 @@ match /assets/{assetId} {
     function isManager() {
       return request.auth != null && (
         request.auth.token.manager == true ||
+        (request.auth.token.role != null &&
+          ['manager', 'project-manager', 'ops'].hasAny([request.auth.token.role])) ||
         (userData() != null && (
           userData().role == 'manager' ||
           userData().role == 'project-manager' ||
@@ -38,6 +41,7 @@ match /assets/{assetId} {
     function isOps() {
       return request.auth != null && (
         request.auth.token.ops == true ||
+        request.auth.token.role == 'ops' ||
         (userData() != null && userData().role == 'ops')
       );
     }
@@ -170,7 +174,13 @@ match /assets/{assetId} {
     }
 
     match /invoices/{invoiceId} {
-      allow read, write: if isAdmin();
+      allow read: if isAdmin() || isManager();
+      allow write: if isAdmin();
+    }
+
+    match /ads/{adId} {
+      allow read: if isAdmin() || isManager();
+      allow write: if isAdmin();
     }
 
     match /dashboardNotes/{noteId} {
