@@ -31,6 +31,7 @@ import useUserRole from './useUserRole';
 import parseAdFilename from './utils/parseAdFilename';
 import getUserName from './utils/getUserName';
 import aggregateRecipeStatusCounts from './utils/aggregateRecipeStatusCounts';
+import fetchBrandNamesByCode from './utils/fetchBrandNamesByCode';
 import computeKanbanStatus from './utils/computeKanbanStatus';
 import generatePassword from './utils/generatePassword';
 import ShareLinkModal from './components/ShareLinkModal.jsx';
@@ -177,7 +178,15 @@ const AdminAdGroups = () => {
             };
           })
         );
-        setGroups(list);
+        const brandNameMap = await fetchBrandNamesByCode(
+          list.map((item) => item.brandCode)
+        );
+        setGroups(
+          list.map((item) => ({
+            ...item,
+            brandName: item.brandName || brandNameMap[item.brandCode] || '',
+          }))
+        );
       } catch (err) {
         console.error('Failed to fetch groups', err);
         setGroups([]);
@@ -465,7 +474,8 @@ const AdminAdGroups = () => {
       (g) =>
         !term ||
         g.name?.toLowerCase().includes(term) ||
-        g.brandCode?.toLowerCase().includes(term),
+        g.brandCode?.toLowerCase().includes(term) ||
+        g.brandName?.toLowerCase().includes(term),
     )
     .filter((g) => !designerFilter || g.designerId === designerFilter)
     .filter((g) => !editorFilter || g.editorId === editorFilter)
@@ -638,7 +648,14 @@ const AdminAdGroups = () => {
                       g.name
                     )}
                   </td>
-                  <td>{g.brandCode}</td>
+                    <td>
+                      <div className="flex flex-col">
+                        <span>{g.brandName || g.brandCode || '—'}</span>
+                        {g.brandName && g.brandCode && (
+                          <span className="text-xs uppercase text-gray-500 dark:text-gray-400">{g.brandCode}</span>
+                        )}
+                      </div>
+                    </td>
                   <td className="text-center">{g.recipeCount}</td>
                   <td className="text-center">
                     <StatusBadge status={g.status} />
