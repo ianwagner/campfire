@@ -4,6 +4,7 @@ import { db } from './firebase/config';
 import parseAdFilename from './utils/parseAdFilename';
 import getUserName from './utils/getUserName';
 import aggregateRecipeStatusCounts from './utils/aggregateRecipeStatusCounts';
+import fetchBrandNamesByCode from './utils/fetchBrandNamesByCode';
 
 const useAdGroups = (brandCodes = [], showArchived = false) => {
   const [groups, setGroups] = useState([]);
@@ -109,7 +110,15 @@ const useAdGroups = (brandCodes = [], showArchived = false) => {
               };
             })
         );
-        setGroups(list);
+        const brandNameMap = await fetchBrandNamesByCode(
+          list.map((item) => item.brandCode)
+        );
+        setGroups(
+          list.map((item) => ({
+            ...item,
+            brandName: item.brandName || brandNameMap[item.brandCode] || '',
+          }))
+        );
       } catch (err) {
         console.error('Failed to fetch groups', err);
         setGroups([]);

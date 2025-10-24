@@ -48,14 +48,36 @@ const AdGroupCard = ({
   const { role } = useUserRole(user?.uid);
   const isAdmin = role === 'admin';
   const hideStaff = role === 'client';
-  const dueField =
-    role === 'designer'
-      ? group.designDueDate
-      : role === 'editor'
-      ? group.editorDueDate
-      : role === 'project-manager' || isAdmin
-      ? group.dueDate
-      : null;
+  const formatDate = (value) => {
+    if (!value) return null;
+    const date = value.toDate ? value.toDate() : new Date(value);
+    if (Number.isNaN(date.getTime())) return null;
+    return date.toLocaleDateString();
+  };
+
+  const dueDates = [];
+
+  if (role === 'designer' && group.designDueDate) {
+    dueDates.push({
+      key: 'design',
+      label: 'Design Due',
+      value: formatDate(group.designDueDate),
+    });
+  } else if (role === 'editor' && group.editorDueDate) {
+    dueDates.push({
+      key: 'edit',
+      label: 'Edit Due',
+      value: formatDate(group.editorDueDate),
+    });
+  }
+
+  if (group.dueDate) {
+    dueDates.push({
+      key: 'overall',
+      label: 'Overall Due',
+      value: formatDate(group.dueDate),
+    });
+  }
   const reviewTypeLabel = isAdmin
     ? getReviewTypeLabel(group.reviewVersion ?? group.reviewType ?? 1)
     : null;
@@ -73,132 +95,22 @@ const AdGroupCard = ({
 
   return (
     <div className="relative bg-white dark:bg-[var(--dark-sidebar-bg)] border border-gray-300 dark:border-gray-600 rounded-lg text-inherit shadow-md w-full">
-      {!hideMenu && !triggerClickMenu && (
-        <IconButton
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            setMenuOpen((o) => !o);
-          }}
-          className="absolute top-1 right-1 bg-transparent hover:bg-gray-100 dark:hover:bg-[var(--dark-sidebar-hover)]"
-          aria-label="Menu"
-        >
-          <FiMoreHorizontal />
-        </IconButton>
-      )}
-      {!hideMenu && menuOpen && (
-        <div className="absolute right-1 top-7 z-10 bg-white dark:bg-[var(--dark-sidebar-bg)] border border-gray-300 dark:border-gray-600 rounded shadow text-sm">
-          {onReview && (
-            <button
-              onClick={(e) => handleClick(e, onReview)}
-              className="block w-full text-left px-3 py-1 hover:bg-gray-100 dark:hover:bg-[var(--dark-sidebar-hover)] flex items-center gap-1"
-            >
-              <FiCheckCircle /> Review
-            </button>
-          )}
-          {onShare && (
-            <button
-              onClick={(e) => handleClick(e, onShare)}
-              className="block w-full text-left px-3 py-1 hover:bg-gray-100 dark:hover:bg-[var(--dark-sidebar-hover)] flex items-center gap-1"
-            >
-              <FiLink /> Share Link
-            </button>
-          )}
-          {onGallery && (
-            <button
-              onClick={(e) => handleClick(e, onGallery)}
-              className="block w-full text-left px-3 py-1 hover:bg-gray-100 dark:hover:bg-[var(--dark-sidebar-hover)] flex items-center gap-1"
-            >
-              <FiGrid /> See Gallery
-            </button>
-          )}
-          {onCopy && (
-            <button
-              onClick={(e) => handleClick(e, onCopy)}
-              className="block w-full text-left px-3 py-1 hover:bg-gray-100 dark:hover:bg-[var(--dark-sidebar-hover)] flex items-center gap-1"
-            >
-              <FiType /> Platform Copy
-            </button>
-          )}
-          {onDownload && (
-            <button
-              onClick={(e) => handleClick(e, onDownload)}
-              className="block w-full text-left px-3 py-1 hover:bg-gray-100 dark:hover:bg-[var(--dark-sidebar-hover)] flex items-center gap-1"
-            >
-              <FiDownload /> Download Approved
-            </button>
-          )}
-          {onChangeMonth && (
-            <button
-              onClick={(e) => handleClick(e, onChangeMonth)}
-              className="block w-full text-left px-3 py-1 hover:bg-gray-100 dark:hover:bg-[var(--dark-sidebar-hover)] flex items-center gap-1"
-            >
-              <FiClock /> Change Month
-            </button>
-          )}
-          {onChangeDueDate && (
-            <button
-              onClick={(e) => handleClick(e, onChangeDueDate)}
-              className="block w-full text-left px-3 py-1 hover:bg-gray-100 dark:hover:bg-[var(--dark-sidebar-hover)] flex items-center gap-1"
-            >
-              <FiCalendar /> Change Due Date
-            </button>
-          )}
-          {onChangeDesigner && (
-            <button
-              onClick={(e) => handleClick(e, onChangeDesigner)}
-              className="block w-full text-left px-3 py-1 hover:bg-gray-100 dark:hover:bg-[var(--dark-sidebar-hover)] flex items-center gap-1"
-            >
-              <FiUser /> Change Designer
-            </button>
-          )}
-          {onRename && (
-            <button
-              onClick={(e) => handleClick(e, onRename)}
-              className="block w-full text-left px-3 py-1 hover:bg-gray-100 dark:hover:bg-[var(--dark-sidebar-hover)] flex items-center gap-1"
-            >
-              <FiEdit2 /> Rename
-            </button>
-          )}
-          {onArchive && (
-            <button
-              onClick={(e) => handleClick(e, onArchive)}
-              className="block w-full text-left px-3 py-1 hover:bg-gray-100 dark:hover:bg-[var(--dark-sidebar-hover)] flex items-center gap-1"
-            >
-              <FiArchive /> Archive
-            </button>
-          )}
-          {onRestore && (
-            <button
-              onClick={(e) => handleClick(e, onRestore)}
-              className="block w-full text-left px-3 py-1 hover:bg-gray-100 dark:hover:bg-[var(--dark-sidebar-hover)] flex items-center gap-1"
-            >
-              <FiRotateCcw /> Restore
-            </button>
-          )}
-          {onDelete && (
-            <button
-              onClick={(e) => handleClick(e, onDelete)}
-              className="block w-full text-left px-3 py-1 hover:bg-gray-100 dark:hover:bg-[var(--dark-sidebar-hover)] flex items-center gap-1 text-red-600"
-            >
-              <FiTrash /> Delete
-            </button>
-          )}
-        </div>
-      )}
       <Link
         to={triggerClickMenu ? '#' : `/ad-group/${group.id}`}
         onClick={triggerClickMenu ? (e) => { e.preventDefault(); setMenuOpen((o) => !o); } : undefined}
         className="block"
       >
-        <div className="flex items-start px-3 py-2">
+        <div className="flex items-start justify-between gap-4 px-3 py-2">
           <div className="flex-1 min-w-0">
             <p className="font-bold text-[14px] text-black dark:text-[var(--dark-text)] mb-0 line-clamp-2">
               {group.name}
             </p>
-            <p className="text-[12px] text-black dark:text-[var(--dark-text)] mb-0">
-              {group.brandCode}
-            </p>
+            {(group.brandName || group.brandCode) && (
+              <p className="text-[12px] text-black dark:text-[var(--dark-text)] mb-0 line-clamp-2">
+                {group.brandName || group.brandCode}
+                {group.brandName && group.brandCode ? ` · ${group.brandCode}` : ''}
+              </p>
+            )}
             {group.designerName && role !== 'ops' && !hideStaff && (
               <p className="text-[12px] text-black dark:text-[var(--dark-text)] mb-0">
                 {group.designerName}
@@ -215,18 +127,137 @@ const AdGroupCard = ({
               </p>
             )}
           </div>
-          <div className="flex flex-col items-end gap-1">
-            {dueField && (
-              <p
-                className="text-[12px] text-black dark:text-[var(--dark-text)] flex items-center gap-1"
-                data-testid="due-date"
-              >
-                <FiCalendar className="text-gray-600 dark:text-gray-300" />
-                {dueField.toDate
-                  ? dueField.toDate().toLocaleDateString()
-                  : new Date(dueField).toLocaleDateString()}
-              </p>
+          <div className="flex flex-col items-end gap-2">
+            {!hideMenu && (
+              <div className="relative self-end">
+                {!triggerClickMenu && (
+                  <IconButton
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setMenuOpen((o) => !o);
+                    }}
+                    className="bg-transparent hover:bg-gray-100 dark:hover:bg-[var(--dark-sidebar-hover)]"
+                    aria-label="Menu"
+                  >
+                    <FiMoreHorizontal />
+                  </IconButton>
+                )}
+                {menuOpen && (
+                  <div className="absolute right-0 mt-1 z-10 w-max bg-white dark:bg-[var(--dark-sidebar-bg)] border border-gray-300 dark:border-gray-600 rounded shadow text-sm">
+                    {onReview && (
+                      <button
+                        onClick={(e) => handleClick(e, onReview)}
+                        className="block w-full text-left px-3 py-1 hover:bg-gray-100 dark:hover:bg-[var(--dark-sidebar-hover)] flex items-center gap-1"
+                      >
+                        <FiCheckCircle /> Review
+                      </button>
+                    )}
+                    {onShare && (
+                      <button
+                        onClick={(e) => handleClick(e, onShare)}
+                        className="block w-full text-left px-3 py-1 hover:bg-gray-100 dark:hover:bg-[var(--dark-sidebar-hover)] flex items-center gap-1"
+                      >
+                        <FiLink /> Share Link
+                      </button>
+                    )}
+                    {onGallery && (
+                      <button
+                        onClick={(e) => handleClick(e, onGallery)}
+                        className="block w-full text-left px-3 py-1 hover:bg-gray-100 dark:hover:bg-[var(--dark-sidebar-hover)] flex items-center gap-1"
+                      >
+                        <FiGrid /> See Gallery
+                      </button>
+                    )}
+                    {onCopy && (
+                      <button
+                        onClick={(e) => handleClick(e, onCopy)}
+                        className="block w-full text-left px-3 py-1 hover:bg-gray-100 dark:hover:bg-[var(--dark-sidebar-hover)] flex items-center gap-1"
+                      >
+                        <FiType /> Platform Copy
+                      </button>
+                    )}
+                    {onDownload && (
+                      <button
+                        onClick={(e) => handleClick(e, onDownload)}
+                        className="block w-full text-left px-3 py-1 hover:bg-gray-100 dark:hover:bg-[var(--dark-sidebar-hover)] flex items-center gap-1"
+                      >
+                        <FiDownload /> Download Approved
+                      </button>
+                    )}
+                    {onChangeMonth && (
+                      <button
+                        onClick={(e) => handleClick(e, onChangeMonth)}
+                        className="block w-full text-left px-3 py-1 hover:bg-gray-100 dark:hover:bg-[var(--dark-sidebar-hover)] flex items-center gap-1"
+                      >
+                        <FiClock /> Change Month
+                      </button>
+                    )}
+                    {onChangeDueDate && (
+                      <button
+                        onClick={(e) => handleClick(e, onChangeDueDate)}
+                        className="block w-full text-left px-3 py-1 hover:bg-gray-100 dark:hover:bg-[var(--dark-sidebar-hover)] flex items-center gap-1"
+                      >
+                        <FiCalendar /> Change Due Date
+                      </button>
+                    )}
+                    {onChangeDesigner && (
+                      <button
+                        onClick={(e) => handleClick(e, onChangeDesigner)}
+                        className="block w-full text-left px-3 py-1 hover:bg-gray-100 dark:hover:bg-[var(--dark-sidebar-hover)] flex items-center gap-1"
+                      >
+                        <FiUser /> Change Designer
+                      </button>
+                    )}
+                    {onRename && (
+                      <button
+                        onClick={(e) => handleClick(e, onRename)}
+                        className="block w-full text-left px-3 py-1 hover:bg-gray-100 dark:hover:bg-[var(--dark-sidebar-hover)] flex items-center gap-1"
+                      >
+                        <FiEdit2 /> Rename
+                      </button>
+                    )}
+                    {onArchive && (
+                      <button
+                        onClick={(e) => handleClick(e, onArchive)}
+                        className="block w-full text-left px-3 py-1 hover:bg-gray-100 dark:hover:bg-[var(--dark-sidebar-hover)] flex items-center gap-1"
+                      >
+                        <FiArchive /> Archive
+                      </button>
+                    )}
+                    {onRestore && (
+                      <button
+                        onClick={(e) => handleClick(e, onRestore)}
+                        className="block w-full text-left px-3 py-1 hover:bg-gray-100 dark:hover:bg-[var(--dark-sidebar-hover)] flex items-center gap-1"
+                      >
+                        <FiRotateCcw /> Restore
+                      </button>
+                    )}
+                    {onDelete && (
+                      <button
+                        onClick={(e) => handleClick(e, onDelete)}
+                        className="block w-full text-left px-3 py-1 hover:bg-gray-100 dark:hover:bg-[var(--dark-sidebar-hover)] flex items-center gap-1 text-red-600"
+                      >
+                        <FiTrash /> Delete
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
             )}
+            {dueDates.map((due) => (
+              <p
+                key={due.key}
+                className="text-[12px] text-black dark:text-[var(--dark-text)] flex flex-col items-end text-right"
+                data-testid={due.key === 'overall' ? 'due-date' : undefined}
+              >
+                <span className="flex items-center gap-1 text-gray-500 dark:text-gray-300 uppercase tracking-wide text-[10px]">
+                  <FiCalendar className="text-gray-600 dark:text-gray-300" />
+                  {due.label}
+                </span>
+                <span>{due.value}</span>
+              </p>
+            ))}
             <MonthTag month={group.month} />
           </div>
         </div>

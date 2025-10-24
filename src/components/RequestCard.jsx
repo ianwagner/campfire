@@ -61,9 +61,10 @@ const RequestCard = ({
   const longPressRef = useRef(null);
   const menuRef = useRef(null);
   const menuBtnRef = useRef(null);
-  const Icon = typeIcons[request.type];
-  const color = typeColors[request.type] || 'text-gray-600 dark:text-gray-300';
-  const typeLabel = typeLabels[request.type];
+  const requestType = request.type || 'newAds';
+  const Icon = typeIcons[requestType];
+  const color = typeColors[requestType] || 'text-gray-600 dark:text-gray-300';
+  const typeLabel = typeLabels[requestType];
   const productRequests = Array.isArray(request.productRequests)
     ? request.productRequests.filter((p) => p && (p.productName || p.name))
     : [];
@@ -150,7 +151,7 @@ const RequestCard = ({
               ref={menuRef}
               className="absolute right-0 top-6 z-10 bg-white dark:bg-[var(--dark-sidebar-bg)] border border-gray-300 dark:border-gray-600 rounded shadow text-sm"
             >
-              {request.type === 'helpdesk' && onChat && (
+            {requestType === 'helpdesk' && onChat && (
                 <button
                   onClick={() => {
                     setMenuOpen(false);
@@ -225,7 +226,7 @@ const RequestCard = ({
       {(expanded || request.status === 'ready' || request.status === 'done') && (
         <>
           <div className="text-sm">
-            {expanded && request.type === 'newAds' && (
+            {expanded && requestType === 'newAds' && (
               productRequests.length ? (
                 <div className="text-left text-black dark:text-[var(--dark-text)]">
                   <p className="text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">Products</p>
@@ -249,8 +250,8 @@ const RequestCard = ({
                 <span># Ads: {totalAds}</span>
               )
             )}
-            {expanded && request.type === 'newAIAssets' && <span># Assets: {request.numAssets}</span>}
-            {expanded && request.type === 'newBrand' && (
+            {expanded && requestType === 'newAIAssets' && <span># Assets: {request.numAssets}</span>}
+            {expanded && requestType === 'newBrand' && (
               <div className="text-left text-black dark:text-[var(--dark-text)] text-xs space-y-1 mt-2">
                 {request.brandAssetsLink && (
                   <p className="mb-0">
@@ -277,10 +278,10 @@ const RequestCard = ({
             )}
           </div>
           <div className="text-right">
-            {request.type === 'newAds' || request.type === 'newBrand' ? (
+            {requestType === 'newAds' || requestType === 'newBrand' ? (
               request.status === 'done' ? (
                 <span className="text-sm text-gray-500">
-                  {request.type === 'newBrand' ? 'Brand Created' : 'Ad Group Created'}
+                  {requestType === 'newBrand' ? 'Brand Created' : 'Ad Group Created'}
                 </span>
               ) : (
                 <button
@@ -288,7 +289,7 @@ const RequestCard = ({
                   className={`btn-primary mt-2 text-sm ${request.status !== 'ready' ? 'opacity-50 cursor-not-allowed' : ''}`}
                   disabled={request.status !== 'ready'}
                 >
-                  {request.type === 'newBrand' ? 'Create Brand' : 'Create Ad Group'}
+                  {requestType === 'newBrand' ? 'Create Brand' : 'Create Ad Group'}
                 </button>
               )
             ) : null}
