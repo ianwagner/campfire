@@ -17,6 +17,7 @@ import {
   FiEye,
   FiCheckCircle,
   FiBarChart2,
+  FiInbox,
 } from 'react-icons/fi';
 import { doc, updateDoc } from 'firebase/firestore';
 import Table from './common/Table';
@@ -298,6 +299,71 @@ const AdGroupListView = ({
     [summaryMetrics]
   );
 
+  const kanbanColumns = useMemo(
+    () => [
+      {
+        label: 'New',
+        status: 'new',
+        accentBorder: 'border-blue-200 dark:border-blue-500/40',
+        headerText: 'text-blue-600 dark:text-blue-200',
+        indicator: 'bg-blue-500',
+      },
+      {
+        label: 'Blocked',
+        status: 'blocked',
+        accentBorder: 'border-red-200 dark:border-red-500/40',
+        headerText: 'text-red-600 dark:text-red-200',
+        indicator: 'bg-red-500',
+      },
+      {
+        label: 'Briefed',
+        status: 'briefed',
+        accentBorder: 'border-amber-200 dark:border-amber-500/40',
+        headerText: 'text-amber-600 dark:text-amber-200',
+        indicator: 'bg-amber-500',
+      },
+      {
+        label: 'Designed',
+        status: 'designed',
+        accentBorder: 'border-indigo-200 dark:border-indigo-500/40',
+        headerText: 'text-indigo-600 dark:text-indigo-200',
+        indicator: 'bg-indigo-500',
+      },
+      {
+        label: 'Reviewed',
+        status: 'reviewed',
+        accentBorder: 'border-sky-200 dark:border-sky-500/40',
+        headerText: 'text-sky-600 dark:text-sky-200',
+        indicator: 'bg-sky-500',
+      },
+      {
+        label: 'Done',
+        status: 'done',
+        accentBorder: 'border-emerald-200 dark:border-emerald-500/40',
+        headerText: 'text-emerald-600 dark:text-emerald-200',
+        indicator: 'bg-emerald-500',
+      },
+    ],
+    []
+  );
+
+  const groupsByStatus = useMemo(() => {
+    const map = {};
+    kanbanColumns.forEach((col) => {
+      map[col.status] = [];
+    });
+
+    displayGroups.forEach((group) => {
+      const status = computeKanbanStatus(group) ?? 'new';
+      if (!map[status]) {
+        map[status] = [];
+      }
+      map[status].push(group);
+    });
+
+    return map;
+  }, [displayGroups, kanbanColumns]);
+
   return (
     <div className="mb-8">
       <PageToolbar
@@ -576,37 +642,53 @@ const AdGroupListView = ({
               </Table>
             </div>
           ) : view === 'kanban' ? (
-            <div className="hidden sm:block overflow-x-auto mt-[0.8rem]">
-              <div className="min-w-max flex gap-4">
-                {[
-                  { label: 'New', status: 'new' },
-                  { label: 'Blocked', status: 'blocked' },
-                  { label: 'Briefed', status: 'briefed' },
-                  { label: 'Designed', status: 'designed' },
-                  { label: 'Reviewed', status: 'reviewed' },
-                  { label: 'Done', status: 'done' },
-                ].map((col) => (
-                  <div key={col.status} className="flex-shrink-0 w-[240px] sm:w-[320px]">
-                    <h2 className="text-xl mb-2 capitalize">{col.label}</h2>
-                    <div
-                      className="bg-[#F7F7F7] dark:bg-[var(--dark-bg)] border border-gray-300 dark:border-gray-600 rounded-t-[1rem] rounded-b-[1rem] flex flex-col items-center gap-4 p-[0.6rem] overflow-y-auto"
-                      style={{ maxHeight: 'calc(100vh - 13rem)' }}
-                    >
-                      {displayGroups
-                        .filter((g) => computeKanbanStatus(g) === col.status)
-                        .map((g) => (
-                          <AdGroupCard
-                            key={g.id}
-                            group={g}
-                            onGallery={onGallery ? () => onGallery(g.id) : undefined}
-                            onCopy={onCopy ? () => onCopy(g.id) : undefined}
-                            onDownload={onDownload ? () => onDownload(g.id) : undefined}
-                            triggerClickMenu={!linkToDetail}
-                          />
-                        ))}
-                    </div>
-                  </div>
-                ))}
+            <div className="hidden sm:block mt-[0.8rem]">
+              <div className="relative overflow-x-auto pb-6">
+                <div
+                  className="pointer-events-none absolute inset-0 rounded-3xl bg-[radial-gradient(circle_at_top,_rgba(99,102,241,0.08),_transparent_55%)] dark:bg-[radial-gradient(circle_at_top,_rgba(56,189,248,0.12),_transparent_60%)]"
+                  aria-hidden="true"
+                />
+                <div className="relative min-w-max flex gap-6 px-1">
+                  {kanbanColumns.map((col) => {
+                    const groupsInColumn = groupsByStatus[col.status] ?? [];
+                    return (
+                      <div key={col.status} className="flex-shrink-0 w-[260px] lg:w-[320px]">
+                        <div
+                          className={`flex h-full flex-col rounded-3xl border ${col.accentBorder} bg-white/90 dark:bg-slate-900/80 shadow-lg backdrop-blur-sm`}
+                        >
+                          <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-white/60 dark:border-slate-800/80">
+                            <div className="flex items-center gap-2">
+                              <span className={`w-2 h-2 rounded-full ${col.indicator}`} aria-hidden="true" />
+                              <h3 className={`text-sm font-semibold uppercase tracking-wide ${col.headerText}`}>{col.label}</h3>
+                            </div>
+                            <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 bg-gray-100/80 dark:bg-slate-800/80 rounded-full px-2 py-0.5">
+                              {groupsInColumn.length}
+                            </span>
+                          </div>
+                          <div className="flex-1 space-y-3 overflow-y-auto px-3 py-4" style={{ maxHeight: 'calc(100vh - 15rem)' }}>
+                            {groupsInColumn.length > 0 ? (
+                              groupsInColumn.map((g) => (
+                                <AdGroupCard
+                                  key={g.id}
+                                  group={g}
+                                  onGallery={onGallery ? () => onGallery(g.id) : undefined}
+                                  onCopy={onCopy ? () => onCopy(g.id) : undefined}
+                                  onDownload={onDownload ? () => onDownload(g.id) : undefined}
+                                  triggerClickMenu={!linkToDetail}
+                                />
+                              ))
+                            ) : (
+                              <div className="flex flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-gray-200 dark:border-slate-700 bg-gray-50/80 dark:bg-slate-900/40 px-3 py-8 text-center text-xs text-gray-500 dark:text-gray-400">
+                                <FiInbox className="w-5 h-5" aria-hidden="true" />
+                                <span>No ad groups</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             </div>
           ) : (
