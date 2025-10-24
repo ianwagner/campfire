@@ -27,6 +27,7 @@ import StatusBadge from './components/StatusBadge.jsx';
 import Table from './components/common/Table';
 import AdGroupCard from './components/AdGroupCard.jsx';
 import IconButton from './components/IconButton.jsx';
+import fetchBrandNamesByCode from './utils/fetchBrandNamesByCode';
 
 const AgencyAdGroups = ({ agencyId: propAgencyId, brandCodes: propBrandCodes = [] }) => {
   const paramsId = new URLSearchParams(useLocation().search).get('agencyId');
@@ -69,11 +70,19 @@ const AgencyAdGroups = ({ agencyId: propAgencyId, brandCodes: propBrandCodes = [
   useEffect(() => {
     const fetchGroups = async () => {
       let codes = [];
+      let brandNameMap = {};
       if (agencyId) {
         const bSnap = await getDocs(
           query(collection(db, 'brands'), where('agencyId', '==', agencyId))
         );
-        codes = bSnap.docs.map((d) => d.data().code).filter(Boolean);
+        codes = bSnap.docs
+          .map((d) => {
+            const data = d.data();
+            const code = data.code;
+            if (code) brandNameMap[code] = data.name || '';
+            return code;
+          })
+          .filter(Boolean);
       } else if (brandCodes.length > 0) {
         codes = brandCodes;
       } else {
@@ -86,6 +95,12 @@ const AgencyAdGroups = ({ agencyId: propAgencyId, brandCodes: propBrandCodes = [
         setGroups([]);
         setLoading(false);
         return;
+      }
+
+      const missingCodes = codes.filter((code) => !brandNameMap[code]);
+      if (missingCodes.length > 0) {
+        const fetchedNames = await fetchBrandNamesByCode(missingCodes);
+        brandNameMap = { ...brandNameMap, ...fetchedNames };
       }
 
       setLoading(true);
@@ -156,6 +171,7 @@ const AgencyAdGroups = ({ agencyId: propAgencyId, brandCodes: propBrandCodes = [
               return {
                 id: d.id,
                 ...data,
+                brandName: data.brandName || brandNameMap[data.brandCode] || '',
                 recipeCount: recipeCount || unitCount,
                 assetCount,
                 unitCount,
@@ -216,7 +232,14 @@ const AgencyAdGroups = ({ agencyId: propAgencyId, brandCodes: propBrandCodes = [
                 {groups.map((g) => (
                   <tr key={g.id}>
                     <td>{g.name}</td>
-                    <td>{g.brandCode}</td>
+                    <td>
+                      <div className="flex flex-col">
+                        <span>{g.brandName || g.brandCode || '—'}</span>
+                        {g.brandName && g.brandCode && (
+                          <span className="text-xs uppercase text-gray-500 dark:text-gray-400">{g.brandCode}</span>
+                        )}
+                      </div>
+                    </td>
                     <td>
                       <StatusBadge status={g.status} />
                     </td>
