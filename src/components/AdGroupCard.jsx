@@ -97,16 +97,9 @@ const AdGroupCard = ({
             <p className="font-bold text-[14px] text-black dark:text-[var(--dark-text)] mb-0 line-clamp-2">
               {group.name}
             </p>
-            {(group.brandName || group.brandCode) && (
-              <div className="mt-1 flex flex-wrap items-center gap-2 text-[12px] text-black dark:text-[var(--dark-text)]">
-                {group.brandName && (
-                  <span className="flex-1 min-w-0 max-w-full line-clamp-2">{group.brandName}</span>
-                )}
-                {group.brandCode && (
-                  <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700 text-[10px] uppercase tracking-wide text-gray-600 dark:text-gray-200">
-                    {group.brandCode}
-                  </span>
-                )}
+            {group.brandName && (
+              <div className="mt-1 text-[12px] text-black dark:text-[var(--dark-text)] line-clamp-2">
+                {group.brandName}
               </div>
             )}
             {overallDueDate && (
@@ -259,7 +252,16 @@ const AdGroupCard = ({
                 <span>{due.value}</span>
               </p>
             ))}
-            <MonthTag month={group.month} />
+            {(group.brandCode || group.month) && (
+              <div className="flex items-center gap-2 self-end">
+                {group.brandCode && (
+                  <span className="tag-pill inline-flex items-center justify-center px-2 py-0.5 text-xs uppercase tracking-wide bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-200 border border-gray-300 dark:border-gray-500">
+                    {group.brandCode}
+                  </span>
+                )}
+                <MonthTag month={group.month} className="inline-flex items-center justify-center" />
+              </div>
+            )}
           </div>
         </div>
         <div className="border-t border-gray-300 dark:border-gray-600 px-3 py-2">
