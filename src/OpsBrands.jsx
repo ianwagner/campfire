@@ -1,8 +1,8 @@
 import React from 'react';
 import BrandDirectory from './BrandDirectory.jsx';
 
-const AdminBrands = () => {
+const OpsBrands = () => {
   return <BrandDirectory />;
 };
 
-export default AdminBrands;
+export default OpsBrands;
