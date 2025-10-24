@@ -1,6 +1,5 @@
 import type { ApiHandler } from "../../lib/api/types";
 import { getReviewData, IntegrationError } from "../../lib/integrations";
-import { buildTransformInput } from "../../lib/transform/context";
 
 interface SampleDataRequestBody {
   reviewId: string;
@@ -32,19 +31,12 @@ const handler: ApiHandler<SampleDataRequestBody> = async (req, res) => {
   const { reviewId } = req.body;
   try {
     const data = await getReviewData(reviewId);
-    const transformInput = buildTransformInput({
-      review: data.review,
-      ads: data.ads,
-    });
 
     return res.status(200).json({
       reviewId,
       review: data.review,
       ads: data.ads,
       client: data.client,
-      brand: transformInput.brand,
-      adGroup: transformInput.adGroup,
-      recipes: transformInput.recipes,
     });
   } catch (error) {
     if (error instanceof IntegrationError) {

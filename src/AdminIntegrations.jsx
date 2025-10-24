@@ -756,15 +756,6 @@ const AdminIntegrations = () => {
     if (Array.isArray(sampleData.ads)) {
       context.ads = sampleData.ads;
     }
-    if (isPlainObject(sampleData.brand)) {
-      context.brand = sampleData.brand;
-    }
-    if (isPlainObject(sampleData.adGroup)) {
-      context.adGroup = sampleData.adGroup;
-    }
-    if (Array.isArray(sampleData.recipes)) {
-      context.recipes = sampleData.recipes;
-    }
     if (isPlainObject(sampleData.client)) {
       context.client = sampleData.client;
     }
@@ -822,29 +813,13 @@ const AdminIntegrations = () => {
     setTransformPreviewLoading(true);
     setTransformPreviewError(null);
     try {
-      const requestBody = {
-        spec: parsedSpec,
-        context,
-      };
-      if (isPlainObject(context.review)) {
-        requestBody.review = context.review;
-      }
-      if (Array.isArray(context.ads)) {
-        requestBody.ads = context.ads;
-      }
-      if (isPlainObject(context.brand)) {
-        requestBody.brand = context.brand;
-      }
-      if (isPlainObject(context.adGroup)) {
-        requestBody.adGroup = context.adGroup;
-      }
-      if (Array.isArray(context.recipes)) {
-        requestBody.recipes = context.recipes;
-      }
       const response = await fetch("/api/integrations/transform-preview", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(requestBody),
+        body: JSON.stringify({
+          spec: parsedSpec,
+          context,
+        }),
       });
       if (!response.ok) {
         const error = await response.json().catch(() => ({}));
@@ -1016,14 +991,7 @@ const AdminIntegrations = () => {
         throw new Error(error.error || `Failed to load review ${reviewId}`);
       }
       const data = await response.json();
-      setSampleData({
-        review: data.review,
-        ads: data.ads,
-        client: data.client,
-        brand: data.brand,
-        adGroup: data.adGroup,
-        recipes: data.recipes,
-      });
+      setSampleData({ review: data.review, ads: data.ads, client: data.client });
       setSampleError(null);
     } catch (error) {
       setSampleError(error instanceof Error ? error.message : String(error));
