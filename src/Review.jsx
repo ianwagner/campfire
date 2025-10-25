@@ -20,6 +20,8 @@ import {
   FiHome,
   FiDownload,
   FiMoreHorizontal,
+  FiChevronLeft,
+  FiChevronRight,
 } from 'react-icons/fi';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -686,6 +688,117 @@ const getReviewAspectPriority = (aspect) => {
   return idx === -1 ? REVIEW_V2_ASPECT_ORDER.length : idx;
 };
 
+const getCarouselPageInfo = (asset) => {
+  if (!asset) return null;
+  const aspectKey = normalizeAspectKey(getAssetAspectRatio(asset));
+  if (aspectKey !== '1x1') return null;
+  const filename = normalizeKeyPart(asset.filename);
+  if (!filename) return null;
+  const nameWithoutExtension = filename.replace(/\.[^.]+$/, '');
+  const match = nameWithoutExtension.match(/^(.*)_([A-Za-z])$/);
+  if (!match) return null;
+  const groupKey = normalizeKeyPart(match[1]);
+  const pageLetter = match[2].toUpperCase();
+  if (!groupKey || pageLetter.length !== 1) return null;
+  if (pageLetter < 'A' || pageLetter > 'Z') return null;
+  const pageIndex = pageLetter.charCodeAt(0) - 65;
+  return { groupKey, pageLetter, pageIndex };
+};
+
+const getAssetUniqueKey = (asset, fallback = '') => {
+  const id = getAssetDocumentId(asset);
+  if (id) return `id:${id}`;
+  const firebaseUrl = normalizeKeyPart(asset?.firebaseUrl);
+  if (firebaseUrl) return `firebase:${firebaseUrl}`;
+  const adUrl = normalizeKeyPart(asset?.adUrl);
+  if (adUrl) return `ad:${adUrl}`;
+  const genericUrl = normalizeKeyPart(asset?.assetUrl || asset?.url);
+  if (genericUrl) return `url:${genericUrl}`;
+  const filename = normalizeKeyPart(asset?.filename);
+  if (filename) return `file:${filename}`;
+  return fallback || 'asset';
+};
+
+const buildCarouselDisplayItems = (assets) => {
+  if (!Array.isArray(assets) || assets.length === 0) {
+    return { items: [], assetKeyToDisplayIndex: new Map() };
+  }
+
+  const candidateGroups = new Map();
+  assets.forEach((asset, index) => {
+    const info = getCarouselPageInfo(asset);
+    if (!info) return;
+    const existing = candidateGroups.get(info.groupKey) || [];
+    existing.push({ asset, info, index });
+    candidateGroups.set(info.groupKey, existing);
+  });
+
+  const validGroups = new Map();
+  candidateGroups.forEach((entries, key) => {
+    if (!entries || entries.length < 2) return;
+    const sorted = [...entries].sort((a, b) => {
+      if (a.info.pageIndex !== b.info.pageIndex) {
+        return a.info.pageIndex - b.info.pageIndex;
+      }
+      return a.index - b.index;
+    });
+    validGroups.set(key, sorted);
+  });
+
+  const items = [];
+  const assetKeyToDisplayIndex = new Map();
+
+  assets.forEach((asset, index) => {
+    const assetKey = getAssetUniqueKey(asset, `asset-${index}`);
+    const info = getCarouselPageInfo(asset);
+    const groupKey = info?.groupKey;
+
+    if (!groupKey || !validGroups.has(groupKey)) {
+      const displayIndex = items.length;
+      items.push({
+        type: 'asset',
+        key: assetKey,
+        asset,
+        isSquare: isSquareAspectRatio(getAssetAspectRatio(asset)),
+      });
+      assetKeyToDisplayIndex.set(assetKey, displayIndex);
+      return;
+    }
+
+    const existingDisplayIndex = assetKeyToDisplayIndex.get(`carousel:${groupKey}`);
+    if (existingDisplayIndex !== undefined) {
+      assetKeyToDisplayIndex.set(assetKey, existingDisplayIndex);
+      return;
+    }
+
+    const groupEntries = validGroups.get(groupKey) || [];
+    const displayIndex = items.length;
+    const carouselKey = `carousel:${groupKey}`;
+    const carouselAssets = groupEntries.map(({ asset: groupAsset, info: groupInfo, index: groupIndex }) => {
+      const entryKey = getAssetUniqueKey(groupAsset, `asset-${groupIndex}`);
+      assetKeyToDisplayIndex.set(entryKey, displayIndex);
+      return {
+        asset: groupAsset,
+        key: entryKey,
+        pageIndex: groupInfo.pageIndex,
+        pageLetter: groupInfo.pageLetter,
+      };
+    });
+
+    items.push({
+      type: 'carousel',
+      key: carouselKey,
+      assets: carouselAssets,
+      isSquare: true,
+    });
+
+    assetKeyToDisplayIndex.set(carouselKey, displayIndex);
+    assetKeyToDisplayIndex.set(assetKey, displayIndex);
+  });
+
+  return { items, assetKeyToDisplayIndex };
+};
+
 const compareRecipeCodes = (first, second) => {
   const a = normalizeKeyPart(first);
   const b = normalizeKeyPart(second);
@@ -761,6 +874,7 @@ const Review = forwardRef(
   }, []);
   const [inlineCopyDrafts, setInlineCopyDrafts] = useState({});
   const [inlineCopyModalContext, setInlineCopyModalContext] = useState(null);
+  const [carouselIndices, setCarouselIndices] = useState({});
   const [reviewVersion, setReviewVersion] = useState(null);
   const [showHelpdeskModal, setShowHelpdeskModal] = useState(false);
   const [helpdeskTickets, setHelpdeskTickets] = useState([]);
@@ -5084,7 +5198,7 @@ useEffect(() => {
                         ...assetOverride,
                       }
                     : baseInlineCopyCard;
-                  const shouldRenderInlineCopy =
+                  const hasInlineCopyTarget =
                     !!inlineCopyCard && squareAssetIndex !== -1;
                   const inlineCopyEditorState = inlineCopyDrafts[cardKey];
                   const isEditingInlineCopy = !!inlineCopyEditorState?.editing;
@@ -5100,9 +5214,6 @@ useEffect(() => {
                       inlineCopyValues.headline ||
                       inlineCopyValues.description)
                   );
-                  const shouldShowInlineCopySection =
-                    shouldRenderInlineCopy &&
-                    (isEditingInlineCopy || inlineCopyHasContent);
                   const normalizedInlineCopyValues = inlineCopyValues || {
                     primary: '',
                     headline: '',
@@ -5116,6 +5227,22 @@ useEffect(() => {
                       normalizedInlineCopyValues.description !==
                         (inlineCopyCard?.description || '')
                     : false;
+                  const displayItemsResult = buildCarouselDisplayItems(sortedAssets);
+                  const displayItems = displayItemsResult.items;
+                  const squareDisplayIndex =
+                    squareAssetIndex >= 0
+                      ? displayItemsResult.assetKeyToDisplayIndex.get(
+                          getAssetUniqueKey(
+                            sortedAssets[squareAssetIndex],
+                            `asset-${squareAssetIndex}`,
+                          ),
+                        ) ?? -1
+                      : -1;
+                  const shouldRenderInlineCopy =
+                    hasInlineCopyTarget && squareDisplayIndex !== -1;
+                  const shouldShowInlineCopySection =
+                    shouldRenderInlineCopy &&
+                    (isEditingInlineCopy || inlineCopyHasContent);
                   const selectId = `ad-status-${cardKey}`;
                   const handleStartInlineCopyEdit = () => {
                     if (isGroupReviewed) return;
@@ -5429,7 +5556,7 @@ useEffect(() => {
                   };
 
                   if (isMobile) {
-                    const assetCount = sortedAssets.length;
+                    const assetCount = displayItems.length;
                     const statusLabel = statusLabelMap[statusValue] || statusValue;
 
                     return (
@@ -5475,30 +5602,67 @@ useEffect(() => {
                               assetCount > 1 ? 'snap-x snap-mandatory' : ''
                             }`}
                           >
-                            {sortedAssets.map((asset, assetIdx) => {
-                              const assetUrl = asset.firebaseUrl || asset.adUrl || '';
-                              const assetAspect = getAssetAspectRatio(asset);
+                            {displayItems.map((item, displayIdx) => {
+                              const isCarouselItem = item.type === 'carousel';
+                              const carouselKey = isCarouselItem ? `${cardKey}:${item.key}` : null;
+                              const totalSlides = isCarouselItem ? item.assets.length : 1;
+                              const rawCarouselIndex =
+                                isCarouselItem && carouselKey
+                                  ? carouselIndices[carouselKey] ?? 0
+                                  : 0;
+                              const safeCarouselIndex =
+                                totalSlides > 0
+                                  ? ((rawCarouselIndex % totalSlides) + totalSlides) %
+                                    totalSlides
+                                  : 0;
+                              const activeCarouselEntry = isCarouselItem
+                                ? item.assets[safeCarouselIndex] || item.assets[0]
+                                : null;
+                              const resolvedAsset = isCarouselItem
+                                ? activeCarouselEntry?.asset || item.assets[0]?.asset
+                                : item.asset;
+                              const assetUrl =
+                                resolvedAsset?.firebaseUrl || resolvedAsset?.adUrl || '';
+                              const assetAspect = getAssetAspectRatio(resolvedAsset);
                               const assetCssAspect = getCssAspectRatioValue(assetAspect);
                               const assetStyle = assetCssAspect
                                 ? { aspectRatio: assetCssAspect }
                                 : {};
-                              const assetKey =
-                                getAssetDocumentId(asset) || assetUrl || assetIdx;
-                              const wrapperClasses = [
+                              const wrapperClasses = combineClasses(
                                 'flex w-full flex-col',
-                                assetCount > 1
-                                  ? 'min-w-full flex-shrink-0 snap-center'
-                                  : '',
-                                shouldRenderInlineCopy && assetIdx === squareAssetIndex
+                                assetCount > 1 ? 'min-w-full flex-shrink-0 snap-center' : '',
+                                shouldRenderInlineCopy && displayIdx === squareDisplayIndex
                                   ? 'gap-3'
                                   : '',
-                              ]
-                                .filter(Boolean)
-                                .join(' ');
+                                item.isSquare ? 'items-center' : '',
+                              );
+                              const containerClasses = combineClasses(
+                                'relative w-full overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)]',
+                                item.isSquare ? 'mx-auto max-w-[333px]' : '',
+                              );
+                              const cacheKey =
+                                assetUrl ||
+                                (isCarouselItem ? `${item.key}-${safeCarouselIndex}` : item.key);
+                              const overlayLabel = `${displayIdx + 1}/${Math.max(
+                                assetCount,
+                                1,
+                              )}${
+                                isCarouselItem && totalSlides > 1
+                                  ? ` • ${safeCarouselIndex + 1}/${totalSlides}`
+                                  : ''
+                              }`;
+                              const handleCarouselShift = (delta) => {
+                                if (!isCarouselItem || totalSlides <= 1 || !carouselKey) return;
+                                setCarouselIndices((prev) => {
+                                  const current = prev[carouselKey] ?? 0;
+                                  const next =
+                                    ((current + delta) % totalSlides + totalSlides) % totalSlides;
+                                  if (next === current) return prev;
+                                  return { ...prev, [carouselKey]: next };
+                                });
+                              };
                               const assetNode = (
-                                <div
-                                  className="relative w-full overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)]"
-                                >
+                                <div className={containerClasses}>
                                   <div className="relative w-full" style={assetStyle}>
                                     {isVideoUrl(assetUrl) ? (
                                       <VideoPlayer
@@ -5512,29 +5676,51 @@ useEffect(() => {
                                         webpUrl={
                                           assetUrl ? assetUrl.replace(/\.png$/, '.webp') : undefined
                                         }
-                                        alt={asset.filename || 'Ad'}
-                                        cacheKey={assetUrl}
+                                        alt={resolvedAsset?.filename || 'Ad'}
+                                        cacheKey={cacheKey}
                                         className="h-full w-full object-contain"
                                         style={assetStyle}
                                       />
                                     )}
                                   </div>
-                                  {assetCount > 1 && (
+                                  {isCarouselItem && totalSlides > 1 ? (
+                                    <>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleCarouselShift(-1)}
+                                        className="absolute left-3 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-gray-700 shadow-sm ring-1 ring-black/5 transition hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-color)] dark:bg-[var(--dark-sidebar-hover)] dark:text-gray-100 dark:hover:bg-[var(--dark-sidebar-bg)]"
+                                        aria-label="Previous slide"
+                                      >
+                                        <FiChevronLeft className="h-4 w-4" aria-hidden="true" />
+                                        <span className="sr-only">Previous slide</span>
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleCarouselShift(1)}
+                                        className="absolute right-3 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-gray-700 shadow-sm ring-1 ring-black/5 transition hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-color)] dark:bg-[var(--dark-sidebar-hover)] dark:text-gray-100 dark:hover:bg-[var(--dark-sidebar-bg)]"
+                                        aria-label="Next slide"
+                                      >
+                                        <FiChevronRight className="h-4 w-4" aria-hidden="true" />
+                                        <span className="sr-only">Next slide</span>
+                                      </button>
+                                    </>
+                                  ) : null}
+                                  {(assetCount > 1 || (isCarouselItem && totalSlides > 1)) && (
                                     <div className="pointer-events-none absolute bottom-3 right-3 rounded-full bg-black/60 px-2 py-0.5 text-xs font-medium text-white">
-                                      {assetIdx + 1}/{assetCount}
+                                      {overlayLabel}
                                     </div>
                                   )}
                                 </div>
                               );
-                              if (shouldRenderInlineCopy && assetIdx === squareAssetIndex) {
+                              if (shouldRenderInlineCopy && displayIdx === squareDisplayIndex) {
                                 return (
-                                  <div key={assetKey} className={wrapperClasses}>
+                                  <div key={item.key} className={wrapperClasses}>
                                     {renderInlineCopyBlock(assetNode)}
                                   </div>
                                 );
                               }
                               return (
-                                <div key={assetKey} className={wrapperClasses}>
+                                <div key={item.key} className={wrapperClasses}>
                                   {assetNode}
                                 </div>
                               );
@@ -5695,28 +5881,63 @@ useEffect(() => {
                         <div className="space-y-4">
                           <div
                             className={`grid items-start gap-3 ${
-                              sortedAssets.length > 1 ? 'sm:grid-cols-2' : ''
+                              displayItems.length > 1 ? 'sm:grid-cols-2' : ''
                             }`}
                           >
-                            {sortedAssets.map((asset, assetIdx) => {
-                              const assetUrl = asset.firebaseUrl || asset.adUrl || '';
-                              const assetAspect = getAssetAspectRatio(asset);
+                            {displayItems.map((item, displayIdx) => {
+                              const isCarouselItem = item.type === 'carousel';
+                              const carouselKey = isCarouselItem ? `${cardKey}:${item.key}` : null;
+                              const totalSlides = isCarouselItem ? item.assets.length : 1;
+                              const rawCarouselIndex =
+                                isCarouselItem && carouselKey
+                                  ? carouselIndices[carouselKey] ?? 0
+                                  : 0;
+                              const safeCarouselIndex =
+                                totalSlides > 0
+                                  ? ((rawCarouselIndex % totalSlides) + totalSlides) %
+                                    totalSlides
+                                  : 0;
+                              const activeCarouselEntry = isCarouselItem
+                                ? item.assets[safeCarouselIndex] || item.assets[0]
+                                : null;
+                              const resolvedAsset = isCarouselItem
+                                ? activeCarouselEntry?.asset || item.assets[0]?.asset
+                                : item.asset;
+                              const assetUrl =
+                                resolvedAsset?.firebaseUrl || resolvedAsset?.adUrl || '';
+                              const assetAspect = getAssetAspectRatio(resolvedAsset);
                               const assetCssAspect = getCssAspectRatioValue(assetAspect);
                               const assetStyle = assetCssAspect
                                 ? { aspectRatio: assetCssAspect }
                                 : {};
-                              const assetKey =
-                                getAssetDocumentId(asset) || assetUrl || assetIdx;
-                              const isSquareAsset = shouldRenderInlineCopy &&
-                                assetIdx === squareAssetIndex;
-                              const wrapperClasses = [
+                              const isInlineCopyAsset =
+                                shouldRenderInlineCopy && displayIdx === squareDisplayIndex;
+                              const wrapperClasses = combineClasses(
                                 'flex w-full flex-col self-start',
-                                isSquareAsset ? 'gap-3' : '',
-                              ]
-                                .filter(Boolean)
-                                .join(' ');
+                                isInlineCopyAsset ? 'gap-3' : '',
+                                item.isSquare ? 'items-center' : '',
+                              );
+                              const containerClasses = combineClasses(
+                                'relative mx-auto w-full overflow-hidden sm:mx-0',
+                                item.isSquare
+                                  ? 'max-w-[333px] rounded-xl'
+                                  : 'max-w-[712px] rounded-lg',
+                              );
+                              const cacheKey =
+                                assetUrl ||
+                                (isCarouselItem ? `${item.key}-${safeCarouselIndex}` : item.key);
+                              const handleCarouselShift = (delta) => {
+                                if (!isCarouselItem || totalSlides <= 1 || !carouselKey) return;
+                                setCarouselIndices((prev) => {
+                                  const current = prev[carouselKey] ?? 0;
+                                  const next =
+                                    ((current + delta) % totalSlides + totalSlides) % totalSlides;
+                                  if (next === current) return prev;
+                                  return { ...prev, [carouselKey]: next };
+                                });
+                              };
                               const assetNode = (
-                                <div className="mx-auto w-full max-w-[712px] overflow-hidden rounded-lg sm:mx-0">
+                                <div className={containerClasses}>
                                   <div className="relative w-full" style={assetStyle}>
                                     {isVideoUrl(assetUrl) ? (
                                       <VideoPlayer
@@ -5730,24 +5951,49 @@ useEffect(() => {
                                         webpUrl={
                                           assetUrl ? assetUrl.replace(/\.png$/, '.webp') : undefined
                                         }
-                                        alt={asset.filename || 'Ad'}
-                                        cacheKey={assetUrl}
+                                        alt={resolvedAsset?.filename || 'Ad'}
+                                        cacheKey={cacheKey}
                                         className="h-full w-full object-contain"
                                         style={assetStyle}
                                       />
                                     )}
                                   </div>
+                                  {isCarouselItem && totalSlides > 1 ? (
+                                    <>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleCarouselShift(-1)}
+                                        className="absolute left-3 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-gray-700 shadow-sm ring-1 ring-black/5 transition hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-color)] dark:bg-[var(--dark-sidebar-hover)] dark:text-gray-100 dark:hover:bg-[var(--dark-sidebar-bg)]"
+                                        aria-label="Previous slide"
+                                      >
+                                        <FiChevronLeft className="h-4 w-4" aria-hidden="true" />
+                                        <span className="sr-only">Previous slide</span>
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleCarouselShift(1)}
+                                        className="absolute right-3 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-gray-700 shadow-sm ring-1 ring-black/5 transition hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-color)] dark:bg-[var(--dark-sidebar-hover)] dark:text-gray-100 dark:hover:bg-[var(--dark-sidebar-bg)]"
+                                        aria-label="Next slide"
+                                      >
+                                        <FiChevronRight className="h-4 w-4" aria-hidden="true" />
+                                        <span className="sr-only">Next slide</span>
+                                      </button>
+                                      <div className="pointer-events-none absolute bottom-3 right-3 rounded-full bg-black/60 px-2 py-0.5 text-xs font-medium text-white">
+                                        {safeCarouselIndex + 1}/{totalSlides}
+                                      </div>
+                                    </>
+                                  ) : null}
                                 </div>
                               );
-                              if (isSquareAsset) {
+                              if (isInlineCopyAsset) {
                                 return (
-                                  <div key={assetKey} className={wrapperClasses}>
+                                  <div key={item.key} className={wrapperClasses}>
                                     {renderInlineCopyBlock(assetNode)}
                                   </div>
                                 );
                               }
                               return (
-                                <div key={assetKey} className={wrapperClasses}>
+                                <div key={item.key} className={wrapperClasses}>
                                   {assetNode}
                                 </div>
                               );
