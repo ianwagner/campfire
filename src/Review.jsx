@@ -5787,31 +5787,38 @@ useEffect(() => {
                       >
                         <div className="relative">
                           {renderReplacementOverlay()}
-                          <div className={combineClasses('flex flex-col gap-4 p-4', contentMaskClass)}>
-                            <div className="flex flex-col gap-2">
-                              <div className="flex flex-wrap items-center justify-between gap-2">
-                                <div className="flex flex-wrap items-center gap-2">
-                                  <h3 className="text-lg font-semibold leading-tight text-gray-900 dark:text-[var(--dark-text)]">
-                                    {recipeLabel}
-                                  </h3>
-                                  {latestVersionNumber > 1 ? (
-                                    hasMultipleVersions ? (
-                                      <InfoTooltip text="Toggle between versions" placement="bottom">
-                                        <button
-                                          type="button"
-                                          onClick={handleVersionBadgeClick}
-                                          className="inline-flex items-center rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600 transition hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:bg-[var(--dark-sidebar-hover)] dark:text-gray-200 dark:hover:bg-[var(--dark-sidebar-bg)] dark:focus:ring-offset-gray-900"
-                                          aria-label={`Toggle version (currently V${displayVersionNumber || latestVersionNumber || ''})`}
-                                        >
-                                          V{displayVersionNumber || latestVersionNumber}
-                                        </button>
-                                      </InfoTooltip>
-                                    ) : (
-                                      <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600 dark:bg-[var(--dark-sidebar-hover)] dark:text-gray-200">
+                          <div className="flex flex-col gap-4 p-4">
+                            <div className="relative z-30 flex flex-col gap-3">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <h3 className="text-lg font-semibold leading-tight text-gray-900 dark:text-[var(--dark-text)]">
+                                  {recipeLabel}
+                                </h3>
+                                {latestVersionNumber > 1 ? (
+                                  hasMultipleVersions ? (
+                                    <InfoTooltip text="Toggle between versions" placement="bottom">
+                                      <button
+                                        type="button"
+                                        onClick={handleVersionBadgeClick}
+                                        className="inline-flex items-center rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600 transition hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:bg-[var(--dark-sidebar-hover)] dark:text-gray-200 dark:hover:bg-[var(--dark-sidebar-bg)] dark:focus:ring-offset-gray-900"
+                                        aria-label={`Toggle version (currently V${displayVersionNumber || latestVersionNumber || ''})`}
+                                      >
                                         V{displayVersionNumber || latestVersionNumber}
-                                      </span>
-                                    )
-                                  ) : null}
+                                      </button>
+                                    </InfoTooltip>
+                                  ) : (
+                                    <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600 dark:bg-[var(--dark-sidebar-hover)] dark:text-gray-200">
+                                      V{displayVersionNumber || latestVersionNumber}
+                                    </span>
+                                  )
+                                ) : null}
+                              </div>
+                              <div className="flex flex-wrap items-center justify-between gap-2">
+                                <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-300">
+                                  <span
+                                    className="inline-block h-2.5 w-2.5 rounded-full"
+                                    style={statusDotStyles[statusValue] || statusDotStyles.pending}
+                                  />
+                                  <span className="font-medium">{statusLabel}</span>
                                 </div>
                                 {isRejectedStatus ? (
                                   <Button
@@ -5824,23 +5831,17 @@ useEffect(() => {
                                   </Button>
                                 ) : null}
                               </div>
-                              <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-300">
-                                <span
-                                  className="inline-block h-2.5 w-2.5 rounded-full"
-                                  style={statusDotStyles[statusValue] || statusDotStyles.pending}
-                              />
-                              <span className="font-medium">{statusLabel}</span>
                             </div>
-                          </div>
-                          <div
-                            className={combineClasses(
-                              `flex w-full gap-3 overflow-x-auto pb-1 ${
-                                assetCount > 1 ? 'snap-x snap-mandatory' : ''
-                              }`,
-                              rejectedAssetClass,
-                            )}
-                          >
-                            {sortedAssets.map((asset, assetIdx) => {
+                            <div className={combineClasses('flex flex-col gap-4', contentMaskClass)}>
+                              <div
+                                className={combineClasses(
+                                  `flex w-full gap-3 overflow-x-auto pb-1 ${
+                                    assetCount > 1 ? 'snap-x snap-mandatory' : ''
+                                  }`,
+                                  rejectedAssetClass,
+                                )}
+                              >
+                                {sortedAssets.map((asset, assetIdx) => {
                               const assetUrl = asset.firebaseUrl || asset.adUrl || '';
                               const assetAspect = getAssetAspectRatio(asset);
                               const assetCssAspect = getCssAspectRatioValue(assetAspect);
@@ -6125,8 +6126,8 @@ useEffect(() => {
                     >
                       <div className="relative">
                         {renderReplacementOverlay()}
-                        <div className={combineClasses('flex flex-col gap-4 p-4', contentMaskClass)}>
-                          <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
+                        <div className="flex flex-col gap-4 p-4">
+                          <div className="relative z-30 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                             <div className="flex flex-wrap items-center gap-2">
                               <h3 className="mb-0 text-lg font-semibold leading-tight text-gray-900 dark:text-[var(--dark-text)]">
                                 {recipeLabel}
@@ -6150,6 +6151,15 @@ useEffect(() => {
                                 )
                               ) : null}
                             </div>
+                          </div>
+                          <div className="relative z-30 flex flex-wrap items-center justify-between gap-2">
+                            <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-300">
+                              <span
+                                className="inline-block h-2.5 w-2.5 rounded-full"
+                                style={statusDotStyles[statusValue] || statusDotStyles.pending}
+                              />
+                              <span className="font-medium capitalize">{desktopStatusLabel}</span>
+                            </div>
                             {isRejectedStatus ? (
                               <Button
                                 variant="neutral"
@@ -6161,12 +6171,12 @@ useEffect(() => {
                               </Button>
                             ) : null}
                           </div>
-                          <div className="space-y-4">
-                          <div
-                            className={combineClasses(
-                              `grid items-start gap-3 ${
-                                sortedAssets.length > 1 ? 'sm:grid-cols-2' : ''
-                              }`,
+                          <div className={combineClasses('space-y-4', contentMaskClass)}>
+                            <div
+                              className={combineClasses(
+                                `grid items-start gap-3 ${
+                                  sortedAssets.length > 1 ? 'sm:grid-cols-2' : ''
+                                }`,
                               rejectedAssetClass,
                             )}
                           >
