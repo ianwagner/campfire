@@ -20,6 +20,8 @@ import {
   FiHome,
   FiDownload,
   FiMoreHorizontal,
+  FiChevronLeft,
+  FiChevronRight,
 } from 'react-icons/fi';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -661,6 +663,104 @@ const isSquareAspectRatio = (aspect) => {
   return Math.abs(ratio - 1) <= 0.02;
 };
 
+const parseCarouselFrameInfo = (filename) => {
+  const trimmed = normalizeKeyPart(filename);
+  if (!trimmed) return null;
+  const name = trimmed.replace(/\.[^/.]+$/, '');
+  const match = name.match(/^(.*)_([A-Za-z])$/);
+  if (!match) return null;
+  const frame = match[2].toUpperCase();
+  if (frame < 'A' || frame > 'Z') return null;
+  return {
+    base: match[1],
+    frame,
+    position: frame.charCodeAt(0) - 65,
+  };
+};
+
+const buildCarouselDisplayItems = (assets) => {
+  if (!Array.isArray(assets) || assets.length === 0) {
+    return { items: [], squareIndex: -1, squareAsset: null, hasSquare: false };
+  }
+
+  const potentialGroups = new Map();
+
+  assets.forEach((asset, index) => {
+    if (!asset) return;
+    const aspectKey = normalizeAspectKey(getAssetAspectRatio(asset));
+    if (aspectKey !== '1x1') return;
+    const frameInfo = parseCarouselFrameInfo(asset.filename || '');
+    if (!frameInfo) return;
+    const groupEntries = potentialGroups.get(frameInfo.base) || [];
+    groupEntries.push({ asset, frameInfo, index });
+    potentialGroups.set(frameInfo.base, groupEntries);
+  });
+
+  const carouselGroups = new Map();
+  potentialGroups.forEach((entries, base) => {
+    if (!entries || entries.length <= 1) return;
+    const sortedEntries = entries
+      .slice()
+      .sort((a, b) => a.frameInfo.position - b.frameInfo.position);
+    carouselGroups.set(base, {
+      key: base,
+      entries: sortedEntries,
+      indices: sortedEntries.map((entry) => entry.index),
+    });
+  });
+
+  const consumed = new Set();
+  const items = [];
+
+  assets.forEach((asset, index) => {
+    if (consumed.has(index)) {
+      return;
+    }
+    const aspectKey = normalizeAspectKey(getAssetAspectRatio(asset));
+    const frameInfo = aspectKey === '1x1' ? parseCarouselFrameInfo(asset.filename || '') : null;
+    const group = frameInfo ? carouselGroups.get(frameInfo.base) : null;
+    if (group) {
+      group.indices.forEach((idx) => consumed.add(idx));
+      const carouselAssets = group.entries.map((entry) => entry.asset);
+      const representative = carouselAssets[0] || null;
+      const docId = representative ? getAssetDocumentId(representative) : null;
+      items.push({
+        type: 'carousel',
+        key: `carousel-${docId || group.key}`,
+        assets: carouselAssets,
+        representativeAsset: representative,
+        aspect: '1x1',
+        carouselKey: group.key,
+      });
+    } else {
+      consumed.add(index);
+      items.push({
+        type: 'asset',
+        key: `asset-${getAssetDocumentId(asset) || index}`,
+        asset,
+        aspect: aspectKey,
+      });
+    }
+  });
+
+  const squareIndex = items.findIndex(
+    (item) => normalizeAspectKey(item?.aspect) === '1x1',
+  );
+  const squareAsset =
+    squareIndex === -1
+      ? null
+      : items[squareIndex].type === 'carousel'
+      ? items[squareIndex].representativeAsset || null
+      : items[squareIndex].asset || null;
+
+  return {
+    items,
+    squareIndex,
+    squareAsset,
+    hasSquare: squareIndex !== -1,
+  };
+};
+
 const getCssAspectRatioValue = (aspect) => {
   const normalized = normalizeKeyPart(aspect);
   if (!normalized) return '';
@@ -778,6 +878,7 @@ const Review = forwardRef(
   const [dragging, setDragging] = useState(false);
   const [fadeIn, setFadeIn] = useState(false);
   const [expandedRequests, setExpandedRequests] = useState({});
+  const [carouselPositions, setCarouselPositions] = useState({});
   const [pendingResponseContext, setPendingResponseContext] = useState(null);
   const [manualStatus, setManualStatus] = useState({});
   const statusBarSentinelRef = useRef(null);
@@ -4936,6 +5037,12 @@ useEffect(() => {
                       return a.originalIndex - b.originalIndex;
                     })
                     .map(({ asset }) => asset);
+                  const carouselDisplay = buildCarouselDisplayItems(sortedAssets);
+                  const displayAssets = carouselDisplay.items;
+                  const assetCount = displayAssets.length;
+                  const squareAssetIndex = carouselDisplay.squareIndex;
+                  const squareAsset = carouselDisplay.squareAsset;
+                  const hasSquareAsset = carouselDisplay.hasSquare;
                   const hasEditInfo = statusAssets.find(
                     (asset) => asset.comment || asset.copyEdit,
                   );
@@ -5012,9 +5119,6 @@ useEffect(() => {
                         ),
                       ]
                     : productCopyCards;
-                  const hasSquareAsset = sortedAssets.some((asset) =>
-                    isSquareAspectRatio(getAssetAspectRatio(asset)),
-                  );
                   const showCopyMirror =
                     hasSquareAsset && candidateCopyCards.length > 0;
                   const mapInlineCopyCard = (card) => {
@@ -5060,12 +5164,6 @@ useEffect(() => {
                   const baseInlineCopyCard = showCopyMirror
                     ? assignedInlineCopyCard || fallbackInlineCopyCard
                     : null;
-                  const squareAssetIndex = sortedAssets.findIndex(
-                    (asset) =>
-                      normalizeAspectKey(getAssetAspectRatio(asset)) === '1x1',
-                  );
-                  const squareAsset =
-                    squareAssetIndex >= 0 ? sortedAssets[squareAssetIndex] : null;
                   const assetOverrideRaw = squareAsset?.platformCopyOverride || null;
                   const assetOverride = assetOverrideRaw
                     ? {
@@ -5428,10 +5526,218 @@ useEffect(() => {
                     });
                   };
 
-                  if (isMobile) {
-                    const assetCount = sortedAssets.length;
-                    const statusLabel = statusLabelMap[statusValue] || statusValue;
+                  const statusLabel = statusLabelMap[statusValue] || statusValue;
+                  const getCarouselStateKey = (carouselKey) =>
+                    `${cardKey}:${carouselKey}`;
+                  const renderDisplayAsset = (item, displayIdx, layout) => {
+                    if (!item) return null;
+                    const isCarousel = item.type === 'carousel';
+                    const showInlineCopy =
+                      shouldRenderInlineCopy && displayIdx === squareAssetIndex;
+                    const wrapperBase =
+                      layout === 'mobile'
+                        ? [
+                            'flex w-full flex-col',
+                            assetCount > 1
+                              ? 'min-w-full flex-shrink-0 snap-center'
+                              : '',
+                          ]
+                        : ['flex w-full flex-col self-start'];
+                    if (showInlineCopy) {
+                      wrapperBase.push('gap-3');
+                    }
+                    const wrapperClasses = wrapperBase.filter(Boolean).join(' ');
+                    const key = `${item.key}-${displayIdx}`;
+                    const wrapWithInlineCopy = (node) =>
+                      showInlineCopy ? (
+                        <div key={key} className={wrapperClasses}>
+                          {renderInlineCopyBlock(node)}
+                        </div>
+                      ) : (
+                        <div key={key} className={wrapperClasses}>
+                          {node}
+                        </div>
+                      );
 
+                    if (isCarousel) {
+                      const totalSlides = Array.isArray(item.assets)
+                        ? item.assets.length
+                        : 0;
+                      const stateKey = getCarouselStateKey(item.carouselKey);
+                      const rawIndex = carouselPositions[stateKey] ?? 0;
+                      const currentIndex =
+                        totalSlides > 0
+                          ? Math.min(Math.max(rawIndex, 0), totalSlides - 1)
+                          : 0;
+                      const activeAsset =
+                        totalSlides > 0 ? item.assets[currentIndex] : null;
+                      const assetUrl =
+                        activeAsset?.firebaseUrl || activeAsset?.adUrl || '';
+                      const assetAlt = activeAsset?.filename || 'Ad';
+                      const disablePrev = currentIndex <= 0;
+                      const disableNext =
+                        totalSlides === 0 || currentIndex >= totalSlides - 1;
+                      const arrowButtonClasses =
+                        'inline-flex h-10 w-10 items-center justify-center rounded-full border border-gray-300 bg-white text-gray-700 shadow-sm transition hover:bg-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-color)] disabled:cursor-not-allowed disabled:opacity-50 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)] dark:text-gray-200 dark:hover:bg-[var(--dark-sidebar-hover)]';
+                      const containerPadding =
+                        layout === 'mobile' ? 'px-4 py-6' : 'px-6 py-8';
+                      const updateIndex = (nextIndex) => {
+                        const clamped = Math.max(
+                          0,
+                          Math.min(nextIndex, Math.max(totalSlides - 1, 0)),
+                        );
+                        setCarouselPositions((prev) => {
+                          if (prev[stateKey] === clamped) {
+                            return prev;
+                          }
+                          return { ...prev, [stateKey]: clamped };
+                        });
+                      };
+                      const handlePrev = () => {
+                        if (disablePrev) return;
+                        updateIndex(currentIndex - 1);
+                      };
+                      const handleNext = () => {
+                        if (disableNext) return;
+                        updateIndex(currentIndex + 1);
+                      };
+                      const slideIndicator =
+                        totalSlides > 1 ? (
+                          <div className="pointer-events-none absolute bottom-2 right-2 rounded-full bg-black/60 px-2 py-0.5 text-xs font-medium text-white">
+                            {currentIndex + 1}/{totalSlides}
+                          </div>
+                        ) : null;
+                      const imageNode = (
+                        <div
+                          className="relative w-full max-w-[333px]"
+                          style={{ aspectRatio: '1 / 1' }}
+                        >
+                          {isVideoUrl(assetUrl) ? (
+                            <VideoPlayer
+                              src={assetUrl}
+                              className="h-full w-full object-contain"
+                              style={{ aspectRatio: '1 / 1' }}
+                            />
+                          ) : (
+                            <OptimizedImage
+                              pngUrl={assetUrl}
+                              webpUrl={
+                                assetUrl
+                                  ? assetUrl.replace(/\.png$/, '.webp')
+                                  : undefined
+                              }
+                              alt={assetAlt}
+                              cacheKey={assetUrl}
+                              className="h-full w-full object-contain"
+                              style={{ aspectRatio: '1 / 1' }}
+                            />
+                          )}
+                          {slideIndicator}
+                        </div>
+                      );
+                      const outerClasses =
+                        layout === 'mobile'
+                          ? 'relative w-full overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)]'
+                          : 'relative w-full overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)]';
+                      const node = (
+                        <div className={outerClasses}>
+                          <div
+                            className={`flex w-full items-center justify-center gap-3 ${containerPadding}`}
+                          >
+                            <button
+                              type="button"
+                              onClick={handlePrev}
+                              disabled={disablePrev}
+                              className={arrowButtonClasses}
+                              aria-label="View previous carousel frame"
+                            >
+                              <FiChevronLeft className="h-5 w-5" aria-hidden="true" />
+                            </button>
+                            {imageNode}
+                            <button
+                              type="button"
+                              onClick={handleNext}
+                              disabled={disableNext}
+                              className={arrowButtonClasses}
+                              aria-label="View next carousel frame"
+                            >
+                              <FiChevronRight className="h-5 w-5" aria-hidden="true" />
+                            </button>
+                          </div>
+                          {layout === 'mobile' && assetCount > 1 ? (
+                            <div className="pointer-events-none absolute bottom-3 right-3 rounded-full bg-black/60 px-2 py-0.5 text-xs font-medium text-white">
+                              {displayIdx + 1}/{assetCount}
+                            </div>
+                          ) : null}
+                        </div>
+                      );
+                      return wrapWithInlineCopy(node);
+                    }
+
+                    const asset = item.asset;
+                    if (!asset) {
+                      return null;
+                    }
+                    const assetUrl = asset.firebaseUrl || asset.adUrl || '';
+                    const assetAspect = getAssetAspectRatio(asset);
+                    const normalizedAspect = normalizeAspectKey(assetAspect);
+                    const assetCssAspect = getCssAspectRatioValue(assetAspect);
+                    const aspectStyle = assetCssAspect
+                      ? { aspectRatio: assetCssAspect }
+                      : normalizedAspect === '1x1'
+                      ? { aspectRatio: '1 / 1' }
+                      : {};
+                    const outerClasses =
+                      layout === 'mobile'
+                        ? [
+                            'relative w-full overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)]',
+                            normalizedAspect === '1x1' ? 'mx-auto max-w-[333px]' : '',
+                          ]
+                            .filter(Boolean)
+                            .join(' ')
+                        : [
+                            'mx-auto w-full overflow-hidden rounded-lg sm:mx-0',
+                            normalizedAspect === '1x1'
+                              ? 'max-w-[333px]'
+                              : 'max-w-[712px]',
+                          ]
+                            .filter(Boolean)
+                            .join(' ');
+                    const node = (
+                      <div className={outerClasses}>
+                        <div className="relative w-full" style={aspectStyle}>
+                          {isVideoUrl(assetUrl) ? (
+                            <VideoPlayer
+                              src={assetUrl}
+                              className="h-full w-full object-contain"
+                              style={aspectStyle}
+                            />
+                          ) : (
+                            <OptimizedImage
+                              pngUrl={assetUrl}
+                              webpUrl={
+                                assetUrl
+                                  ? assetUrl.replace(/\.png$/, '.webp')
+                                  : undefined
+                              }
+                              alt={asset.filename || 'Ad'}
+                              cacheKey={assetUrl}
+                              className="h-full w-full object-contain"
+                              style={aspectStyle}
+                            />
+                          )}
+                        </div>
+                        {layout === 'mobile' && assetCount > 1 ? (
+                          <div className="pointer-events-none absolute bottom-3 right-3 rounded-full bg-black/60 px-2 py-0.5 text-xs font-medium text-white">
+                            {displayIdx + 1}/{assetCount}
+                          </div>
+                        ) : null}
+                      </div>
+                    );
+                    return wrapWithInlineCopy(node);
+                  };
+
+                  if (isMobile) {
                     return (
                       <div
                         key={cardKey}
@@ -5475,70 +5781,9 @@ useEffect(() => {
                               assetCount > 1 ? 'snap-x snap-mandatory' : ''
                             }`}
                           >
-                            {sortedAssets.map((asset, assetIdx) => {
-                              const assetUrl = asset.firebaseUrl || asset.adUrl || '';
-                              const assetAspect = getAssetAspectRatio(asset);
-                              const assetCssAspect = getCssAspectRatioValue(assetAspect);
-                              const assetStyle = assetCssAspect
-                                ? { aspectRatio: assetCssAspect }
-                                : {};
-                              const assetKey =
-                                getAssetDocumentId(asset) || assetUrl || assetIdx;
-                              const wrapperClasses = [
-                                'flex w-full flex-col',
-                                assetCount > 1
-                                  ? 'min-w-full flex-shrink-0 snap-center'
-                                  : '',
-                                shouldRenderInlineCopy && assetIdx === squareAssetIndex
-                                  ? 'gap-3'
-                                  : '',
-                              ]
-                                .filter(Boolean)
-                                .join(' ');
-                              const assetNode = (
-                                <div
-                                  className="relative w-full overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)]"
-                                >
-                                  <div className="relative w-full" style={assetStyle}>
-                                    {isVideoUrl(assetUrl) ? (
-                                      <VideoPlayer
-                                        src={assetUrl}
-                                        className="h-full w-full object-contain"
-                                        style={assetStyle}
-                                      />
-                                    ) : (
-                                      <OptimizedImage
-                                        pngUrl={assetUrl}
-                                        webpUrl={
-                                          assetUrl ? assetUrl.replace(/\.png$/, '.webp') : undefined
-                                        }
-                                        alt={asset.filename || 'Ad'}
-                                        cacheKey={assetUrl}
-                                        className="h-full w-full object-contain"
-                                        style={assetStyle}
-                                      />
-                                    )}
-                                  </div>
-                                  {assetCount > 1 && (
-                                    <div className="pointer-events-none absolute bottom-3 right-3 rounded-full bg-black/60 px-2 py-0.5 text-xs font-medium text-white">
-                                      {assetIdx + 1}/{assetCount}
-                                    </div>
-                                  )}
-                                </div>
-                              );
-                              if (shouldRenderInlineCopy && assetIdx === squareAssetIndex) {
-                                return (
-                                  <div key={assetKey} className={wrapperClasses}>
-                                    {renderInlineCopyBlock(assetNode)}
-                                  </div>
-                                );
-                              }
-                              return (
-                                <div key={assetKey} className={wrapperClasses}>
-                                  {assetNode}
-                                </div>
-                              );
-                            })}
+                            {displayAssets.map((item, assetIdx) =>
+                              renderDisplayAsset(item, assetIdx, 'mobile'),
+                            )}
                           </div>
                           <div className="space-y-3">
                             <div className="rounded-xl border border-gray-200 bg-gray-50 p-3 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-hover)]">
@@ -5660,7 +5905,6 @@ useEffect(() => {
                       </div>
                     );
                   }
-
                   return (
                     <div
                       key={cardKey}
@@ -5695,63 +5939,12 @@ useEffect(() => {
                         <div className="space-y-4">
                           <div
                             className={`grid items-start gap-3 ${
-                              sortedAssets.length > 1 ? 'sm:grid-cols-2' : ''
+                              assetCount > 1 ? 'sm:grid-cols-2' : ''
                             }`}
                           >
-                            {sortedAssets.map((asset, assetIdx) => {
-                              const assetUrl = asset.firebaseUrl || asset.adUrl || '';
-                              const assetAspect = getAssetAspectRatio(asset);
-                              const assetCssAspect = getCssAspectRatioValue(assetAspect);
-                              const assetStyle = assetCssAspect
-                                ? { aspectRatio: assetCssAspect }
-                                : {};
-                              const assetKey =
-                                getAssetDocumentId(asset) || assetUrl || assetIdx;
-                              const isSquareAsset = shouldRenderInlineCopy &&
-                                assetIdx === squareAssetIndex;
-                              const wrapperClasses = [
-                                'flex w-full flex-col self-start',
-                                isSquareAsset ? 'gap-3' : '',
-                              ]
-                                .filter(Boolean)
-                                .join(' ');
-                              const assetNode = (
-                                <div className="mx-auto w-full max-w-[712px] overflow-hidden rounded-lg sm:mx-0">
-                                  <div className="relative w-full" style={assetStyle}>
-                                    {isVideoUrl(assetUrl) ? (
-                                      <VideoPlayer
-                                        src={assetUrl}
-                                        className="h-full w-full object-contain"
-                                        style={assetStyle}
-                                      />
-                                    ) : (
-                                      <OptimizedImage
-                                        pngUrl={assetUrl}
-                                        webpUrl={
-                                          assetUrl ? assetUrl.replace(/\.png$/, '.webp') : undefined
-                                        }
-                                        alt={asset.filename || 'Ad'}
-                                        cacheKey={assetUrl}
-                                        className="h-full w-full object-contain"
-                                        style={assetStyle}
-                                      />
-                                    )}
-                                  </div>
-                                </div>
-                              );
-                              if (isSquareAsset) {
-                                return (
-                                  <div key={assetKey} className={wrapperClasses}>
-                                    {renderInlineCopyBlock(assetNode)}
-                                  </div>
-                                );
-                              }
-                              return (
-                                <div key={assetKey} className={wrapperClasses}>
-                                  {assetNode}
-                                </div>
-                              );
-                            })}
+                            {displayAssets.map((item, assetIdx) =>
+                              renderDisplayAsset(item, assetIdx, 'desktop'),
+                            )}
                           </div>
                         </div>
                         <div className="mt-2 flex flex-col gap-3 border-t border-gray-200 pt-3 dark:border-[var(--border-color-default)] sm:flex-row sm:items-center sm:justify-between">
