@@ -3,6 +3,7 @@ import {
   createMappingContext,
   dispatchIntegrationRequest,
   executeMapping,
+  IntegrationError,
   type Integration,
 } from "../../lib/integrations";
 import type { ApiHandler } from "../../lib/api/types";
@@ -42,52 +43,70 @@ const handler: ApiHandler<IntegrationTestRequestBody> = async (req, res) => {
   const { integration, reviewId, payload = {}, mode = "dry-run" } = req.body;
   const dryRun = mode === "dry-run";
 
-  const mappingContext = await createMappingContext(
-    integration,
-    reviewId,
-    payload,
-    dryRun
-  );
-  const mappingResult = await executeMapping(integration.mapping, mappingContext);
+  try {
+    const mappingContext = await createMappingContext(
+      integration,
+      reviewId,
+      payload,
+      dryRun
+    );
+    const mappingResult = await executeMapping(integration.mapping, mappingContext);
 
-  const request = buildIntegrationRequest(
-    integration,
-    mappingResult.payload,
-    dryRun
-      ? {
-          headers: {
-            "X-Test": "true",
-          },
-        }
-      : undefined
-  );
+    const request = buildIntegrationRequest(
+      integration,
+      mappingResult.payload,
+      dryRun
+        ? {
+            headers: {
+              "X-Test": "true",
+            },
+          }
+        : undefined
+    );
 
-  const dispatchResult = await dispatchIntegrationRequest(request, {
-    integration,
-    dryRun,
-  });
+    const dispatchResult = await dispatchIntegrationRequest(request, {
+      integration,
+      dryRun,
+    });
 
-  return res.status(200).json({
-    mode,
-    dryRun,
-    reviewId,
-    integrationId: integration.id,
-    mapping: mappingResult,
-    dispatch: dispatchResult,
-    request,
-    context: {
-      review: mappingContext.review,
-      ads: mappingContext.ads,
-      client: mappingContext.client,
-      recipeType: mappingContext.recipeType,
-      recipeFieldKeys: mappingContext.recipeFieldKeys,
-      standardAds: mappingContext.standardAds,
-      summary: mappingContext.summary,
-      defaultExport: mappingContext.defaultExport,
-      generatedAt: mappingContext.generatedAt,
-      data: mappingContext.data,
-    },
-  });
+    return res.status(200).json({
+      mode,
+      dryRun,
+      reviewId,
+      integrationId: integration.id,
+      mapping: mappingResult,
+      dispatch: dispatchResult,
+      request,
+      context: {
+        review: mappingContext.review,
+        ads: mappingContext.ads,
+        client: mappingContext.client,
+        recipeType: mappingContext.recipeType,
+        recipeFieldKeys: mappingContext.recipeFieldKeys,
+        standardAds: mappingContext.standardAds,
+        summary: mappingContext.summary,
+        defaultExport: mappingContext.defaultExport,
+        generatedAt: mappingContext.generatedAt,
+        data: mappingContext.data,
+      },
+    });
+  } catch (error) {
+    if (error instanceof IntegrationError) {
+      const status = error.code === "mapping/review_not_found" ? 404 : 422;
+      return res.status(status).json({
+        error: error.message,
+        code: error.code,
+        details: error.details,
+      });
+    }
+
+    return res.status(500).json({
+      error:
+        error instanceof Error
+          ? error.message
+          : "Failed to execute integration test.",
+    });
+  }
 };
 
 export default handler;
