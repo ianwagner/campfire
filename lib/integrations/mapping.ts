@@ -534,6 +534,47 @@ type StandardFieldContext = {
   recipeType: FirestoreRecord | null;
 };
 
+const STANDARD_EXPORT_FIELD_ALIASES: Record<string, readonly string[]> = {
+  reviewId: ["review_id"],
+  reviewName: ["review_name"],
+  reviewUrl: ["review_url"],
+  adGroupName: ["ad_group_name", "group_name", "group_desc"],
+  adId: ["ad_id"],
+  adName: ["ad_name"],
+  adExternalId: ["ad_external_id"],
+  adVersion: ["ad_version"],
+  brandId: ["brand_id"],
+  brandName: ["brand_name"],
+  brandCode: ["brand_code"],
+  brandStoreId: ["brand_store_id"],
+  storeId: ["store_id", "shop"],
+  clientId: ["client_id"],
+  clientName: ["client_name"],
+  projectId: ["project_id"],
+  projectName: ["project_name"],
+  requestId: ["request_id"],
+  requestName: ["request_name"],
+  campaignId: ["campaign_id"],
+  campaignName: ["campaign_name"],
+  recipeTypeId: ["recipe_type_id"],
+  recipeTypeName: ["recipe_type_name"],
+  recipeNumber: ["recipe_number", "recipe_no"],
+  productName: ["product", "product_name"],
+  primaryCopy: ["primary_copy", "primary_text"],
+  headline: ["headline_text"],
+  description: ["description_text"],
+  destinationUrl: ["destination_url", "product_url", "url"],
+  goLiveDate: ["go_live", "go_live_date"],
+  asset1x1Url: ["image_1x1", "asset_1x1", "image_square"],
+  asset9x16Url: ["image_9x16", "asset_9x16", "image_vertical"],
+  moment: ["moment_desc"],
+  funnel: ["funnel_stage"],
+  persona: ["persona_label"],
+  audience: ["audience_label"],
+  angle: ["angle_label"],
+  status: ["status_label"],
+};
+
 const STANDARD_FIELD_ALIASES = {
   storeId: [
     "Store ID",
@@ -1538,7 +1579,7 @@ function buildStandardAdExports(
       {} as Record<string, string | null>
     );
 
-    return {
+    const exportRow: IntegrationAdExport = {
       reviewId: context.summary.reviewId,
       reviewName: context.summary.reviewName,
       reviewUrl: context.summary.reviewUrl,
@@ -1588,7 +1629,37 @@ function buildStandardAdExports(
       updatedAt,
       recipeFields,
     } satisfies IntegrationAdExport;
+
+    return applyStandardExportAliases(exportRow);
   });
+}
+
+function applyStandardExportAliases(
+  record: IntegrationAdExport,
+  aliasMap: Record<string, readonly string[]> = STANDARD_EXPORT_FIELD_ALIASES
+): IntegrationAdExport {
+  const result = record as Record<string, unknown>;
+  for (const [canonical, aliases] of Object.entries(aliasMap)) {
+    if (!Array.isArray(aliases) || !aliases.length) {
+      continue;
+    }
+
+    const value = result[canonical];
+    if (value === undefined) {
+      continue;
+    }
+
+    for (const alias of aliases) {
+      if (typeof alias !== "string" || !alias) {
+        continue;
+      }
+      if (!(alias in result)) {
+        result[alias] = value;
+      }
+    }
+  }
+
+  return record;
 }
 
 function collectRecipeFieldValues(

@@ -184,4 +184,100 @@ describe("groupAdsByRecipeIdentifier", () => {
       expect.objectContaining({ "Recipe Number": "RC-200" })
     );
   });
+
+  it("adds common alias keys to the standard export rows", () => {
+    const review: FirestoreRecord = {
+      id: "review-1",
+      name: "Review",
+      brandStoreId: "BRAND-001",
+    };
+    const generatedAt = "2024-01-01T00:00:00.000Z";
+
+    const integration: Integration = {
+      id: "integration-1",
+      version: "1",
+      name: "Test Integration",
+      slug: "test-integration",
+      description: "",
+      active: true,
+      baseUrl: "https://example.com",
+      endpointPath: "/hook",
+      method: "POST",
+      auth: { strategy: "none" },
+      mapping: { type: "literal", version: "1", template: {} },
+      schemaRef: null,
+      recipeTypeId: null,
+      retryPolicy: {
+        maxAttempts: 1,
+        initialIntervalMs: 1000,
+        maxIntervalMs: 1000,
+        backoffMultiplier: 1,
+      },
+      headers: {},
+      createdAt: generatedAt,
+      updatedAt: generatedAt,
+    };
+
+    const ads: FirestoreRecord[] = [
+      {
+        id: "ad-1",
+        name: "Example",
+        recipeFields: {
+          "Recipe Number": "RC-300",
+          Product: "Widget",
+          Primary: "Primary copy",
+          Headline: "Headline text",
+          Description: "Description text",
+          Persona: "Persona 1",
+          Funnel: "Middle",
+          "Go Live": "2025-01-01",
+          URL: "https://example.com/product",
+          "Ad Group": "Example Group",
+          Moment: "Holiday",
+          Angle: "Fresh",
+          Audience: "Parents",
+          Status: "approved",
+          "Store ID": "STORE-123",
+          "1x1": "https://cdn.example.com/square.png",
+          "9x16": "https://cdn.example.com/vertical.png",
+        },
+        assets: [
+          { aspectRatio: "1x1", url: "https://cdn.example.com/square.png" },
+          { aspectRatio: "9x16", url: "https://cdn.example.com/vertical.png" },
+        ],
+      },
+    ];
+
+    const exports = __TESTING__.buildStandardAdExports(ads, {
+      review,
+      client: null,
+      recipeType: null,
+      summary: { reviewId: review.id, reviewName: review.name, brandStoreId: "BRAND-001" },
+      generatedAt,
+      integration,
+      dryRun: true,
+    });
+
+    expect(exports).toHaveLength(1);
+    const row = exports[0] as Record<string, unknown>;
+
+    expect(row.recipeNumber).toBe("RC-300");
+    expect(row.recipe_no).toBe("RC-300");
+    expect(row.productName).toBe("Widget");
+    expect(row.product).toBe("Widget");
+    expect(row.primaryCopy).toBe("Primary copy");
+    expect(row.primary_text).toBe("Primary copy");
+    expect(row.destinationUrl).toBe("https://example.com/product");
+    expect(row.product_url).toBe("https://example.com/product");
+    expect(row.asset1x1Url).toBe("https://cdn.example.com/square.png");
+    expect(row.image_1x1).toBe("https://cdn.example.com/square.png");
+    expect(row.asset9x16Url).toBe("https://cdn.example.com/vertical.png");
+    expect(row.image_9x16).toBe("https://cdn.example.com/vertical.png");
+    expect(row.adGroupName).toBe("Example Group");
+    expect(row.group_desc).toBe("Example Group");
+    expect(row.storeId).toBe("STORE-123");
+    expect(row.shop).toBe("STORE-123");
+    expect(row.brandStoreId).toBe("BRAND-001");
+    expect(row.brand_store_id).toBe("BRAND-001");
+  });
 });
