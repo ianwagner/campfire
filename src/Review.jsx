@@ -57,6 +57,7 @@ import sortCopyCards from './utils/sortCopyCards';
 import RecipePreview from './RecipePreview.jsx';
 import HelpdeskModal from './components/HelpdeskModal.jsx';
 import Modal from './components/Modal.jsx';
+import Button from './components/Button.jsx';
 import InfoTooltip from './components/InfoTooltip.jsx';
 import isVideoUrl from './utils/isVideoUrl';
 import parseAdFilename from './utils/parseAdFilename';
@@ -780,6 +781,7 @@ const Review = forwardRef(
   const [expandedRequests, setExpandedRequests] = useState({});
   const [pendingResponseContext, setPendingResponseContext] = useState(null);
   const [manualStatus, setManualStatus] = useState({});
+  const [replacementPrompts, setReplacementPrompts] = useState({});
   const statusBarSentinelRef = useRef(null);
   const statusBarRef = useRef(null);
   const toolbarRef = useRef(null);
@@ -3642,6 +3644,7 @@ useEffect(() => {
       targetAssets = currentRecipeGroup?.assets || [],
       targetIndex = currentIndex,
       skipAdvance = false,
+      replacementNotes = '',
     } = {},
   ) => {
     if (!targetAd) return;
@@ -3686,15 +3689,17 @@ useEffect(() => {
     const existingComment =
       (pendingResponseContext && pendingResponseContext.existingComment) || '';
     const trimmedInputComment = comment.trim();
+    const trimmedReplacementNotes = (replacementNotes || '').trim();
+    const reviewerDisplayName =
+      reviewerName ||
+      user?.displayName ||
+      user?.email ||
+      user?.uid ||
+      'unknown';
     const formatComment = (note) => {
       const trimmed = (note || '').trim();
       if (!trimmed) return '';
-      const name =
-        reviewerName ||
-        user?.displayName ||
-        user?.email ||
-        user?.uid ||
-        'unknown';
+      const name = reviewerDisplayName;
       const formatter = new Intl.DateTimeFormat(undefined, {
         dateStyle: 'medium',
         timeStyle: 'short',
@@ -3702,8 +3707,9 @@ useEffect(() => {
       const timestamp = formatter.format(new Date());
       return `${trimmed}\n\n— ${name} · ${timestamp}`;
     };
-    let finalComment = existingComment;
+    let finalComment = '';
     if (responseType === 'edit') {
+      finalComment = existingComment;
       if (trimmedInputComment) {
         const formatted = formatComment(trimmedInputComment);
         if (editModalMode === 'note' && existingComment) {
@@ -3712,8 +3718,8 @@ useEffect(() => {
           finalComment = formatted;
         }
       }
-    } else {
-      finalComment = '';
+    } else if (responseType === 'reject' && trimmedReplacementNotes) {
+      finalComment = formatComment(trimmedReplacementNotes);
     }
 
     try {
@@ -3721,10 +3727,37 @@ useEffect(() => {
         const url = asset.adUrl || asset.firebaseUrl;
         const copyChanged =
           responseType === 'edit' && editCopy.trim() !== origCopy.trim();
+        const buildUpdatedAsset = (existing) => {
+          const updatedAsset = {
+            ...existing,
+            status: newStatus,
+            comment: responseType === 'edit' ? finalComment : '',
+            copyEdit: copyChanged ? editCopy : '',
+            ...(responseType === 'approve'
+              ? { isResolved: true }
+              : responseType === 'edit'
+              ? { isResolved: false }
+              : {}),
+          };
+          if (responseType === 'reject') {
+            if (trimmedReplacementNotes) {
+              updatedAsset.replacementRequest = {
+                note: trimmedReplacementNotes,
+                requestedBy: reviewerDisplayName,
+                requestedAt: new Date().toISOString(),
+              };
+            } else {
+              delete updatedAsset.replacementRequest;
+            }
+          } else {
+            delete updatedAsset.replacementRequest;
+          }
+          return updatedAsset;
+        };
         const respObj = {
           adUrl: url,
           response: responseType,
-          comment: responseType === 'edit' ? finalComment : '',
+          comment: finalComment,
           copyEdit: copyChanged ? editCopy : '',
           pass: responses[url] ? 'revisit' : 'initial',
           ...(asset.brandCode ? { brandCode: asset.brandCode } : {}),
@@ -3743,26 +3776,37 @@ useEffect(() => {
           );
         }
         const assetDocId = getAssetDocumentId(asset);
-        if (assetDocId && asset.adGroupId) {
-          const assetRef = doc(
-            db,
-            'adGroups',
-            asset.adGroupId,
-            'assets',
-            assetDocId,
-          );
-          const updateData = {
-            status: newStatus,
-            comment: responseType === 'edit' ? finalComment : '',
-            copyEdit: copyChanged ? editCopy : '',
-            lastUpdatedBy: user.uid,
-            lastUpdatedAt: serverTimestamp(),
-            ...(responseType === 'approve' ? { isResolved: true } : {}),
-            ...(responseType === 'edit' ? { isResolved: false } : {}),
-          };
-          updates.push(updateDoc(assetRef, updateData));
+          if (assetDocId && asset.adGroupId) {
+            const assetRef = doc(
+              db,
+              'adGroups',
+              asset.adGroupId,
+              'assets',
+              assetDocId,
+            );
+            const updateData = {
+              status: newStatus,
+              comment: finalComment,
+              copyEdit: copyChanged ? editCopy : '',
+              lastUpdatedBy: user.uid,
+              lastUpdatedAt: serverTimestamp(),
+              ...(responseType === 'approve' ? { isResolved: true } : {}),
+              ...(responseType === 'edit' ? { isResolved: false } : {}),
+              ...(responseType === 'reject'
+                ? trimmedReplacementNotes
+                  ? {
+                      replacementRequest: {
+                        note: trimmedReplacementNotes,
+                        requestedBy: reviewerDisplayName,
+                        requestedAt: serverTimestamp(),
+                      },
+                    }
+                  : { replacementRequest: deleteField() }
+                : { replacementRequest: deleteField() }),
+            };
+            updates.push(updateDoc(assetRef, updateData));
 
-          const name = reviewerName || user.displayName || user.uid || 'unknown';
+          const name = reviewerDisplayName;
           updates.push(
             addDoc(
               collection(
@@ -3797,17 +3841,7 @@ useEffect(() => {
           setAds((prev) => {
             const updated = prev.map((a) =>
               assetsReferToSameDoc(a, asset)
-                ? {
-                    ...a,
-                    status: newStatus,
-                    comment: responseType === 'edit' ? finalComment : '',
-                    copyEdit: copyChanged ? editCopy : '',
-                    ...(responseType === 'approve'
-                      ? { isResolved: true }
-                      : responseType === 'edit'
-                      ? { isResolved: false }
-                      : {}),
-                  }
+                ? buildUpdatedAsset(a)
                 : a,
             );
             updatedAdsState = updated;
@@ -3816,34 +3850,14 @@ useEffect(() => {
           setReviewAds((prev) =>
             prev.map((a) =>
               assetsReferToSameDoc(a, asset)
-                ? {
-                    ...a,
-                    status: newStatus,
-                    comment: responseType === 'edit' ? finalComment : '',
-                    copyEdit: copyChanged ? editCopy : '',
-                    ...(responseType === 'approve'
-                      ? { isResolved: true }
-                      : responseType === 'edit'
-                      ? { isResolved: false }
-                      : {}),
-                  }
+                ? buildUpdatedAsset(a)
                 : a,
             ),
           );
           setAllAds((prev) =>
             prev.map((a) =>
               assetsReferToSameDoc(a, asset)
-                ? {
-                    ...a,
-                    status: newStatus,
-                    comment: responseType === 'edit' ? finalComment : '',
-                    copyEdit: copyChanged ? editCopy : '',
-                    ...(responseType === 'approve'
-                      ? { isResolved: true }
-                      : responseType === 'edit'
-                      ? { isResolved: false }
-                      : {}),
-                  }
+                ? buildUpdatedAsset(a)
                 : a,
             ),
           );
@@ -5372,6 +5386,12 @@ useEffect(() => {
                         delete next[cardKey];
                         return next;
                       });
+                      setReplacementPrompts((prev) => {
+                        if (!prev[cardKey]) return prev;
+                        const next = { ...prev };
+                        delete next[cardKey];
+                        return next;
+                      });
                       return;
                     }
                     if (value === 'edit') {
@@ -5391,7 +5411,37 @@ useEffect(() => {
                       });
                       return;
                     }
+                    if (value === 'reject') {
+                      setManualStatus((prev) => ({ ...prev, [cardKey]: 'reject' }));
+                      setReplacementPrompts((prev) => {
+                        const previousState = prev[cardKey] || {};
+                        const nextResponse =
+                          previousState.response ??
+                          (typeof replacementResponse === 'string'
+                            ? replacementResponse
+                            : null);
+                        return {
+                          ...prev,
+                          [cardKey]: {
+                            ...previousState,
+                            showPrompt: true,
+                            collapsed: false,
+                            response: nextResponse,
+                            note: replacementNote,
+                            error: '',
+                            submitting: false,
+                          },
+                        };
+                      });
+                      return;
+                    }
                     setManualStatus((prev) => {
+                      const next = { ...prev };
+                      delete next[cardKey];
+                      return next;
+                    });
+                    setReplacementPrompts((prev) => {
+                      if (!prev[cardKey]) return prev;
                       const next = { ...prev };
                       delete next[cardKey];
                       return next;
@@ -5428,40 +5478,273 @@ useEffect(() => {
                     });
                   };
 
+                  const replacementState = replacementPrompts[cardKey] || {};
+                  const existingReplacementRequest = ad?.replacementRequest || null;
+                  const isRejectedStatus = statusValue === 'reject';
+                  const hasStoredResponse = Object.prototype.hasOwnProperty.call(
+                    replacementState,
+                    'response',
+                  );
+                  let replacementResponse = null;
+                  if (isRejectedStatus) {
+                    if (hasStoredResponse) {
+                      replacementResponse = replacementState.response;
+                    } else if (existingReplacementRequest?.note) {
+                      replacementResponse = 'yes';
+                    }
+                  }
+                  const hasStoredNote = Object.prototype.hasOwnProperty.call(
+                    replacementState,
+                    'note',
+                  );
+                  const replacementNote = hasStoredNote
+                    ? replacementState.note
+                    : existingReplacementRequest?.note || '';
+                  const hasStoredCollapsed =
+                    Object.prototype.hasOwnProperty.call(
+                      replacementState,
+                      'collapsed',
+                    );
+                  const replacementCollapsed =
+                    isRejectedStatus &&
+                    (hasStoredCollapsed ? !!replacementState.collapsed : true);
+                  const showReplacementPrompt =
+                    isRejectedStatus && !!replacementState.showPrompt;
+                  const replacementError = replacementState.error || '';
+                  const isReplacementBusy =
+                    !!replacementState.submitting || submitting;
+                  const replacementConfirmationVisible =
+                    isRejectedStatus &&
+                    replacementResponse === 'yes' &&
+                    !showReplacementPrompt &&
+                    !replacementCollapsed;
+
+                  const handleCancelReplacementPrompt = () => {
+                    setReplacementPrompts((prev) => {
+                      const previousState = prev[cardKey] || {};
+                      return {
+                        ...prev,
+                        [cardKey]: {
+                          ...previousState,
+                          showPrompt: false,
+                          error: '',
+                          submitting: false,
+                          note: existingReplacementRequest?.note || '',
+                        },
+                      };
+                    });
+                  };
+
+                  const handleReplacementNoteChange = (event) => {
+                    const nextValue = event.target.value;
+                    setReplacementPrompts((prev) => ({
+                      ...prev,
+                      [cardKey]: {
+                        ...prev[cardKey],
+                        note: nextValue,
+                        error: '',
+                      },
+                    }));
+                  };
+
+                  const handleReplacementDecision = async (decision) => {
+                    if (isReplacementBusy) return;
+                    const trimmedNote = (replacementNote || '').trim();
+                    if (decision === 'yes' && !trimmedNote) {
+                      setReplacementPrompts((prev) => ({
+                        ...prev,
+                        [cardKey]: {
+                          ...prev[cardKey],
+                          error:
+                            'Please share replacement direction before sending.',
+                        },
+                      }));
+                      return;
+                    }
+                    const noteToSend = decision === 'yes' ? trimmedNote : '';
+                    setReplacementPrompts((prev) => ({
+                      ...prev,
+                      [cardKey]: {
+                        ...prev[cardKey],
+                        submitting: true,
+                        error: '',
+                      },
+                    }));
+                    try {
+                      await submitResponse('reject', {
+                        targetAd: ad,
+                        targetAssets: statusAssets,
+                        targetIndex: index,
+                        skipAdvance: true,
+                        replacementNotes: noteToSend,
+                      });
+                      setManualStatus((prev) => {
+                        const next = { ...prev };
+                        delete next[cardKey];
+                        return next;
+                      });
+                      setReplacementPrompts((prev) => ({
+                        ...prev,
+                        [cardKey]: {
+                          ...prev[cardKey],
+                          showPrompt: false,
+                          submitting: false,
+                          response: decision === 'yes' ? 'yes' : 'no',
+                          collapsed: true,
+                          note: noteToSend,
+                          error: '',
+                        },
+                      }));
+                    } catch (err) {
+                      console.error('Failed to record replacement preference', err);
+                      setReplacementPrompts((prev) => ({
+                        ...prev,
+                        [cardKey]: {
+                          ...prev[cardKey],
+                          submitting: false,
+                          error:
+                            'We could not save your choice. Please try again.',
+                        },
+                      }));
+                    }
+                  };
+
+                  const handleExpandRejectedCard = () => {
+                    setReplacementPrompts((prev) => ({
+                      ...prev,
+                      [cardKey]: {
+                        ...prev[cardKey],
+                        collapsed: false,
+                        showPrompt: false,
+                        error: '',
+                        submitting: false,
+                      },
+                    }));
+                  };
+
+                  const handleCollapseRejectedCard = () => {
+                    setReplacementPrompts((prev) => ({
+                      ...prev,
+                      [cardKey]: {
+                        ...prev[cardKey],
+                        collapsed: true,
+                        showPrompt: false,
+                        error: '',
+                        submitting: false,
+                      },
+                    }));
+                  };
+
+                  const handleOpenReplacementPrompt = () => {
+                    setReplacementPrompts((prev) => {
+                      const previousState = prev[cardKey] || {};
+                      return {
+                        ...prev,
+                        [cardKey]: {
+                          ...previousState,
+                          collapsed: false,
+                          showPrompt: true,
+                          error: '',
+                          submitting: false,
+                        },
+                      };
+                    });
+                  };
+
+                  const renderReplacementOverlay = () => {
+                    if (!showReplacementPrompt) return null;
+                    const heading = 'Share replacement direction';
+                    const description =
+                      'Let us know what you would like to see in the next version.';
+                    const trimmedReplacementNote = (replacementNote || '').trim();
+                    const canSubmitReplacement = trimmedReplacementNote.length > 0;
+                    return (
+                      <div className="absolute inset-0 z-20 flex items-center justify-center bg-white/95 px-4 py-6 backdrop-blur-sm dark:bg-[rgba(15,23,42,0.95)]">
+                        <div className="w-full max-w-md rounded-2xl border border-gray-200 bg-white p-5 shadow-lg dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)]">
+                          <h3 className="text-lg font-semibold text-gray-900 dark:text-[var(--dark-text)]">{heading}</h3>
+                          <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">{description}</p>
+                          <label
+                            className="mt-4 block text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-300"
+                            htmlFor={`${cardKey}-replacement-note`}
+                          >
+                            Replacement direction
+                          </label>
+                          <textarea
+                            id={`${cardKey}-replacement-note`}
+                            value={replacementNote}
+                            onChange={handleReplacementNoteChange}
+                            className="mt-1 w-full rounded-lg border border-gray-300 p-2 text-sm leading-snug focus:border-[var(--accent-color)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-color)] disabled:cursor-not-allowed disabled:opacity-60 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)] dark:text-gray-100"
+                            rows={4}
+                            placeholder="Share any guidance you'd like the team to consider."
+                            disabled={isReplacementBusy}
+                          />
+                          {replacementError ? (
+                            <p className="mt-3 text-sm font-medium text-red-600 dark:text-red-400">{replacementError}</p>
+                          ) : null}
+                          <div className="mt-6 flex flex-wrap justify-end gap-2">
+                            <Button
+                              variant="neutral"
+                              size="sm"
+                              type="button"
+                              onClick={handleCancelReplacementPrompt}
+                              disabled={isReplacementBusy}
+                            >
+                              Cancel
+                            </Button>
+                            <Button
+                              variant="accent"
+                              size="sm"
+                              type="button"
+                              onClick={() => handleReplacementDecision('yes')}
+                              disabled={isReplacementBusy || !canSubmitReplacement}
+                            >
+                              {isReplacementBusy ? 'Sending…' : 'Send request'}
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  };
+
+                  const rejectedAssetClass = '';
+                  const contentMaskClass = showReplacementPrompt
+                    ? 'pointer-events-none blur-[1px]'
+                    : '';
+
                   if (isMobile) {
                     const assetCount = sortedAssets.length;
                     const statusLabel = statusLabelMap[statusValue] || statusValue;
 
-                    return (
-                      <div
-                        key={cardKey}
-                        className="w-full overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)]"
-                      >
-                        <div className="flex flex-col gap-4 p-4">
-                          <div className="flex flex-col gap-2">
-                            <div className="flex flex-wrap items-center justify-between gap-2">
-                              <h3 className="text-lg font-semibold leading-tight text-gray-900 dark:text-[var(--dark-text)]">
-                                {recipeLabel}
-                              </h3>
-                              {latestVersionNumber > 1 ? (
-                                hasMultipleVersions ? (
-                                  <InfoTooltip text="Toggle between versions" placement="bottom">
-                                    <button
-                                      type="button"
-                                      onClick={handleVersionBadgeClick}
-                                      className="inline-flex items-center rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600 transition hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:bg-[var(--dark-sidebar-hover)] dark:text-gray-200 dark:hover:bg-[var(--dark-sidebar-bg)] dark:focus:ring-offset-gray-900"
-                                      aria-label={`Toggle version (currently V${displayVersionNumber || latestVersionNumber || ''})`}
-                                    >
-                                      V{displayVersionNumber || latestVersionNumber}
-                                    </button>
-                                  </InfoTooltip>
-                                ) : (
-                                  <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600 dark:bg-[var(--dark-sidebar-hover)] dark:text-gray-200">
+                    if (replacementCollapsed) {
+                      return (
+                        <div
+                          key={cardKey}
+                          className="w-full overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)]"
+                        >
+                          <div className="flex flex-col gap-3 p-4">
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <h3 className="text-lg font-semibold leading-tight text-gray-900 dark:text-[var(--dark-text)]">
+                              {recipeLabel}
+                            </h3>
+                            {latestVersionNumber > 1 ? (
+                              hasMultipleVersions ? (
+                                <InfoTooltip text="Toggle between versions" placement="bottom">
+                                  <button
+                                    type="button"
+                                    onClick={handleVersionBadgeClick}
+                                    className="inline-flex items-center rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600 transition hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:bg-[var(--dark-sidebar-hover)] dark:text-gray-200 dark:hover:bg-[var(--dark-sidebar-bg)] dark:focus:ring-offset-gray-900"
+                                    aria-label={`Toggle version (currently V${displayVersionNumber || latestVersionNumber || ''})`}
+                                  >
                                     V{displayVersionNumber || latestVersionNumber}
-                                  </span>
-                                )
-                              ) : null}
-                            </div>
+                                  </button>
+                                </InfoTooltip>
+                              ) : (
+                                <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600 dark:bg-[var(--dark-sidebar-hover)] dark:text-gray-200">
+                                  V{displayVersionNumber || latestVersionNumber}
+                                </span>
+                              )
+                            ) : null}
+                          </div>
                             <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-300">
                               <span
                                 className="inline-block h-2.5 w-2.5 rounded-full"
@@ -5469,13 +5752,96 @@ useEffect(() => {
                               />
                               <span className="font-medium">{statusLabel}</span>
                             </div>
+                            <p className="text-sm text-gray-600 dark:text-gray-300">
+                              This ad is hidden after being rejected. Use the actions below to bring it back or request a replacement.
+                            </p>
+                            <div className="flex flex-wrap gap-2">
+                              <Button
+                                variant="neutral"
+                                size="sm"
+                                type="button"
+                                onClick={handleExpandRejectedCard}
+                              >
+                                Show ad details
+                              </Button>
+                              <Button
+                                variant="accent"
+                                size="sm"
+                                type="button"
+                                onClick={handleOpenReplacementPrompt}
+                              >
+                                {replacementResponse === 'yes'
+                                  ? 'Update replacement notes'
+                                  : 'Request replacement'}
+                              </Button>
+                            </div>
                           </div>
-                          <div
-                            className={`flex w-full gap-3 overflow-x-auto pb-1 ${
-                              assetCount > 1 ? 'snap-x snap-mandatory' : ''
-                            }`}
-                          >
-                            {sortedAssets.map((asset, assetIdx) => {
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <div
+                        key={cardKey}
+                        className="w-full overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)]"
+                      >
+                        <div className="relative">
+                          {renderReplacementOverlay()}
+                          <div className="flex flex-col gap-4 p-4">
+                            <div className="relative z-30 flex flex-col gap-3">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <h3 className="text-lg font-semibold leading-tight text-gray-900 dark:text-[var(--dark-text)]">
+                                  {recipeLabel}
+                                </h3>
+                                {latestVersionNumber > 1 ? (
+                                  hasMultipleVersions ? (
+                                    <InfoTooltip text="Toggle between versions" placement="bottom">
+                                      <button
+                                        type="button"
+                                        onClick={handleVersionBadgeClick}
+                                        className="inline-flex items-center rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600 transition hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:bg-[var(--dark-sidebar-hover)] dark:text-gray-200 dark:hover:bg-[var(--dark-sidebar-bg)] dark:focus:ring-offset-gray-900"
+                                        aria-label={`Toggle version (currently V${displayVersionNumber || latestVersionNumber || ''})`}
+                                      >
+                                        V{displayVersionNumber || latestVersionNumber}
+                                      </button>
+                                    </InfoTooltip>
+                                  ) : (
+                                    <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600 dark:bg-[var(--dark-sidebar-hover)] dark:text-gray-200">
+                                      V{displayVersionNumber || latestVersionNumber}
+                                    </span>
+                                  )
+                                ) : null}
+                              </div>
+                              <div className="flex flex-wrap items-center justify-between gap-2">
+                                <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-300">
+                                  <span
+                                    className="inline-block h-2.5 w-2.5 rounded-full"
+                                    style={statusDotStyles[statusValue] || statusDotStyles.pending}
+                                  />
+                                  <span className="font-medium">{statusLabel}</span>
+                                </div>
+                                {isRejectedStatus ? (
+                                  <Button
+                                    variant="neutral"
+                                    size="sm"
+                                    type="button"
+                                    onClick={handleCollapseRejectedCard}
+                                  >
+                                    Hide ad details
+                                  </Button>
+                                ) : null}
+                              </div>
+                            </div>
+                            <div className={combineClasses('flex flex-col gap-4', contentMaskClass)}>
+                              <div
+                                className={combineClasses(
+                                  `flex w-full gap-3 overflow-x-auto pb-1 ${
+                                    assetCount > 1 ? 'snap-x snap-mandatory' : ''
+                                  }`,
+                                  rejectedAssetClass,
+                                )}
+                              >
+                                {sortedAssets.map((asset, assetIdx) => {
                               const assetUrl = asset.firebaseUrl || asset.adUrl || '';
                               const assetAspect = getAssetAspectRatio(asset);
                               const assetCssAspect = getCssAspectRatioValue(assetAspect);
@@ -5528,48 +5894,70 @@ useEffect(() => {
                               );
                               if (shouldRenderInlineCopy && assetIdx === squareAssetIndex) {
                                 return (
-                                  <div key={assetKey} className={wrapperClasses}>
+                                  <div
+                                    key={assetKey}
+                                    className={combineClasses(wrapperClasses, rejectedAssetClass)}
+                                  >
                                     {renderInlineCopyBlock(assetNode)}
                                   </div>
                                 );
                               }
                               return (
-                                <div key={assetKey} className={wrapperClasses}>
+                                <div
+                                  key={assetKey}
+                                  className={combineClasses(wrapperClasses, rejectedAssetClass)}
+                                >
                                   {assetNode}
                                 </div>
                               );
                             })}
                           </div>
                           <div className="space-y-3">
-                            <div className="rounded-xl border border-gray-200 bg-gray-50 p-3 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-hover)]">
-                              <label
-                                htmlFor={selectId}
-                                className="block text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-300"
-                              >
-                                Update status
-                              </label>
-                              <select
-                                id={selectId}
-                                aria-label="Status"
-                                className={`mt-2 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm focus:border-[var(--accent-color)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)] dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)] dark:text-gray-200 dark:focus:border-[var(--accent-color)] dark:focus:ring-[var(--accent-color)] ${
-                                  isGroupReviewed ? 'cursor-not-allowed opacity-60' : ''
-                                }`}
-                                value={statusValue}
-                                onChange={handleSelectChange}
-                                disabled={submitting || isGroupReviewed}
-                              >
-                                {statusOptions.map((option) => (
-                                  <option key={option.value} value={option.value}>
-                                    {option.label}
-                                  </option>
-                                ))}
-                              </select>
-                            </div>
-                            {showEditButton && (
-                              <>
+                              <div className="rounded-xl border border-gray-200 bg-gray-50 p-3 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-hover)]">
+                                <label
+                                  htmlFor={selectId}
+                                  className="block text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-300"
+                                >
+                                  Update status
+                                </label>
+                                <select
+                                  id={selectId}
+                                  aria-label="Status"
+                                  className={`mt-2 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm focus:border-[var(--accent-color)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)] dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)] dark:text-gray-200 dark:focus:border-[var(--accent-color)] dark:focus:ring-[var(--accent-color)] ${
+                                    isGroupReviewed ? 'cursor-not-allowed opacity-60' : ''
+                                  }`}
+                                  value={statusValue}
+                                  onChange={handleSelectChange}
+                                  disabled={submitting || isGroupReviewed}
+                                >
+                                  {statusOptions.map((option) => (
+                                    <option key={option.value} value={option.value}>
+                                      {option.label}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+                              {replacementConfirmationVisible && (
+                                <p className="text-xs font-semibold text-[var(--accent-color)]">
+                                  Replacement requested
+                                </p>
+                              )}
+                              {isRejectedStatus && !showReplacementPrompt && (
                                 <button
                                   type="button"
-                                  className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 shadow-sm transition hover:bg-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-color)] dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)] dark:text-gray-200 dark:hover:bg-[var(--dark-sidebar-hover)]"
+                                  className="text-xs font-semibold text-[var(--accent-color)] underline-offset-2 hover:underline"
+                                  onClick={handleOpenReplacementPrompt}
+                                >
+                                  {replacementResponse === 'yes'
+                                    ? 'Update replacement notes'
+                                    : 'Request a replacement'}
+                                </button>
+                              )}
+                              {showEditButton && (
+                                <>
+                                  <button
+                                    type="button"
+                                    className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 shadow-sm transition hover:bg-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-color)] dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)] dark:text-gray-200 dark:hover:bg-[var(--dark-sidebar-hover)]"
                                   onClick={() =>
                                     setExpandedRequests((prev) => ({
                                       ...prev,
@@ -5656,6 +6044,76 @@ useEffect(() => {
                               </>
                             )}
                           </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  const desktopStatusLabel = statusLabelMap[statusValue] || statusValue;
+
+                  if (replacementCollapsed) {
+                    return (
+                      <div
+                        key={cardKey}
+                        className="mx-auto w-full max-w-[712px] overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)]"
+                      >
+                        <div className="flex flex-col gap-3 p-4">
+                          <div className="flex flex-wrap items-start justify-between gap-2">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <h3 className="text-lg font-semibold leading-tight text-gray-900 dark:text-[var(--dark-text)]">
+                                {recipeLabel}
+                              </h3>
+                              {latestVersionNumber > 1 ? (
+                                hasMultipleVersions ? (
+                                  <InfoTooltip text="Toggle between versions" placement="bottom">
+                                    <button
+                                      type="button"
+                                      onClick={handleVersionBadgeClick}
+                                      className="inline-flex items-center rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600 transition hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:bg-[var(--dark-sidebar-hover)] dark:text-gray-200 dark:hover:bg-[var(--dark-sidebar-bg)] dark:focus:ring-offset-gray-900"
+                                      aria-label={`Toggle version (currently V${displayVersionNumber || latestVersionNumber || ''})`}
+                                    >
+                                      V{displayVersionNumber || latestVersionNumber}
+                                    </button>
+                                  </InfoTooltip>
+                                ) : (
+                                  <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600 dark:bg-[var(--dark-sidebar-hover)] dark:text-gray-200">
+                                    V{displayVersionNumber || latestVersionNumber}
+                                  </span>
+                                )
+                              ) : null}
+                            </div>
+                            <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-300">
+                              <span
+                                className="inline-block h-2.5 w-2.5 rounded-full"
+                                style={statusDotStyles[statusValue] || statusDotStyles.pending}
+                              />
+                              <span className="font-medium capitalize">{desktopStatusLabel}</span>
+                            </div>
+                          </div>
+                          <p className="text-sm text-gray-600 dark:text-gray-300">
+                            This ad is hidden after being rejected. Use the actions below to bring it back or request a replacement.
+                          </p>
+                        </div>
+                        <div className="flex flex-wrap gap-2 border-t border-gray-200 px-4 pb-4 pt-3 dark:border-[var(--border-color-default)]">
+                          <Button
+                            variant="neutral"
+                            size="sm"
+                            type="button"
+                            onClick={handleExpandRejectedCard}
+                          >
+                            Show ad details
+                          </Button>
+                          <Button
+                            variant="accent"
+                            size="sm"
+                            type="button"
+                            onClick={handleOpenReplacementPrompt}
+                          >
+                            {replacementResponse === 'yes'
+                              ? 'Update replacement notes'
+                              : 'Request replacement'}
+                          </Button>
                         </div>
                       </div>
                     );
@@ -5664,39 +6122,63 @@ useEffect(() => {
                   return (
                     <div
                       key={cardKey}
-                      className="mx-auto w-full max-w-[712px] rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)]"
+                      className="mx-auto w-full max-w-[712px] overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)]"
                     >
-                      <div className="flex flex-col gap-4 p-4">
-                        <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <h3 className="mb-0 text-lg font-semibold leading-tight text-gray-900 dark:text-[var(--dark-text)]">
-                              {recipeLabel}
-                            </h3>
-                            {latestVersionNumber > 1 ? (
-                              hasMultipleVersions ? (
-                                <InfoTooltip text="Toggle between versions" placement="bottom">
-                                  <button
-                                    type="button"
-                                    onClick={handleVersionBadgeClick}
-                                    className="inline-flex items-center rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600 transition hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:bg-[var(--dark-sidebar-hover)] dark:text-gray-200 dark:hover:bg-[var(--dark-sidebar-bg)] dark:focus:ring-offset-gray-900"
-                                    aria-label={`Toggle version (currently V${displayVersionNumber || latestVersionNumber || ''})`}
-                                  >
+                      <div className="relative">
+                        {renderReplacementOverlay()}
+                        <div className="flex flex-col gap-4 p-4">
+                          <div className="relative z-30 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <h3 className="mb-0 text-lg font-semibold leading-tight text-gray-900 dark:text-[var(--dark-text)]">
+                                {recipeLabel}
+                              </h3>
+                              {latestVersionNumber > 1 ? (
+                                hasMultipleVersions ? (
+                                  <InfoTooltip text="Toggle between versions" placement="bottom">
+                                    <button
+                                      type="button"
+                                      onClick={handleVersionBadgeClick}
+                                      className="inline-flex items-center rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600 transition hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:bg-[var(--dark-sidebar-hover)] dark:text-gray-200 dark:hover:bg-[var(--dark-sidebar-bg)] dark:focus:ring-offset-gray-900"
+                                      aria-label={`Toggle version (currently V${displayVersionNumber || latestVersionNumber || ''})`}
+                                    >
+                                      V{displayVersionNumber || latestVersionNumber}
+                                    </button>
+                                  </InfoTooltip>
+                                ) : (
+                                  <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600 dark:bg-[var(--dark-sidebar-hover)] dark:text-gray-200">
                                     V{displayVersionNumber || latestVersionNumber}
-                                  </button>
-                                </InfoTooltip>
-                              ) : (
-                                <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600 dark:bg-[var(--dark-sidebar-hover)] dark:text-gray-200">
-                                  V{displayVersionNumber || latestVersionNumber}
-                                </span>
-                              )
+                                  </span>
+                                )
+                              ) : null}
+                            </div>
+                          </div>
+                          <div className="relative z-30 flex flex-wrap items-center justify-between gap-2">
+                            <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-300">
+                              <span
+                                className="inline-block h-2.5 w-2.5 rounded-full"
+                                style={statusDotStyles[statusValue] || statusDotStyles.pending}
+                              />
+                              <span className="font-medium capitalize">{desktopStatusLabel}</span>
+                            </div>
+                            {isRejectedStatus ? (
+                              <Button
+                                variant="neutral"
+                                size="sm"
+                                type="button"
+                                onClick={handleCollapseRejectedCard}
+                              >
+                                Hide ad details
+                              </Button>
                             ) : null}
                           </div>
-                        </div>
-                        <div className="space-y-4">
-                          <div
-                            className={`grid items-start gap-3 ${
-                              sortedAssets.length > 1 ? 'sm:grid-cols-2' : ''
-                            }`}
+                          <div className={combineClasses('space-y-4', contentMaskClass)}>
+                            <div
+                              className={combineClasses(
+                                `grid items-start gap-3 ${
+                                  sortedAssets.length > 1 ? 'sm:grid-cols-2' : ''
+                                }`,
+                              rejectedAssetClass,
+                            )}
                           >
                             {sortedAssets.map((asset, assetIdx) => {
                               const assetUrl = asset.firebaseUrl || asset.adUrl || '';
@@ -5741,13 +6223,19 @@ useEffect(() => {
                               );
                               if (isSquareAsset) {
                                 return (
-                                  <div key={assetKey} className={wrapperClasses}>
+                                  <div
+                                    key={assetKey}
+                                    className={combineClasses(wrapperClasses, rejectedAssetClass)}
+                                  >
                                     {renderInlineCopyBlock(assetNode)}
                                   </div>
                                 );
                               }
                               return (
-                                <div key={assetKey} className={wrapperClasses}>
+                                <div
+                                  key={assetKey}
+                                  className={combineClasses(wrapperClasses, rejectedAssetClass)}
+                                >
                                   {assetNode}
                                 </div>
                               );
@@ -5781,6 +6269,24 @@ useEffect(() => {
                                 ))}
                               </select>
                             </div>
+                          </div>
+                          <div className="flex flex-col items-start gap-2 text-xs sm:flex-row sm:items-center sm:gap-3">
+                            {replacementConfirmationVisible && (
+                              <span className="font-semibold text-[var(--accent-color)]">
+                                Replacement requested
+                              </span>
+                            )}
+                            {isRejectedStatus && !showReplacementPrompt && (
+                              <button
+                                type="button"
+                                className="font-semibold text-[var(--accent-color)] underline-offset-2 hover:underline"
+                                onClick={handleOpenReplacementPrompt}
+                              >
+                                {replacementResponse === 'yes'
+                                  ? 'Update replacement notes'
+                                  : 'Request a replacement'}
+                              </button>
+                            )}
                           </div>
                           {showEditButton && (
                             <button
@@ -5867,6 +6373,7 @@ useEffect(() => {
                             )}
                           </div>
                         )}
+                        </div>
                       </div>
                     </div>
                   );
