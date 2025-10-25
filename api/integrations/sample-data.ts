@@ -1,8 +1,15 @@
 import type { ApiHandler } from "../../lib/api/types";
-import { getReviewData, IntegrationError } from "../../lib/integrations";
+import {
+  getIntegrationSampleData,
+  IntegrationError,
+} from "../../lib/integrations";
 
 interface SampleDataRequestBody {
   reviewId: string;
+  recipeTypeId?: string | null;
+  integrationId?: string | null;
+  integrationName?: string | null;
+  integrationSlug?: string | null;
 }
 
 function isSampleDataRequestBody(value: unknown): value is SampleDataRequestBody {
@@ -10,8 +17,22 @@ function isSampleDataRequestBody(value: unknown): value is SampleDataRequestBody
     return false;
   }
 
-  const { reviewId } = value as Record<string, unknown>;
-  return typeof reviewId === "string" && reviewId.trim().length > 0;
+  const {
+    reviewId,
+    recipeTypeId,
+    integrationId,
+    integrationName,
+    integrationSlug,
+  } = value as Record<string, unknown>;
+
+  if (typeof reviewId !== "string" || !reviewId.trim()) {
+    return false;
+  }
+
+  const optionalStrings = [recipeTypeId, integrationId, integrationName, integrationSlug];
+  return optionalStrings.every(
+    (entry) => entry === undefined || entry === null || typeof entry === "string"
+  );
 }
 
 function methodNotAllowed(res: Parameters<ApiHandler>[1]) {
@@ -28,15 +49,28 @@ const handler: ApiHandler<SampleDataRequestBody> = async (req, res) => {
     return res.status(400).json({ error: "Invalid request body." });
   }
 
-  const { reviewId } = req.body;
+  const { reviewId, recipeTypeId, integrationId, integrationName, integrationSlug } =
+    req.body;
   try {
-    const data = await getReviewData(reviewId);
+    const data = await getIntegrationSampleData(reviewId, {
+      recipeTypeId: recipeTypeId ?? undefined,
+      integrationId: integrationId ?? undefined,
+      integrationName: integrationName ?? undefined,
+      integrationSlug: integrationSlug ?? undefined,
+    });
 
     return res.status(200).json({
       reviewId,
       review: data.review,
       ads: data.ads,
+      rawAds: data.rawAds,
       client: data.client,
+      recipeType: data.recipeType,
+      recipeFieldKeys: data.recipeFieldKeys,
+      summary: data.summary,
+      standardAds: data.standardAds,
+      defaultExport: data.defaultExport,
+      generatedAt: data.generatedAt,
     });
   } catch (error) {
     if (error instanceof IntegrationError) {

@@ -764,17 +764,37 @@ const AdminIntegrations = () => {
     setSampleError(null);
     setSampleLoading(true);
     try {
+      const payload = {
+        reviewId,
+        recipeTypeId: form?.recipeTypeId ?? null,
+        integrationId: form?.id ?? null,
+        integrationName: form?.name ?? null,
+        integrationSlug: form?.slug ?? null,
+      };
       const response = await fetch("/api/integrations/sample-data", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ reviewId }),
+        body: JSON.stringify(payload),
       });
       if (!response.ok) {
         const error = await response.json().catch(() => ({}));
         throw new Error(error.error || `Failed to load review ${reviewId}`);
       }
       const data = await response.json();
-      setSampleData({ review: data.review, ads: data.ads, client: data.client });
+      setSampleData({
+        review: data.review,
+        ads: data.ads,
+        rawAds: data.rawAds,
+        client: data.client,
+        recipeType: data.recipeType,
+        recipeFieldKeys: Array.isArray(data.recipeFieldKeys)
+          ? data.recipeFieldKeys
+          : [],
+        summary: data.summary,
+        standardAds: data.standardAds,
+        defaultExport: data.defaultExport,
+        generatedAt: data.generatedAt,
+      });
       setSampleError(null);
     } catch (error) {
       setSampleError(error instanceof Error ? error.message : String(error));
@@ -1592,6 +1612,11 @@ const AdminIntegrations = () => {
                 <p className="text-xs text-slate-500 mb-2">Loading sample data…</p>
               )}
               {sampleError && <p className="text-sm text-red-600 mb-2">{sampleError}</p>}
+              {sampleData?.generatedAt && (
+                <p className="text-xs text-slate-500 mb-2">
+                  Generated at {new Date(sampleData.generatedAt).toLocaleString()}
+                </p>
+              )}
               <div className="space-y-3 max-h-64 overflow-y-auto">
                 <div>
                   <h3 className="text-sm font-semibold text-slate-700">Review</h3>
@@ -1600,7 +1625,13 @@ const AdminIntegrations = () => {
                   </pre>
                 </div>
                 <div>
-                  <h3 className="text-sm font-semibold text-slate-700">Ads</h3>
+                  <h3 className="text-sm font-semibold text-slate-700">Raw Ads</h3>
+                  <pre className="bg-slate-100 rounded-md p-3 text-xs overflow-x-auto whitespace-pre-wrap">
+                    {formatJson(sampleData?.rawAds, "[]")}
+                  </pre>
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold text-slate-700">Normalized Ads</h3>
                   <pre className="bg-slate-100 rounded-md p-3 text-xs overflow-x-auto whitespace-pre-wrap">
                     {formatJson(sampleData?.ads, "[]")}
                   </pre>
@@ -1628,6 +1659,30 @@ const AdminIntegrations = () => {
                       </pre>
                     </div>
                   )}
+                {sampleData?.summary && (
+                  <div>
+                    <h3 className="text-sm font-semibold text-slate-700">Summary</h3>
+                    <pre className="bg-slate-100 rounded-md p-3 text-xs overflow-x-auto whitespace-pre-wrap">
+                      {formatJson(sampleData.summary, "{}")}
+                    </pre>
+                  </div>
+                )}
+                {sampleData?.standardAds && (
+                  <div>
+                    <h3 className="text-sm font-semibold text-slate-700">Standard Ads</h3>
+                    <pre className="bg-slate-100 rounded-md p-3 text-xs overflow-x-auto whitespace-pre-wrap">
+                      {formatJson(sampleData.standardAds, "[]")}
+                    </pre>
+                  </div>
+                )}
+                {sampleData?.defaultExport && (
+                  <div>
+                    <h3 className="text-sm font-semibold text-slate-700">Default Export</h3>
+                    <pre className="bg-slate-100 rounded-md p-3 text-xs overflow-x-auto whitespace-pre-wrap">
+                      {formatJson(sampleData.defaultExport, "{}")}
+                    </pre>
+                  </div>
+                )}
               </div>
             </div>
           </div>
