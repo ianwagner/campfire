@@ -39,6 +39,26 @@ export interface ReviewData {
   client: FirestoreRecord | null;
 }
 
+export interface IntegrationSampleDataOptions {
+  recipeTypeId?: string;
+  integrationId?: string;
+  integrationName?: string;
+  integrationSlug?: string;
+}
+
+export interface IntegrationSampleData {
+  review: FirestoreRecord;
+  ads: FirestoreRecord[];
+  rawAds: FirestoreRecord[];
+  client: FirestoreRecord | null;
+  recipeType: FirestoreRecord | null;
+  recipeFieldKeys: string[];
+  summary: IntegrationExportSummary;
+  standardAds: IntegrationAdExport[];
+  defaultExport: IntegrationDefaultExport;
+  generatedAt: string;
+}
+
 export interface IntegrationAdExport extends Record<string, unknown> {
   reviewId: string;
   reviewName?: string;
@@ -2317,6 +2337,176 @@ export async function getReviewData(reviewId: string): Promise<ReviewData> {
   throw new IntegrationDataError("Review not found.", "mapping/review_not_found", {
     reviewId,
   });
+}
+
+function resolveRecipeTypeId(
+  review: FirestoreRecord,
+  options: IntegrationSampleDataOptions
+): string {
+  const requested = typeof options.recipeTypeId === "string" ? options.recipeTypeId.trim() : "";
+  if (requested) {
+    return requested;
+  }
+
+  const reviewRecord = review as Record<string, unknown>;
+  const recipeRecordCandidates: Record<string, unknown>[] = [];
+  const addRecordCandidate = (value: unknown) => {
+    if (value && typeof value === "object" && !Array.isArray(value)) {
+      recipeRecordCandidates.push(value as Record<string, unknown>);
+    }
+  };
+
+  addRecordCandidate(reviewRecord.recipeType);
+  addRecordCandidate(reviewRecord.recipe_type);
+  addRecordCandidate(reviewRecord.recipe);
+
+  const candidateValues: unknown[] = [
+    reviewRecord.recipeTypeId,
+    reviewRecord.recipe_type_id,
+    reviewRecord.recipeType,
+    reviewRecord.recipe_type,
+    reviewRecord.recipe,
+  ];
+
+  for (const record of recipeRecordCandidates) {
+    candidateValues.push(
+      record.id,
+      record.uid,
+      record.key,
+      record.slug,
+      record.code,
+      record.recipeTypeId,
+      record.recipe_type_id,
+      record.recipeType,
+      record.recipe_type
+    );
+  }
+
+  const inferred = getFirstString(...candidateValues);
+  return inferred ? inferred : "";
+}
+
+function buildSampleIntegration(
+  options: IntegrationSampleDataOptions,
+  recipeTypeId: string,
+  generatedAt: string
+): Integration {
+  const integrationId = options.integrationId?.trim() || "sample";
+  const integrationName = options.integrationName?.trim() || "Sample Integration";
+  const integrationSlug = options.integrationSlug?.trim() || integrationId || "sample";
+
+  return {
+    id: integrationId,
+    version: "1.0.0",
+    name: integrationName,
+    slug: integrationSlug,
+    description: "",
+    active: true,
+    baseUrl: "",
+    endpointPath: "",
+    method: "POST",
+    auth: { strategy: "none" },
+    mapping: { type: "literal", version: "1.0.0", template: {} },
+    schemaRef: null,
+    recipeTypeId: recipeTypeId ? recipeTypeId : null,
+    retryPolicy: {
+      maxAttempts: 0,
+      initialIntervalMs: 0,
+      maxIntervalMs: 0,
+      backoffMultiplier: 0,
+      jitter: false,
+    },
+    headers: {},
+    latestExportAttempt: undefined,
+    createdAt: generatedAt,
+    updatedAt: generatedAt,
+  };
+}
+
+export async function getIntegrationSampleData(
+  reviewId: string,
+  options: IntegrationSampleDataOptions = {}
+): Promise<IntegrationSampleData> {
+  const reviewData = await getReviewData(reviewId);
+  const rawAds = reviewData.ads;
+  const generatedAt = new Date().toISOString();
+
+  const resolvedRecipeTypeId = resolveRecipeTypeId(reviewData.review, options);
+
+  let recipeType: FirestoreRecord | null = null;
+  let ads = rawAds;
+
+  if (resolvedRecipeTypeId) {
+    recipeType = await loadRecipeType(resolvedRecipeTypeId).catch((error) => {
+      if (error instanceof IntegrationError) {
+        throw error;
+      }
+      throw new IntegrationDataError(
+        error instanceof Error ? error.message : "Failed to load recipe type.",
+        "mapping/recipe_type_load_failed",
+        { recipeTypeId: resolvedRecipeTypeId }
+      );
+    });
+
+    ads = filterAdsByRecipeType(rawAds, resolvedRecipeTypeId, recipeType);
+  }
+
+  const recipeFieldKeys = extractRecipeFieldKeys(recipeType);
+  const enrichedAds = recipeFieldKeys.length
+    ? enrichAdsWithRecipeFields(ads, recipeFieldKeys, {
+        review: reviewData.review,
+        client: reviewData.client,
+        recipeType,
+      })
+    : ads;
+
+  const groupedAds = groupAdsByRecipeIdentifier(enrichedAds, {
+    review: reviewData.review,
+    client: reviewData.client,
+    recipeType,
+  });
+
+  const summary = summarizeReviewContext({
+    review: reviewData.review,
+    client: reviewData.client,
+    recipeType,
+    recipeTypeId: resolvedRecipeTypeId || undefined,
+  });
+
+  const integration = buildSampleIntegration(options, resolvedRecipeTypeId, generatedAt);
+
+  const standardAds = buildStandardAdExports(groupedAds, {
+    review: reviewData.review,
+    client: reviewData.client,
+    recipeType,
+    summary,
+    generatedAt,
+    integration,
+    dryRun: true,
+  });
+
+  const defaultExport: IntegrationDefaultExport = {
+    ...summary,
+    integrationId: integration.id,
+    integrationName: integration.name,
+    integrationSlug: integration.slug,
+    generatedAt,
+    dryRun: true,
+    ads: standardAds,
+  };
+
+  return {
+    review: reviewData.review,
+    ads: groupedAds,
+    rawAds,
+    client: reviewData.client,
+    recipeType,
+    recipeFieldKeys,
+    summary,
+    standardAds,
+    defaultExport,
+    generatedAt,
+  };
 }
 
 async function loadReviewDataFromAdGroup(
