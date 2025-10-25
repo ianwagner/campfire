@@ -1,8 +1,14 @@
 import type { ApiHandler } from "../../lib/api/types";
-import { getReviewData, IntegrationError } from "../../lib/integrations";
+import {
+  createMappingContext,
+  IntegrationError,
+  type Integration,
+} from "../../lib/integrations";
 
 interface SampleDataRequestBody {
   reviewId: string;
+  integration: Integration;
+  payload?: Record<string, unknown>;
 }
 
 function isSampleDataRequestBody(value: unknown): value is SampleDataRequestBody {
@@ -10,8 +16,13 @@ function isSampleDataRequestBody(value: unknown): value is SampleDataRequestBody
     return false;
   }
 
-  const { reviewId } = value as Record<string, unknown>;
-  return typeof reviewId === "string" && reviewId.trim().length > 0;
+  const { reviewId, integration } = value as Record<string, unknown>;
+  return (
+    typeof reviewId === "string" &&
+    reviewId.trim().length > 0 &&
+    integration !== null &&
+    typeof integration === "object"
+  );
 }
 
 function methodNotAllowed(res: Parameters<ApiHandler>[1]) {
@@ -28,15 +39,24 @@ const handler: ApiHandler<SampleDataRequestBody> = async (req, res) => {
     return res.status(400).json({ error: "Invalid request body." });
   }
 
-  const { reviewId } = req.body;
+  const { reviewId, integration, payload = {} } = req.body;
   try {
-    const data = await getReviewData(reviewId);
+    const context = await createMappingContext(integration, reviewId, payload, true);
 
     return res.status(200).json({
       reviewId,
-      review: data.review,
-      ads: data.ads,
-      client: data.client,
+      context: {
+        review: context.review,
+        ads: context.ads,
+        client: context.client,
+        recipeType: context.recipeType,
+        recipeFieldKeys: context.recipeFieldKeys,
+        standardAds: context.standardAds,
+        summary: context.summary,
+        defaultExport: context.defaultExport,
+        generatedAt: context.generatedAt,
+        data: context.data,
+      },
     });
   } catch (error) {
     if (error instanceof IntegrationError) {
