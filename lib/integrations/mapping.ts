@@ -4,6 +4,7 @@ import Handlebars from "handlebars";
 import jsonata from "jsonata";
 
 import type {
+  DocumentReference,
   DocumentSnapshot,
   Firestore as AdminFirestore,
 } from "firebase-admin/firestore";
@@ -225,31 +226,22 @@ function applyLiteralTemplate(
     ) {
       const token = matches[0][1].trim();
       const resolved = resolvePath(data, token);
-      if (resolved === undefined) {
-        throw new IntegrationMappingError(
-          `Missing value for token "${token}"`,
-          "mapping/literal_missing_token",
-          { details: { path, token } }
-        );
-      }
-      return resolved;
+      return resolved === undefined ? value : resolved;
     }
 
     let output = value;
+    let replaced = false;
     for (const match of matches) {
       const token = match[1].trim();
       const resolved = resolvePath(data, token);
       if (resolved === undefined) {
-        throw new IntegrationMappingError(
-          `Missing value for token "${token}"`,
-          "mapping/literal_missing_token",
-          { details: { path, token } }
-        );
+        continue;
       }
       output = output.replace(match[0], String(resolved));
+      replaced = true;
     }
 
-    return output;
+    return replaced ? output : value;
   }
 
   if (Array.isArray(value)) {
@@ -815,29 +807,67 @@ function enrichAdsWithRecipeFields(
   fieldKeys: string[],
   context: Omit<StandardFieldContext, "ad">
 ): FirestoreRecord[] {
-  if (!fieldKeys.length) {
-    return ads;
-  }
-
   return ads.map((ad) => {
-    const collected = collectRecipeFieldValues(ad, fieldKeys, context);
-    if (!collected) {
-      return ad;
+    const existing = isRecord(ad.recipeFields)
+      ? { ...(ad.recipeFields as Record<string, unknown>) }
+      : {};
+
+    let mutated = false;
+
+    if (fieldKeys.length) {
+      const collected = collectRecipeFieldValues(ad, fieldKeys, context);
+      if (collected) {
+        for (const [key, value] of Object.entries(collected)) {
+          if (!Object.is(existing[key], value)) {
+            existing[key] = value;
+            mutated = true;
+          }
+        }
+      }
     }
 
-    const existing = isRecord(ad.recipeFields) ? ad.recipeFields : undefined;
-    const merged = {
-      ...(existing ?? {}),
-      ...collected,
-    } as Record<string, unknown>;
+    const assetContext: StandardFieldContext = {
+      ad,
+      review: context.review,
+      client: context.client,
+      recipeType: context.recipeType,
+    };
 
-    if (!Object.keys(merged).length) {
+    const isMissingValue = (value: unknown) => {
+      if (value === undefined || value === null) {
+        return true;
+      }
+      return typeof value === "string" && !value.trim();
+    };
+
+    const squareUrl = resolveAssetUrl(assetContext, ["1x1", "1:1", "square"]);
+    if (squareUrl !== undefined && squareUrl !== null && isMissingValue(existing["1x1"])) {
+      existing["1x1"] = squareUrl;
+      mutated = true;
+    }
+
+    const verticalUrl = resolveAssetUrl(assetContext, [
+      "9x16",
+      "9:16",
+      "vertical",
+      "story",
+    ]);
+    if (
+      verticalUrl !== undefined &&
+      verticalUrl !== null &&
+      isMissingValue(existing["9x16"])
+    ) {
+      existing["9x16"] = verticalUrl;
+      mutated = true;
+    }
+
+    if (!mutated) {
       return ad;
     }
 
     return {
       ...ad,
-      recipeFields: merged,
+      recipeFields: existing,
     };
   });
 }
@@ -961,15 +991,31 @@ async function resolveClientRecord(
 ): Promise<FirestoreRecord | null> {
   const candidatePaths: string[] = [];
 
-  if (typeof review.clientRef === "string") {
-    candidatePaths.push(review.clientRef);
-  }
-  if (typeof review.clientPath === "string") {
-    candidatePaths.push(review.clientPath);
-  }
-  if (typeof review.clientDocument === "string") {
-    candidatePaths.push(review.clientDocument);
-  }
+  const addCandidatePath = (candidate: unknown) => {
+    if (typeof candidate === "string") {
+      const trimmed = candidate.trim();
+      if (trimmed) {
+        candidatePaths.push(trimmed);
+      }
+      return;
+    }
+
+    if (
+      candidate &&
+      typeof candidate === "object" &&
+      typeof (candidate as Partial<DocumentReference>).path === "string"
+    ) {
+      const path = (candidate as DocumentReference).path.trim();
+      if (path) {
+        candidatePaths.push(path);
+      }
+    }
+  };
+
+  addCandidatePath(review.clientRef);
+  addCandidatePath(review.clientPath);
+  addCandidatePath(review.clientDocument);
+  addCandidatePath(review.client);
   if (typeof review.clientId === "string" && review.clientId) {
     candidatePaths.push(`${CLIENTS_COLLECTION}/${review.clientId}`);
   }
