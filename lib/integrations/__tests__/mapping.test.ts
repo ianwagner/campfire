@@ -1,4 +1,8 @@
-import { __TESTING__, type FirestoreRecord } from "../mapping";
+import {
+  __TESTING__,
+  type FirestoreRecord,
+  type IntegrationExportSummary,
+} from "../mapping";
 import type { Integration } from "../types";
 
 describe("collectRecipeFieldValues", () => {
@@ -97,9 +101,9 @@ describe("groupAdsByRecipeIdentifier", () => {
 
     expect(grouped).toHaveLength(1);
 
-    const summary = {
+    const summary: IntegrationExportSummary = {
       reviewId: review.id,
-      reviewName: review.name,
+      reviewName: review.name as string,
     };
 
     const exports = __TESTING__.buildStandardAdExports(grouped, {

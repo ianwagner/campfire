@@ -32,11 +32,18 @@ export interface FirestoreRecord extends Record<string, unknown> {
 
 const AD_GROUPS_COLLECTION = "adGroups";
 const AD_GROUP_ASSETS_SUBCOLLECTION = "assets";
+const AD_GROUP_RECIPES_SUBCOLLECTION = "recipes";
+const AD_GROUP_COPY_CARDS_SUBCOLLECTION = "copyCards";
+const BRANDS_COLLECTION = "brands";
 
 export interface ReviewData {
   review: FirestoreRecord;
   ads: FirestoreRecord[];
   client: FirestoreRecord | null;
+  adGroup?: FirestoreRecord | null;
+  recipes?: FirestoreRecord[];
+  copyCards?: FirestoreRecord[];
+  brand?: FirestoreRecord | null;
 }
 
 export interface IntegrationAdExport extends Record<string, unknown> {
@@ -354,6 +361,512 @@ function applyLiteralTemplate(
 function sanitizeFirestoreRecord(snapshot: DocumentSnapshot): FirestoreRecord {
   const data = snapshot.data() ?? {};
   return { id: snapshot.id, ...(data as Record<string, unknown>) };
+}
+
+function normalizeKeyPart(value: unknown): string {
+  if (typeof value === "string") {
+    return value.trim();
+  }
+
+  if (value == null) {
+    return "";
+  }
+
+  return String(value).trim();
+}
+
+function normalizeProductKey(value: unknown): string {
+  return normalizeKeyPart(value).toLowerCase();
+}
+
+function normalizeAspectRatio(value: unknown): string {
+  if (value == null) {
+    return "";
+  }
+
+  const input = String(value).trim().toLowerCase();
+  if (!input) {
+    return "";
+  }
+
+  if (input === "square") {
+    return "1x1";
+  }
+
+  if (["vertical", "portrait", "story", "stories", "reel", "reels"].includes(input)) {
+    return "9x16";
+  }
+
+  const match = input.match(/(\d+)\s*(?:x|×|:|-|by|_)\s*(\d+)/);
+  if (match) {
+    return `${match[1]}x${match[2]}`;
+  }
+
+  return "";
+}
+
+function stripFileExtension(filename: string): string {
+  return filename.replace(/\.[^/.]+$/, "");
+}
+
+function parseAdFilenameParts(filename: unknown): {
+  brandCode: string;
+  adGroupCode: string;
+  recipeCode: string;
+  aspectRatio: string;
+  version?: number;
+} {
+  if (typeof filename !== "string" || !filename.trim()) {
+    return { brandCode: "", adGroupCode: "", recipeCode: "", aspectRatio: "" };
+  }
+
+  const name = stripFileExtension(filename.trim());
+  const parts = name.split("_");
+
+  const brandCode = parts[0] ?? "";
+  const adGroupCode = parts[1] ?? "";
+  const recipeCode = parts[2] ?? "";
+
+  let aspectRatio = "";
+  let version: number | undefined;
+
+  if (parts.length >= 5) {
+    aspectRatio = parts[3] ?? "";
+    const match = /^V(\d+)/i.exec(parts[4] ?? "");
+    if (match) {
+      version = Number.parseInt(match[1], 10);
+    }
+  } else if (parts.length === 4) {
+    const match = /^V(\d+)/i.exec(parts[3] ?? "");
+    if (match) {
+      version = Number.parseInt(match[1], 10);
+    } else {
+      aspectRatio = parts[3] ?? "";
+    }
+  }
+
+  return { brandCode, adGroupCode, recipeCode, aspectRatio, version };
+}
+
+function findAspectInFilename(filename: unknown): string {
+  if (typeof filename !== "string" || !filename.trim()) {
+    return "";
+  }
+
+  const base = stripFileExtension(filename.trim());
+  const parts = base.split(/[_\s-]+/);
+  for (const part of parts) {
+    const normalized = normalizeAspectRatio(part);
+    if (normalized) {
+      return normalized;
+    }
+  }
+
+  return "";
+}
+
+function hasMeaningfulValue(value: unknown): boolean {
+  if (value == null) {
+    return false;
+  }
+
+  if (typeof value === "string") {
+    return value.trim() !== "";
+  }
+
+  return true;
+}
+
+function coerceMetadataValue(value: unknown): unknown {
+  if (value == null) {
+    return value;
+  }
+
+  if (typeof value === "object") {
+    if (
+      "value" in (value as Record<string, unknown>) &&
+      (value as Record<string, unknown>).value != null &&
+      (value as Record<string, unknown>).value !== ""
+    ) {
+      return (value as Record<string, unknown>).value;
+    }
+
+    if (
+      "label" in (value as Record<string, unknown>) &&
+      (value as Record<string, unknown>).label != null &&
+      (value as Record<string, unknown>).label !== ""
+    ) {
+      return (value as Record<string, unknown>).label;
+    }
+  }
+
+  return value;
+}
+
+function firstMeaningfulValue(...values: unknown[]): string {
+  for (const value of values) {
+    const coerced = coerceMetadataValue(value);
+    if (hasMeaningfulValue(coerced)) {
+      return String(coerced);
+    }
+  }
+  return "";
+}
+
+function normalizeFieldKey(value: unknown): string {
+  if (typeof value !== "string") {
+    return "";
+  }
+
+  return value
+    .trim()
+    .replace(/[\s._-]+/g, "")
+    .toLowerCase();
+}
+
+function extractValueFromObject(source: unknown, key: string): unknown {
+  if (!isRecord(source)) {
+    return undefined;
+  }
+
+  if (key in source) {
+    const direct = coerceMetadataValue(source[key]);
+    if (hasMeaningfulValue(direct)) {
+      return direct;
+    }
+  }
+
+  const normalizedTarget = normalizeFieldKey(key);
+  for (const [candidateKey, candidateValue] of Object.entries(source)) {
+    if (normalizeFieldKey(candidateKey) === normalizedTarget) {
+      const coerced = coerceMetadataValue(candidateValue);
+      if (hasMeaningfulValue(coerced)) {
+        return coerced;
+      }
+    }
+  }
+
+  return undefined;
+}
+
+function pickMetaField(fieldName: string, ...sources: unknown[]): string {
+  for (const source of sources) {
+    const value = extractValueFromObject(source, fieldName);
+    if (hasMeaningfulValue(value)) {
+      return String(value);
+    }
+  }
+  return "";
+}
+
+const BASE_FIELD_KEYS = new Set(
+  [
+    "storeId",
+    "groupName",
+    "recipeNo",
+    "product",
+    "moment",
+    "funnel",
+    "goLive",
+    "url",
+    "angle",
+    "audience",
+    "status",
+    "primary",
+    "headline",
+    "description",
+  ].map((key) => normalizeFieldKey(key))
+);
+
+const STRUCTURAL_FIELD_KEYS = new Set(
+  [
+    "components",
+    "metadata",
+    "assets",
+    "type",
+    "selected",
+    "brandCode",
+    "copyCards",
+    "groupAssets",
+    "files",
+    "media",
+  ].map((key) => normalizeFieldKey(key))
+);
+
+function shouldOmitFlattenedKey(key: string): boolean {
+  const normalizedKey = normalizeFieldKey(key);
+  if (!normalizedKey) {
+    return false;
+  }
+
+  const matchesBase = Array.from(BASE_FIELD_KEYS).some((candidate) => {
+    if (!candidate) {
+      return false;
+    }
+    return (
+      normalizedKey === candidate || normalizedKey.startsWith(`${candidate}.`)
+    );
+  });
+
+  if (matchesBase) {
+    return true;
+  }
+
+  return Array.from(STRUCTURAL_FIELD_KEYS).some((candidate) => {
+    if (!candidate) {
+      return false;
+    }
+    return (
+      normalizedKey === candidate || normalizedKey.startsWith(`${candidate}.`)
+    );
+  });
+}
+
+function flattenMetadataForRecipe(
+  source: unknown,
+  prefix = "",
+  result: Record<string, unknown> = {}
+): Record<string, unknown> {
+  if (!isRecord(source)) {
+    return result;
+  }
+
+  for (const [rawKey, rawValue] of Object.entries(source)) {
+    if (typeof rawKey !== "string") {
+      continue;
+    }
+
+    const key = prefix ? `${prefix}.${rawKey}` : rawKey;
+    if (shouldOmitFlattenedKey(key)) {
+      continue;
+    }
+
+    const value = rawValue as unknown;
+    if (Array.isArray(value)) {
+      value.forEach((entry, index) => {
+        const childKey = `${key}.${index}`;
+        if (entry && typeof entry === "object") {
+          flattenMetadataForRecipe(entry, childKey, result);
+        } else if (!shouldOmitFlattenedKey(childKey)) {
+          result[childKey] = entry;
+        }
+      });
+      continue;
+    }
+
+    if (isRecord(value)) {
+      flattenMetadataForRecipe(value, key, result);
+      continue;
+    }
+
+    result[key] = value;
+  }
+
+  return result;
+}
+
+interface CopyCardEntry {
+  id: string;
+  product: string;
+  primary: string;
+  headline: string;
+  description: string;
+}
+
+interface AssetCopyOverride {
+  primary?: string;
+  headline?: string;
+  description?: string;
+}
+
+interface AssetEntry {
+  id: string;
+  url: string;
+  label: string;
+  status: string;
+  copyOverride: AssetCopyOverride | null;
+}
+
+function resolveCopyOverride(asset: FirestoreRecord): AssetCopyOverride | null {
+  const override = isRecord(asset.platformCopyOverride)
+    ? (asset.platformCopyOverride as Record<string, unknown>)
+    : undefined;
+
+  if (!override) {
+    return null;
+  }
+
+  const primary =
+    typeof override.primary === "string" ? override.primary : undefined;
+  const headline =
+    typeof override.headline === "string" ? override.headline : undefined;
+  const description =
+    typeof override.description === "string" ? override.description : undefined;
+
+  if (primary == null && headline == null && description == null) {
+    return null;
+  }
+
+  const result: AssetCopyOverride = {};
+  if (primary != null) {
+    result.primary = primary;
+  }
+  if (headline != null) {
+    result.headline = headline;
+  }
+  if (description != null) {
+    result.description = description;
+  }
+  return result;
+}
+
+function buildCopyCardDictionaries(copyCards: FirestoreRecord[]): {
+  byProduct: Map<string, CopyCardEntry[]>;
+  byId: Map<string, CopyCardEntry>;
+} {
+  const byProduct = new Map<string, CopyCardEntry[]>();
+  const byId = new Map<string, CopyCardEntry>();
+
+  for (const card of copyCards) {
+    const entry: CopyCardEntry = {
+      id: card.id,
+      product:
+        typeof card.product === "string"
+          ? card.product
+          : (card.product as { name?: string })?.name ?? "",
+      primary: typeof card.primary === "string" ? card.primary : "",
+      headline: typeof card.headline === "string" ? card.headline : "",
+      description:
+        typeof card.description === "string" ? card.description : "",
+    };
+
+    byId.set(entry.id, entry);
+    const normalizedId = normalizeKeyPart(entry.id);
+    if (normalizedId && normalizedId !== entry.id) {
+      byId.set(normalizedId, entry);
+    }
+
+    const bucket = normalizeProductKey(entry.product) || "";
+    const list = byProduct.get(bucket) ?? [];
+    list.push(entry);
+    byProduct.set(bucket, list);
+  }
+
+  return { byProduct, byId };
+}
+
+function buildAssetBuckets(assets: FirestoreRecord[]): Record<string, AssetEntry[]> {
+  const buckets: Record<string, AssetEntry[]> = {};
+
+  for (const asset of assets) {
+    const status =
+      typeof asset.status === "string" ? asset.status.toLowerCase() : "";
+    if (status === "archived" || status === "rejected") {
+      continue;
+    }
+
+    const info = parseAdFilenameParts(asset.filename);
+    const recipeCode = getFirstString(
+      asset.recipeCode,
+      asset.recipe_code,
+      asset.recipeNumber,
+      asset.recipe_number,
+      info.recipeCode
+    );
+
+    const url = extractUrlFromAssetRecord(asset);
+    if (!recipeCode || !url) {
+      continue;
+    }
+
+    let aspect =
+      normalizeAspectRatio(asset.aspectRatio) ||
+      normalizeAspectRatio((asset as Record<string, unknown>).ratio) ||
+      normalizeAspectRatio(info.aspectRatio) ||
+      findAspectInFilename(asset.filename);
+
+    if (!aspect) {
+      aspect = "9x16";
+    }
+
+    if (!aspect || !["1x1", "9x16"].includes(aspect)) {
+      continue;
+    }
+
+    const entry: AssetEntry = {
+      id: asset.id,
+      url,
+      label: aspect,
+      status: typeof asset.status === "string" ? asset.status : "",
+      copyOverride: resolveCopyOverride(asset),
+    };
+
+    const primaryKey = String(recipeCode).trim();
+    const normalized = primaryKey.replace(/^0+/, "");
+
+    const register = (key: string) => {
+      if (!key) {
+        return;
+      }
+      if (!buckets[key]) {
+        buckets[key] = [];
+      }
+      buckets[key].push(entry);
+    };
+
+    register(primaryKey);
+    if (normalized !== primaryKey) {
+      register(normalized);
+    }
+  }
+
+  return buckets;
+}
+
+function mergeRecords(
+  current: Record<string, unknown> | undefined,
+  incoming: Record<string, unknown> | undefined
+): Record<string, unknown> | undefined {
+  if (!current && !incoming) {
+    return undefined;
+  }
+
+  const result: Record<string, unknown> = {
+    ...(current ?? {}),
+  };
+
+  if (incoming) {
+    for (const [key, value] of Object.entries(incoming)) {
+      if (value === undefined) {
+        continue;
+      }
+
+      const existing = result[key];
+      if (Array.isArray(value)) {
+        if (value.length || !Array.isArray(existing)) {
+          result[key] = value;
+        }
+        continue;
+      }
+
+      if (isRecord(value)) {
+        const merged = mergeRecords(
+          isRecord(existing) ? (existing as Record<string, unknown>) : undefined,
+          value
+        );
+        if (merged) {
+          result[key] = merged;
+        }
+        continue;
+      }
+
+      if (!isEmptyValue(value) || isEmptyValue(existing)) {
+        result[key] = value;
+      }
+    }
+  }
+
+  return result;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -2116,6 +2629,780 @@ async function resolveClientRecord(
   return null;
 }
 
+async function resolveBrandRecord(
+  db: AdminFirestore,
+  reviewId: string,
+  review: FirestoreRecord,
+  adGroup: FirestoreRecord | null
+): Promise<FirestoreRecord | null> {
+  const candidatePaths: string[] = [];
+  const candidateIds: string[] = [];
+  const candidateCodes: string[] = [];
+
+  const addCandidatePath = (candidate: unknown) => {
+    if (typeof candidate === "string") {
+      const trimmed = candidate.trim();
+      if (trimmed) {
+        candidatePaths.push(trimmed);
+      }
+      return;
+    }
+
+    if (
+      candidate &&
+      typeof candidate === "object" &&
+      typeof (candidate as Partial<DocumentReference>).path === "string"
+    ) {
+      const path = (candidate as DocumentReference).path.trim();
+      if (path) {
+        candidatePaths.push(path);
+      }
+    }
+  };
+
+  const addCandidateId = (candidate: unknown) => {
+    if (typeof candidate === "string") {
+      const trimmed = candidate.trim();
+      if (trimmed) {
+        candidateIds.push(trimmed);
+      }
+    }
+  };
+
+  const addCandidateCode = (candidate: unknown) => {
+    if (typeof candidate === "string") {
+      const trimmed = candidate.trim();
+      if (trimmed) {
+        candidateCodes.push(trimmed);
+      }
+    }
+  };
+
+  const registerBrandCandidates = (source: unknown) => {
+    if (!isRecord(source)) {
+      return;
+    }
+    addCandidatePath(source.path);
+    addCandidatePath(source.ref);
+    addCandidatePath(source.brandRef);
+    addCandidateId(source.id);
+    addCandidateId(source.brandId);
+    addCandidateCode(source.code);
+    addCandidateCode(source.brandCode);
+    addCandidateCode(source.brand_code);
+  };
+
+  registerBrandCandidates(review.brand);
+  registerBrandCandidates(review.store);
+  registerBrandCandidates(review.project);
+  registerBrandCandidates(review.request);
+  registerBrandCandidates(adGroup);
+  registerBrandCandidates(adGroup?.brand);
+
+  addCandidatePath(review.brandRef);
+  addCandidatePath(review.brandPath);
+  addCandidatePath(review.brandDocument);
+  addCandidateId(review.brandId);
+  addCandidateId((review as Record<string, unknown>).brand_id);
+  addCandidateCode(review.brandCode);
+  addCandidateCode((review as Record<string, unknown>).brand_code);
+
+  if (adGroup) {
+    addCandidatePath((adGroup as Record<string, unknown>).brandRef);
+    addCandidatePath((adGroup as Record<string, unknown>).brandPath);
+    addCandidateId((adGroup as Record<string, unknown>).brandId);
+    addCandidateId((adGroup as Record<string, unknown>).brand_id);
+    addCandidateCode((adGroup as Record<string, unknown>).brandCode);
+    addCandidateCode((adGroup as Record<string, unknown>).brand_code);
+  }
+
+  const dedupedPaths = dedupe(candidatePaths);
+  for (const candidate of dedupedPaths) {
+    const normalized = candidate.startsWith("firestore://")
+      ? candidate.replace(/^firestore:\/\//, "")
+      : candidate;
+    try {
+      const snapshot = await db.doc(normalized).get();
+      if (snapshot.exists) {
+        return sanitizeFirestoreRecord(snapshot);
+      }
+    } catch (error) {
+      continue;
+    }
+  }
+
+  const dedupedIds = dedupe(candidateIds);
+  for (const candidate of dedupedIds) {
+    try {
+      const snapshot = await db.collection(BRANDS_COLLECTION).doc(candidate).get();
+      if (snapshot.exists) {
+        return sanitizeFirestoreRecord(snapshot);
+      }
+    } catch (error) {
+      continue;
+    }
+  }
+
+  const dedupedCodes = dedupe(candidateCodes);
+  for (const code of dedupedCodes) {
+    try {
+      const querySnapshot = await db
+        .collection(BRANDS_COLLECTION)
+        .where("code", "==", code)
+        .limit(1)
+        .get();
+      if (!querySnapshot.empty) {
+        return sanitizeFirestoreRecord(querySnapshot.docs[0]);
+      }
+    } catch (error) {
+      throw new IntegrationDataError(
+        error instanceof Error ? error.message : "Failed to load brand.",
+        "mapping/brand_lookup_failed",
+        {
+          reviewId,
+          source: BRANDS_COLLECTION,
+          brandCode: code,
+          cause: error instanceof Error ? error.message : String(error),
+        }
+      );
+    }
+  }
+
+  return null;
+}
+
+function resolveBrandStoreId(
+  review: FirestoreRecord,
+  adGroup: FirestoreRecord | null,
+  brand: FirestoreRecord | null
+): string | undefined {
+  const reviewBrand = isRecord(review.brand)
+    ? (review.brand as Record<string, unknown>)
+    : undefined;
+  const adGroupBrand = adGroup && isRecord(adGroup.brand)
+    ? (adGroup.brand as Record<string, unknown>)
+    : undefined;
+  const brandStore = brand && isRecord(brand.store)
+    ? (brand.store as Record<string, unknown>)
+    : undefined;
+  const reviewStore = isRecord(review.store)
+    ? (review.store as Record<string, unknown>)
+    : undefined;
+  const adGroupStore = adGroup && isRecord(adGroup.store)
+    ? (adGroup.store as Record<string, unknown>)
+    : undefined;
+  const reviewBrandStore = reviewBrand && isRecord(reviewBrand.store)
+    ? (reviewBrand.store as Record<string, unknown>)
+    : undefined;
+  const adGroupBrandStore = adGroupBrand && isRecord(adGroupBrand.store)
+    ? (adGroupBrand.store as Record<string, unknown>)
+    : undefined;
+
+  return getFirstString(
+    review.storeId,
+    (review as Record<string, unknown>).store_id,
+    review.brandStoreId,
+    (review as Record<string, unknown>).brand_store_id,
+    reviewStore?.id,
+    reviewStore?.code,
+    reviewBrand?.storeId,
+    reviewBrand?.store_id,
+    reviewBrandStore?.id,
+    reviewBrandStore?.code,
+    adGroup?.storeId,
+    (adGroup as Record<string, unknown>)?.store_id,
+    adGroupStore?.id,
+    adGroupStore?.code,
+    adGroupBrand?.storeId,
+    adGroupBrand?.store_id,
+    adGroupBrandStore?.id,
+    adGroupBrandStore?.code,
+    brand?.storeId,
+    (brand as Record<string, unknown>)?.store_id,
+    brandStore?.id,
+    brandStore?.code
+  );
+}
+
+function mergeReviewWithBrandProfile(
+  review: FirestoreRecord,
+  brand: FirestoreRecord | null,
+  adGroup: FirestoreRecord | null,
+  brandStoreId: string | undefined
+): FirestoreRecord {
+  const result: FirestoreRecord = { ...review };
+
+  if (brand) {
+    const existingBrand = isRecord(review.brand)
+      ? (review.brand as Record<string, unknown>)
+      : undefined;
+    const mergedBrand = mergeRecords(existingBrand, brand) ?? brand;
+    if (mergedBrand) {
+      result.brand = mergedBrand;
+    }
+  }
+
+  if (adGroup) {
+    const existingGroup = isRecord(review.adGroup)
+      ? (review.adGroup as Record<string, unknown>)
+      : undefined;
+    const mergedGroup = mergeRecords(existingGroup, adGroup) ?? adGroup;
+    if (mergedGroup) {
+      result.adGroup = mergedGroup;
+    }
+  }
+
+  if (brandStoreId) {
+    if (isEmptyValue(result.brandStoreId)) {
+      result.brandStoreId = brandStoreId;
+    }
+    if (isEmptyValue((result as Record<string, unknown>).brand_store_id)) {
+      (result as Record<string, unknown>).brand_store_id = brandStoreId;
+    }
+    if (isEmptyValue(result.storeId)) {
+      result.storeId = brandStoreId;
+    }
+    if (isEmptyValue((result as Record<string, unknown>).store_id)) {
+      (result as Record<string, unknown>).store_id = brandStoreId;
+    }
+
+    if (isRecord(result.store)) {
+      const storeRecord = result.store as Record<string, unknown>;
+      if (isEmptyValue(storeRecord.id)) {
+        storeRecord.id = brandStoreId;
+      }
+      if (isEmptyValue(storeRecord.code)) {
+        storeRecord.code = brandStoreId;
+      }
+    } else {
+      result.store = { id: brandStoreId, code: brandStoreId };
+    }
+  }
+
+  return result;
+}
+
+interface BuildAggregatedAdsOptions {
+  review: FirestoreRecord;
+  adGroup: FirestoreRecord | null;
+  recipes: FirestoreRecord[];
+  assets: FirestoreRecord[];
+  copyCards: FirestoreRecord[];
+  brandStoreId?: string;
+}
+
+function buildAggregatedAdsFromAdGroup({
+  review,
+  adGroup,
+  recipes,
+  assets,
+  copyCards,
+  brandStoreId,
+}: BuildAggregatedAdsOptions): FirestoreRecord[] {
+  if (!recipes.length) {
+    return [];
+  }
+
+  const adGroupRecord = adGroup ? (adGroup as Record<string, unknown>) : undefined;
+  const groupMeta = adGroupRecord && isRecord(adGroupRecord.metadata)
+    ? flattenMetadataForRecipe(adGroupRecord.metadata as Record<string, unknown>)
+    : {};
+
+  const assetBuckets = buildAssetBuckets(assets);
+  const { byProduct, byId } = buildCopyCardDictionaries(copyCards);
+
+  const adGroupStoreRecord = adGroupRecord && isRecord(adGroupRecord.store)
+    ? (adGroupRecord.store as Record<string, unknown>)
+    : undefined;
+
+  const resolvedStoreId = getFirstString(
+    brandStoreId,
+    adGroupRecord?.storeId,
+    adGroupRecord?.store_id,
+    adGroupStoreRecord?.id,
+    adGroupStoreRecord?.code
+  );
+
+  const reviewBrand = isRecord(review.brand)
+    ? (review.brand as Record<string, unknown>)
+    : undefined;
+  const adGroupBrand = adGroupRecord && isRecord(adGroupRecord.brand)
+    ? (adGroupRecord.brand as Record<string, unknown>)
+    : undefined;
+
+  const brandCode = getFirstString(
+    review.brandCode,
+    (review as Record<string, unknown>).brand_code,
+    reviewBrand?.code,
+    adGroupRecord?.brandCode,
+    adGroupRecord?.brand_code,
+    adGroupBrand?.code
+  );
+
+  return recipes.map((recipe, index) => {
+    const recipeRecord: FirestoreRecord = { ...recipe };
+    const recipeData = recipeRecord as Record<string, unknown>;
+    const recipeComponents = isRecord(recipeData.components)
+      ? (recipeData.components as Record<string, unknown>)
+      : undefined;
+    const recipeMetadata = isRecord(recipeData.metadata)
+      ? (recipeData.metadata as Record<string, unknown>)
+      : undefined;
+
+    const recipeNumberCandidate = getFirstString(
+      recipeData.recipeNo,
+      recipeData.recipe_no,
+      recipeData.recipeNumber,
+      recipeData.recipe_number,
+      recipeData.recipeCode,
+      recipeData.recipe_code,
+      recipeRecord.id
+    );
+    const recipeNumber = (recipeNumberCandidate && String(recipeNumberCandidate).trim()) || String(index + 1);
+
+    const productName = firstMeaningfulValue(
+      extractValueFromObject(recipeData["product"], "name"),
+      recipeData["product"],
+      extractValueFromObject(recipeComponents, "product.name"),
+      extractValueFromObject(recipeComponents, "productName"),
+      extractValueFromObject(recipeComponents, "product")
+    );
+
+    let destinationUrl = firstMeaningfulValue(
+      extractValueFromObject(recipeMetadata, "url"),
+      recipeData["url"],
+      extractValueFromObject(recipeData["product"], "url"),
+      extractValueFromObject(recipeComponents, "product.url"),
+      extractValueFromObject(recipeComponents, "url")
+    );
+
+    if (!hasMeaningfulValue(destinationUrl)) {
+      destinationUrl = pickMetaField(
+        "url",
+        recipeMetadata,
+        recipeData,
+        recipeComponents,
+        adGroupRecord?.metadata,
+        adGroupRecord
+      );
+    }
+
+    const candidateKeys = dedupe(
+      [
+        recipeNumber,
+        recipeRecord.id,
+        recipeData.recipeCode,
+        recipeData.recipe_code,
+        extractValueFromObject(recipeComponents, "recipeCode"),
+        extractValueFromObject(recipeComponents, "recipe_code"),
+      ]
+        .map((value) => (value == null ? "" : String(value)))
+        .filter((value) => value && value !== "undefined" && value !== "null")
+    );
+
+    let assetEntries: AssetEntry[] = [];
+    for (const key of candidateKeys) {
+      const trimmed = key.trim();
+      if (!trimmed) {
+        continue;
+      }
+      const normalized = trimmed.replace(/^0+/, "");
+      const matches = assetBuckets[trimmed] ?? assetBuckets[normalized];
+      if (matches && matches.length) {
+        assetEntries = matches;
+        break;
+      }
+    }
+    if (!assetEntries.length && recipeNumber) {
+      const normalizedNumber = recipeNumber.replace(/^0+/, "");
+      assetEntries =
+        assetBuckets[recipeNumber] ?? assetBuckets[normalizedNumber] ?? [];
+    }
+
+    const overrideEntry =
+      assetEntries.find((entry) => entry.copyOverride && entry.label === "1x1") ??
+      assetEntries.find((entry) => entry.copyOverride);
+
+    const normalizedProduct = normalizeProductKey(productName);
+    const assignedCopyCardId = normalizeKeyPart(
+      recipeData.platformCopyCardId ??
+        recipeData.platform_copy_card_id ??
+        extractValueFromObject(recipeComponents, "platformCopyCardId") ??
+        extractValueFromObject(recipeComponents, "platform_copy_card_id") ??
+        extractValueFromObject(recipeMetadata, "platformCopyCardId") ??
+        extractValueFromObject(recipeMetadata, "platform_copy_card_id")
+    );
+
+    const allCopyOptions = [
+      ...(byProduct.get(normalizedProduct) ?? []),
+      ...(normalizedProduct !== "" ? byProduct.get("") ?? [] : []),
+    ];
+
+    const assignedCopy = assignedCopyCardId ? byId.get(assignedCopyCardId) : undefined;
+
+    const fallbackCopy =
+      assignedCopy ??
+      allCopyOptions.find(
+        (entry) => entry.primary || entry.headline || entry.description
+      ) ??
+      allCopyOptions[0] ?? {
+        id: "",
+        product: "",
+        primary: "",
+        headline: "",
+        description: "",
+      };
+
+    const overrideCopy = overrideEntry?.copyOverride ?? null;
+    const copy = {
+      primary: fallbackCopy.primary ?? "",
+      headline: fallbackCopy.headline ?? "",
+      description: fallbackCopy.description ?? "",
+    };
+
+    if (overrideCopy) {
+      if (overrideCopy.primary != null) {
+        copy.primary = String(overrideCopy.primary);
+      }
+      if (overrideCopy.headline != null) {
+        copy.headline = String(overrideCopy.headline);
+      }
+      if (overrideCopy.description != null) {
+        copy.description = String(overrideCopy.description);
+      }
+    }
+
+    const angle = pickMetaField("angle", recipeMetadata, recipeData, recipeComponents);
+    const audience = pickMetaField(
+      "audience",
+      recipeMetadata,
+      recipeData,
+      recipeComponents
+    );
+    const moment = pickMetaField(
+      "moment",
+      recipeMetadata,
+      recipeData,
+      recipeComponents,
+      adGroupRecord?.metadata,
+      adGroupRecord
+    );
+    const funnel = pickMetaField(
+      "funnel",
+      recipeMetadata,
+      recipeData,
+      recipeComponents,
+      adGroupRecord?.metadata,
+      adGroupRecord
+    );
+    const goLive = pickMetaField(
+      "goLive",
+      recipeMetadata,
+      recipeData,
+      recipeComponents,
+      adGroupRecord?.metadata,
+      adGroupRecord
+    );
+
+    const recipeStatus = typeof recipeData.status === "string"
+      ? recipeData.status.toLowerCase()
+      : "";
+    const includeAssets = recipeStatus !== "archived" && recipeStatus !== "rejected";
+    const filteredAssets = includeAssets ? assetEntries : [];
+
+    const status = filteredAssets[0]?.status ?? (typeof recipeData.status === "string" ? recipeData.status : "");
+
+    const recipeMeta = flattenMetadataForRecipe({
+      ...recipeData,
+      ...(recipeComponents ?? {}),
+      ...(recipeMetadata ?? {}),
+    });
+
+    const assetFields = filteredAssets.reduce<Record<string, string>>((acc, entry) => {
+      if (entry.url && ["1x1", "9x16"].includes(entry.label)) {
+        acc[entry.label] = entry.url;
+      }
+      return acc;
+    }, {});
+
+    const storeId = getFirstString(
+      brandStoreId,
+      resolvedStoreId,
+      review.storeId,
+      (review as Record<string, unknown>).store_id,
+      review.brandStoreId,
+      (review as Record<string, unknown>).brand_store_id
+    );
+
+    const recipeFields: Record<string, unknown> = {
+      "Recipe Number": recipeNumber,
+      "Recipe #": recipeNumber,
+      "Recipe Id": recipeRecord.id,
+      Recipe: recipeNumber,
+      Product: productName,
+      Moment: moment,
+      Funnel: funnel,
+      Audience: audience,
+      Angle: angle,
+      "Go Live": goLive,
+      "Go Live Date": goLive,
+      Status: status,
+      URL: destinationUrl,
+      "Destination URL": destinationUrl,
+      Primary: copy.primary,
+      "Primary Copy": copy.primary,
+      Headline: copy.headline,
+      Description: copy.description,
+      "Store ID": storeId,
+      "Brand Store ID": storeId,
+      "Brand Code": brandCode,
+      ...groupMeta,
+      ...recipeMeta,
+      ...assetFields,
+    };
+
+    const aggregated: FirestoreRecord = {
+      id: `${review.id}|${recipeRecord.id ?? recipeNumber ?? index}`,
+      recipeNumber,
+      recipeNo: recipeNumber,
+      recipeCode: getFirstString(
+        recipeData.recipeCode,
+        recipeData.recipe_code,
+        extractValueFromObject(recipeComponents, "recipeCode"),
+        extractValueFromObject(recipeComponents, "recipe_code")
+      ),
+      product: productName,
+      productName,
+      moment,
+      funnel,
+      goLiveDate: goLive,
+      goLive,
+      destinationUrl,
+      url: destinationUrl,
+      angle,
+      audience,
+      status,
+      storeId,
+      brandStoreId: storeId,
+      brandCode,
+      copy,
+      primaryCopy: copy.primary,
+      headline: copy.headline,
+      description: copy.description,
+      recipeFields,
+      assets: filteredAssets.map((entry) => ({
+        id: entry.id,
+        url: entry.url,
+        aspectRatio: entry.label,
+        label: entry.label,
+        status: entry.status,
+        copyOverride: entry.copyOverride
+          ? { ...entry.copyOverride }
+          : null,
+      })),
+      recipe: recipeRecord,
+    };
+
+    if (assignedCopyCardId) {
+      aggregated.assignedCopyCardId = assignedCopyCardId;
+    }
+
+    if (adGroup) {
+      aggregated.adGroup = adGroup;
+    }
+
+    return aggregated;
+  });
+}
+
+function mergeAdRecords(
+  existing: FirestoreRecord,
+  aggregated: FirestoreRecord
+): FirestoreRecord {
+  const merged: FirestoreRecord = { ...existing };
+
+  for (const [key, value] of Object.entries(aggregated)) {
+    if (key === "id" || value === undefined) {
+      continue;
+    }
+
+    const current = merged[key];
+    if (Array.isArray(value)) {
+      if (value.length || !Array.isArray(current)) {
+        merged[key] = value;
+      }
+      continue;
+    }
+
+    if (isRecord(value)) {
+      const mergedRecord = mergeRecords(
+        isRecord(current) ? (current as Record<string, unknown>) : undefined,
+        value
+      );
+      if (mergedRecord) {
+        merged[key] = mergedRecord;
+      }
+      continue;
+    }
+
+    if (!isEmptyValue(value) || isEmptyValue(current)) {
+      merged[key] = value;
+    }
+  }
+
+  const existingFields = isRecord(existing.recipeFields)
+    ? (existing.recipeFields as Record<string, unknown>)
+    : undefined;
+  const aggregatedFields = isRecord(aggregated.recipeFields)
+    ? (aggregated.recipeFields as Record<string, unknown>)
+    : undefined;
+  const mergedFields = mergeRecipeFieldRecords(existingFields, aggregatedFields);
+  if (mergedFields && Object.keys(mergedFields).length) {
+    merged.recipeFields = mergedFields;
+  }
+
+  merged.id = existing.id;
+  return merged;
+}
+
+function mergeAdsWithAggregatedData(
+  existingAds: FirestoreRecord[],
+  aggregatedAds: FirestoreRecord[]
+): FirestoreRecord[] {
+  if (!existingAds.length) {
+    return aggregatedAds;
+  }
+
+  if (!aggregatedAds.length) {
+    return existingAds;
+  }
+
+  const existingByIdentifier = new Map<string, FirestoreRecord>();
+  for (const ad of existingAds) {
+    existingByIdentifier.set(resolveRecipeIdentifier(ad), ad);
+  }
+
+  const used = new Set<string>();
+  const merged: FirestoreRecord[] = [];
+
+  for (const aggregated of aggregatedAds) {
+    const identifier = resolveRecipeIdentifier(aggregated);
+    const existing = existingByIdentifier.get(identifier);
+    if (existing) {
+      used.add(identifier);
+      merged.push(mergeAdRecords(existing, aggregated));
+    } else {
+      merged.push(aggregated);
+    }
+  }
+
+  for (const [identifier, ad] of existingByIdentifier.entries()) {
+    if (!used.has(identifier)) {
+      merged.push(ad);
+    }
+  }
+
+  return merged;
+}
+
+async function loadAdGroupSubcollectionRecords(
+  ref: DocumentReference,
+  subcollection: string,
+  reviewId: string,
+  errorCode: string,
+  errorMessage: string
+): Promise<FirestoreRecord[]> {
+  try {
+    const snapshot = await ref.collection(subcollection).get();
+    return snapshot.docs.map(sanitizeFirestoreRecord);
+  } catch (error) {
+    throw new IntegrationDataError(errorMessage, errorCode, {
+      reviewId,
+      source: `${AD_GROUPS_COLLECTION}/${subcollection}`,
+      cause: error instanceof Error ? error.message : String(error),
+    });
+  }
+}
+
+async function enrichReviewDataWithAdGroupContext(
+  db: AdminFirestore,
+  reviewId: string,
+  base: ReviewData
+): Promise<ReviewData> {
+  const adGroupRef = db.collection(AD_GROUPS_COLLECTION).doc(reviewId);
+
+  let adGroupSnap: DocumentSnapshot | null = null;
+  try {
+    adGroupSnap = await adGroupRef.get();
+  } catch (error) {
+    throw new IntegrationDataError(
+      error instanceof Error ? error.message : "Failed to load ad group.",
+      "mapping/ad_group_load_failed",
+      {
+        reviewId,
+        source: AD_GROUPS_COLLECTION,
+        cause: error instanceof Error ? error.message : String(error),
+      }
+    );
+  }
+
+  const adGroup = adGroupSnap?.exists ? sanitizeFirestoreRecord(adGroupSnap) : null;
+
+  const [recipes, assets, copyCards] = await Promise.all([
+    loadAdGroupSubcollectionRecords(
+      adGroupRef,
+      AD_GROUP_RECIPES_SUBCOLLECTION,
+      reviewId,
+      "mapping/review_recipes_unavailable",
+      "Failed to load recipes for review."
+    ),
+    loadAdGroupSubcollectionRecords(
+      adGroupRef,
+      AD_GROUP_ASSETS_SUBCOLLECTION,
+      reviewId,
+      "mapping/review_ads_unavailable",
+      "Failed to load ads for review."
+    ),
+    loadAdGroupSubcollectionRecords(
+      adGroupRef,
+      AD_GROUP_COPY_CARDS_SUBCOLLECTION,
+      reviewId,
+      "mapping/review_copy_cards_unavailable",
+      "Failed to load copy cards for review."
+    ),
+  ]);
+
+  const brand = await resolveBrandRecord(db, reviewId, base.review, adGroup);
+  const brandStoreId = resolveBrandStoreId(base.review, adGroup, brand);
+  const enrichedReview = mergeReviewWithBrandProfile(
+    base.review,
+    brand,
+    adGroup,
+    brandStoreId
+  );
+
+  const aggregatedAds = buildAggregatedAdsFromAdGroup({
+    review: enrichedReview,
+    adGroup,
+    recipes,
+    assets,
+    copyCards,
+    brandStoreId,
+  });
+
+  const mergedAds = mergeAdsWithAggregatedData(base.ads, aggregatedAds);
+
+  return {
+    ...base,
+    review: enrichedReview,
+    ads: mergedAds,
+    adGroup,
+    recipes,
+    copyCards,
+    brand,
+  };
+}
+
 function safeStringify(value: unknown): string {
   const seen = new WeakSet<object>();
   return JSON.stringify(
@@ -2228,12 +3515,12 @@ export async function getReviewData(reviewId: string): Promise<ReviewData> {
     }
 
     const client = await resolveClientRecord(db, review);
-    return { review, ads, client };
+    return enrichReviewDataWithAdGroupContext(db, reviewId, { review, ads, client });
   }
 
   const fallback = await loadReviewDataFromAdGroup(db, reviewId);
   if (fallback) {
-    return fallback;
+    return enrichReviewDataWithAdGroupContext(db, reviewId, fallback);
   }
 
   throw new IntegrationDataError("Review not found.", "mapping/review_not_found", {
