@@ -27,7 +27,14 @@ export default function parseAdFilename(filename) {
   if (parts.length >= 2) {
     const lastPart = parts[parts.length - 1];
     const prevPart = parts[parts.length - 2] || '';
-    if (/^[A-Z]$/i.test(lastPart) && /^V\d+$/i.test(prevPart)) {
+    const prevPrevPart = parts[parts.length - 3] || '';
+    const isPageSuffix = /^[A-Z]$/i.test(lastPart);
+    const precedesVersion = /^V\d+$/i.test(prevPart);
+    const precedesAspect = /^(?:\d+(?:\.\d+)?)x(?:\d+(?:\.\d+)?)$/i.test(prevPart);
+    if (
+      isPageSuffix &&
+      (precedesVersion || precedesAspect || /^V\d+$/i.test(prevPrevPart))
+    ) {
       carouselPage = lastPart.toUpperCase();
     }
   }

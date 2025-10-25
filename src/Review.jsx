@@ -705,10 +705,8 @@ const getCarouselGroupKey = (asset) => {
   const filename = normalizeKeyPart(asset.filename);
   if (!filename) return '';
   const info = parseAdFilename(filename);
-  const aspect = normalizeAspectKey(
-    asset.aspectRatio || info.aspectRatio || '',
-  );
-  if (aspect !== '1x1') {
+  const aspectSource = getAssetAspectRatio(asset) || info.aspectRatio || '';
+  if (!isSquareAspectRatio(aspectSource)) {
     return '';
   }
   const page = normalizeKeyPart(info.carouselPage);
