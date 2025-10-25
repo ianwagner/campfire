@@ -96,6 +96,8 @@ export interface IntegrationAdExport extends Record<string, unknown> {
   persona?: string;
   audience?: string;
   angle?: string;
+  market?: string;
+  format?: string;
   primaryCopy?: string;
   headline?: string;
   description?: string;
@@ -558,7 +560,7 @@ const STANDARD_EXPORT_FIELD_ALIASES: Record<string, readonly string[]> = {
   reviewId: ["review_id"],
   reviewName: ["review_name"],
   reviewUrl: ["review_url"],
-  adGroupName: ["ad_group_name", "group_name", "group_desc"],
+  adGroupName: ["ad_group_name", "group_name", "group_desc", "Ad Group"],
   adId: ["ad_id"],
   adName: ["ad_name"],
   adExternalId: ["ad_external_id"],
@@ -567,7 +569,7 @@ const STANDARD_EXPORT_FIELD_ALIASES: Record<string, readonly string[]> = {
   brandName: ["brand_name"],
   brandCode: ["brand_code"],
   brandStoreId: ["brand_store_id"],
-  storeId: ["store_id", "shop"],
+  storeId: ["store_id", "shop", "Store ID"],
   clientId: ["client_id"],
   clientName: ["client_name"],
   projectId: ["project_id"],
@@ -578,21 +580,23 @@ const STANDARD_EXPORT_FIELD_ALIASES: Record<string, readonly string[]> = {
   campaignName: ["campaign_name"],
   recipeTypeId: ["recipe_type_id"],
   recipeTypeName: ["recipe_type_name"],
-  recipeNumber: ["recipe_number", "recipe_no"],
-  productName: ["product", "product_name"],
-  primaryCopy: ["primary_copy", "primary_text"],
-  headline: ["headline_text"],
-  description: ["description_text"],
-  destinationUrl: ["destination_url", "product_url", "url"],
-  goLiveDate: ["go_live", "go_live_date"],
-  asset1x1Url: ["image_1x1", "asset_1x1", "image_square"],
-  asset9x16Url: ["image_9x16", "asset_9x16", "image_vertical"],
-  moment: ["moment_desc"],
-  funnel: ["funnel_stage"],
+  recipeNumber: ["recipe_number", "recipe_no", "Recipe Number"],
+  productName: ["product", "product_name", "Product"],
+  primaryCopy: ["primary_copy", "primary_text", "Primary"],
+  headline: ["headline_text", "Headline"],
+  description: ["description_text", "Description"],
+  destinationUrl: ["destination_url", "product_url", "url", "URL"],
+  goLiveDate: ["go_live", "go_live_date", "goLive", "Go Live"],
+  asset1x1Url: ["image_1x1", "asset_1x1", "image_square", "1x1"],
+  asset9x16Url: ["image_9x16", "asset_9x16", "image_vertical", "9x16"],
+  moment: ["moment_desc", "Moment", "moment"],
+  funnel: ["funnel_stage", "Funnel", "funnel"],
   persona: ["persona_label"],
-  audience: ["audience_label"],
-  angle: ["angle_label"],
-  status: ["status_label"],
+  audience: ["audience_label", "Audience", "audience"],
+  angle: ["angle_label", "Angle", "angle"],
+  status: ["status_label", "Status", "status"],
+  market: ["Market", "market"],
+  format: ["Format", "format"],
 };
 
 const STANDARD_FIELD_ALIASES = {
@@ -632,6 +636,15 @@ const STANDARD_FIELD_ALIASES = {
   ],
   moment: ["Moment", "moment"],
   funnel: ["Funnel", "funnel", "funnelStage", "funnel.stage"],
+  market: ["Market", "market", "market.name", "marketName"],
+  format: [
+    "Format",
+    "format",
+    "format.name",
+    "formatName",
+    "format.label",
+    "format_label",
+  ],
   goLive: [
     "Go Live",
     "goLive",
@@ -1495,6 +1508,10 @@ function buildStandardAdExports(
     const persona = formatRowValue(extractStandardFieldValue("persona", fieldContext));
     const audience = formatRowValue(extractStandardFieldValue("audience", fieldContext));
     const angle = formatRowValue(extractStandardFieldValue("angle", fieldContext));
+    const market = formatRowValue(extractStandardFieldValue("market", fieldContext));
+    const formatName = formatRowValue(
+      extractStandardFieldValue("format", fieldContext)
+    );
     const primaryCopy = formatRowValue(
       extractStandardFieldValue("primary", fieldContext)
     );
@@ -1636,6 +1653,8 @@ function buildStandardAdExports(
       persona,
       audience,
       angle,
+      market,
+      format: formatName,
       primaryCopy,
       headline,
       description,
