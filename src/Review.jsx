@@ -20,6 +20,8 @@ import {
   FiHome,
   FiDownload,
   FiMoreHorizontal,
+  FiChevronLeft,
+  FiChevronRight,
 } from 'react-icons/fi';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -686,6 +688,90 @@ const getReviewAspectPriority = (aspect) => {
   return idx === -1 ? REVIEW_V2_ASPECT_ORDER.length : idx;
 };
 
+const getCarouselPageOrder = (asset) => {
+  if (!asset) return 0;
+  const info = parseAdFilename(asset.filename || '');
+  const page = normalizeKeyPart(info.carouselPage);
+  if (!page) return 0;
+  const code = page.toUpperCase().charCodeAt(0);
+  if (Number.isFinite(code) && code >= 65 && code <= 90) {
+    return code - 65;
+  }
+  return 0;
+};
+
+const getCarouselGroupKey = (asset) => {
+  if (!asset) return '';
+  const filename = normalizeKeyPart(asset.filename);
+  if (!filename) return '';
+  const info = parseAdFilename(filename);
+  const aspectSource = getAssetAspectRatio(asset) || info.aspectRatio || '';
+  if (!isSquareAspectRatio(aspectSource)) {
+    return '';
+  }
+  const page = normalizeKeyPart(info.carouselPage);
+  if (!page) return '';
+  const baseName = filename.replace(/\.[^/.]+$/, '');
+  const suffix = `_${page}`;
+  if (baseName.toUpperCase().endsWith(suffix.toUpperCase())) {
+    return baseName.slice(0, -suffix.length);
+  }
+  return '';
+};
+
+const buildCarouselDisplayItems = (assets = []) => {
+  if (!Array.isArray(assets) || assets.length === 0) {
+    return [];
+  }
+
+  const grouped = new Map();
+  assets.forEach((asset) => {
+    const key = getCarouselGroupKey(asset);
+    if (!key) return;
+    if (!grouped.has(key)) {
+      grouped.set(key, []);
+    }
+    grouped.get(key).push(asset);
+  });
+
+  const seen = new Set();
+  const displayItems = [];
+
+  assets.forEach((asset) => {
+    const key = getCarouselGroupKey(asset);
+    if (!key) {
+      displayItems.push({ type: 'asset', asset });
+      return;
+    }
+
+    const list = grouped.get(key) || [];
+    if (list.length < 2) {
+      displayItems.push({ type: 'asset', asset });
+      return;
+    }
+
+    if (seen.has(key)) {
+      return;
+    }
+    seen.add(key);
+
+    const sorted = [...list].sort((a, b) => {
+      const orderA = getCarouselPageOrder(a);
+      const orderB = getCarouselPageOrder(b);
+      if (orderA !== orderB) {
+        return orderA - orderB;
+      }
+      const nameA = normalizeKeyPart(a?.filename);
+      const nameB = normalizeKeyPart(b?.filename);
+      return (nameA || '').localeCompare(nameB || '');
+    });
+
+    displayItems.push({ type: 'carousel', key, assets: sorted });
+  });
+
+  return displayItems;
+};
+
 const compareRecipeCodes = (first, second) => {
   const a = normalizeKeyPart(first);
   const b = normalizeKeyPart(second);
@@ -774,6 +860,7 @@ const Review = forwardRef(
   const [animating, setAnimating] = useState(null); // 'approve' | 'reject'
   const [showVersionMenu, setShowVersionMenu] = useState(false);
   const [cardVersionIndices, setCardVersionIndices] = useState({});
+  const [carouselIndices, setCarouselIndices] = useState({});
   const [swipeX, setSwipeX] = useState(0);
   const [dragging, setDragging] = useState(false);
   const [fadeIn, setFadeIn] = useState(false);
@@ -5428,9 +5515,164 @@ useEffect(() => {
                     });
                   };
 
+                  const displayItems = buildCarouselDisplayItems(sortedAssets);
+                  const assetCount = displayItems.length;
+                  const statusLabel = statusLabelMap[statusValue] || statusValue;
+
+                  function renderMediaFrame(
+                    asset,
+                    { layout, indicator, maxWidthClass, frameClassName } = {}
+                  ) {
+                    const assetUrl = asset.firebaseUrl || asset.adUrl || '';
+                    const assetAspect = getAssetAspectRatio(asset);
+                    const assetCssAspect = getCssAspectRatioValue(assetAspect);
+                    const assetStyle = assetCssAspect
+                      ? { aspectRatio: assetCssAspect }
+                      : {};
+                    const baseClass =
+                      layout === 'desktop'
+                        ? 'mx-auto w-full overflow-hidden rounded-lg sm:mx-0'
+                        : 'relative w-full overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)]';
+                    const frameClass = [baseClass, maxWidthClass, frameClassName]
+                      .filter(Boolean)
+                      .join(' ');
+                    return (
+                      <div className={frameClass}>
+                        <div className="relative w-full" style={assetStyle}>
+                          {isVideoUrl(assetUrl) ? (
+                            <VideoPlayer
+                              src={assetUrl}
+                              className="h-full w-full object-contain"
+                              style={assetStyle}
+                            />
+                          ) : (
+                            <OptimizedImage
+                              pngUrl={assetUrl}
+                              webpUrl={
+                                assetUrl ? assetUrl.replace(/\.png$/, '.webp') : undefined
+                              }
+                              alt={asset.filename || 'Ad'}
+                              cacheKey={assetUrl}
+                              className="h-full w-full object-contain"
+                              style={assetStyle}
+                            />
+                          )}
+                        </div>
+                        {indicator ? (
+                          <div className="pointer-events-none absolute bottom-3 right-3 rounded-full bg-black/60 px-2 py-0.5 text-xs font-medium text-white">
+                            {indicator}
+                          </div>
+                        ) : null}
+                      </div>
+                    );
+                  }
+
+                  function renderCarouselGroup(group, itemIndex, totalItems, layout) {
+                    const carouselKey = `${cardKey}|${group.key}`;
+                    const totalPages = group.assets.length;
+                    const storedIndex = carouselIndices[carouselKey] ?? 0;
+                    const activeIndex =
+                      storedIndex >= 0 && storedIndex < totalPages ? storedIndex : 0;
+                    const activeAsset =
+                      group.assets[activeIndex] || group.assets[0] || null;
+                    if (!activeAsset) {
+                      return null;
+                    }
+                    const canNavigate = totalPages > 1;
+                    const updateIndex = (delta) => {
+                      if (!canNavigate) return;
+                      setCarouselIndices((prev) => {
+                        const currentRaw = prev[carouselKey] ?? 0;
+                        const current =
+                          currentRaw >= 0 && currentRaw < totalPages ? currentRaw : 0;
+                        const next = Math.min(
+                          Math.max(current + delta, 0),
+                          totalPages - 1,
+                        );
+                        if (next === currentRaw) {
+                          if (currentRaw === current) {
+                            return prev;
+                          }
+                        }
+                        return { ...prev, [carouselKey]: next };
+                      });
+                    };
+                    const indicator = canNavigate
+                      ? `Page ${activeIndex + 1}/${totalPages}`
+                      : null;
+                    const frame = renderMediaFrame(activeAsset, {
+                      layout,
+                      indicator,
+                      maxWidthClass: 'max-w-[333px]',
+                      frameClassName:
+                        layout === 'desktop'
+                          ? 'border border-gray-200 bg-white shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)]'
+                          : undefined,
+                    });
+                    const baseButtonClasses =
+                      'inline-flex items-center justify-center rounded-full border border-gray-300 bg-white text-gray-700 shadow-sm transition hover:bg-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-color)] disabled:cursor-not-allowed disabled:opacity-50 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)] dark:text-gray-200 dark:hover:bg-[var(--dark-sidebar-hover)]';
+                    const sizeClasses = layout === 'desktop' ? 'h-10 w-10' : 'h-9 w-9';
+                    const buttonClasses = `${baseButtonClasses} ${sizeClasses}`;
+                    return (
+                      <div className="flex w-full flex-col items-center gap-3">
+                        <div className="flex w-full items-center justify-center gap-3">
+                          <button
+                            type="button"
+                            onClick={() => updateIndex(-1)}
+                            disabled={!canNavigate || activeIndex === 0}
+                            className={buttonClasses}
+                            aria-label="Previous slide"
+                          >
+                            <FiChevronLeft className="h-5 w-5" aria-hidden="true" />
+                          </button>
+                          <div className="flex w-full justify-center">{frame}</div>
+                          <button
+                            type="button"
+                            onClick={() => updateIndex(1)}
+                            disabled={!canNavigate || activeIndex >= totalPages - 1}
+                            className={buttonClasses}
+                            aria-label="Next slide"
+                          >
+                            <FiChevronRight className="h-5 w-5" aria-hidden="true" />
+                          </button>
+                        </div>
+                        {canNavigate ? (
+                          <div className="text-xs font-medium text-gray-600 dark:text-gray-300">
+                            Slide {activeIndex + 1} of {totalPages}
+                          </div>
+                        ) : null}
+                      </div>
+                    );
+                  }
+
+                  function renderSingleAssetItem(asset, itemIndex, totalItems, layout) {
+                    return renderMediaFrame(asset, {
+                      layout,
+                      indicator:
+                        layout === 'mobile' && totalItems > 1
+                          ? `${itemIndex + 1}/${totalItems}`
+                          : null,
+                      maxWidthClass: layout === 'desktop' ? 'max-w-[712px]' : undefined,
+                    });
+                  }
+
+                  function renderDisplayItem(item, itemIdx, totalItems, layout) {
+                    if (item.type === 'carousel') {
+                      return renderCarouselGroup(item, itemIdx, totalItems, layout);
+                    }
+                    return renderSingleAssetItem(item.asset, itemIdx, totalItems, layout);
+                  }
+
+                  function itemIncludesSquareAsset(item) {
+                    if (!squareAsset) return false;
+                    if (item.type === 'carousel') {
+                      return item.assets.includes(squareAsset);
+                    }
+                    return item.asset === squareAsset;
+                  }
+
                   if (isMobile) {
-                    const assetCount = sortedAssets.length;
-                    const statusLabel = statusLabelMap[statusValue] || statusValue;
+                    const totalItems = Math.max(assetCount, 1);
 
                     return (
                       <div
@@ -5471,87 +5713,64 @@ useEffect(() => {
                             </div>
                           </div>
                           <div
-                            className={`flex w-full gap-3 overflow-x-auto pb-1 ${
-                              assetCount > 1 ? 'snap-x snap-mandatory' : ''
+                            className={`grid items-start gap-3 ${
+                              assetCount > 1 ? 'sm:grid-cols-2' : ''
                             }`}
                           >
-                            {sortedAssets.map((asset, assetIdx) => {
-                              const assetUrl = asset.firebaseUrl || asset.adUrl || '';
-                              const assetAspect = getAssetAspectRatio(asset);
-                              const assetCssAspect = getCssAspectRatioValue(assetAspect);
-                              const assetStyle = assetCssAspect
-                                ? { aspectRatio: assetCssAspect }
-                                : {};
-                              const assetKey =
-                                getAssetDocumentId(asset) || assetUrl || assetIdx;
+                            {displayItems.map((item, itemIdx) => {
+                              const includesSquare = itemIncludesSquareAsset(item);
                               const wrapperClasses = [
-                                'flex w-full flex-col',
-                                assetCount > 1
-                                  ? 'min-w-full flex-shrink-0 snap-center'
-                                  : '',
-                                shouldRenderInlineCopy && assetIdx === squareAssetIndex
-                                  ? 'gap-3'
-                                  : '',
+                                'flex w-full flex-col self-start',
+                                shouldRenderInlineCopy && includesSquare ? 'gap-3' : '',
+                                item.type === 'carousel' && assetCount > 1 ? 'sm:col-span-2' : '',
                               ]
                                 .filter(Boolean)
                                 .join(' ');
-                              const assetNode = (
-                                <div
-                                  className="relative w-full overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)]"
-                                >
-                                  <div className="relative w-full" style={assetStyle}>
-                                    {isVideoUrl(assetUrl) ? (
-                                      <VideoPlayer
-                                        src={assetUrl}
-                                        className="h-full w-full object-contain"
-                                        style={assetStyle}
-                                      />
-                                    ) : (
-                                      <OptimizedImage
-                                        pngUrl={assetUrl}
-                                        webpUrl={
-                                          assetUrl ? assetUrl.replace(/\.png$/, '.webp') : undefined
-                                        }
-                                        alt={asset.filename || 'Ad'}
-                                        cacheKey={assetUrl}
-                                        className="h-full w-full object-contain"
-                                        style={assetStyle}
-                                      />
-                                    )}
-                                  </div>
-                                  {assetCount > 1 && (
-                                    <div className="pointer-events-none absolute bottom-3 right-3 rounded-full bg-black/60 px-2 py-0.5 text-xs font-medium text-white">
-                                      {assetIdx + 1}/{assetCount}
-                                    </div>
-                                  )}
-                                </div>
+                              const keyBase =
+                                item.type === 'carousel'
+                                  ? item.key
+                                  : getAssetDocumentId(item.asset) ||
+                                    item.asset?.firebaseUrl ||
+                                    item.asset?.adUrl ||
+                                    itemIdx;
+                              const content = renderDisplayItem(
+                                item,
+                                itemIdx,
+                                Math.max(assetCount, 1),
+                                'mobile',
                               );
-                              if (shouldRenderInlineCopy && assetIdx === squareAssetIndex) {
+                              if (!content) {
+                                return null;
+                              }
+                              if (shouldRenderInlineCopy && includesSquare) {
                                 return (
-                                  <div key={assetKey} className={wrapperClasses}>
-                                    {renderInlineCopyBlock(assetNode)}
+                                  <div key={`desktop-${keyBase}`} className={wrapperClasses}>
+                                    {renderInlineCopyBlock(content)}
                                   </div>
                                 );
                               }
                               return (
-                                <div key={assetKey} className={wrapperClasses}>
-                                  {assetNode}
+                                <div key={`desktop-${keyBase}`} className={wrapperClasses}>
+                                  {content}
                                 </div>
                               );
                             })}
                           </div>
-                          <div className="space-y-3">
-                            <div className="rounded-xl border border-gray-200 bg-gray-50 p-3 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-hover)]">
-                              <label
-                                htmlFor={selectId}
-                                className="block text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-300"
-                              >
-                                Update status
-                              </label>
+                        </div>
+                        <div className="mt-2 flex flex-col gap-3 border-t border-gray-200 pt-3 dark:border-[var(--border-color-default)] sm:flex-row sm:items-center sm:justify-between">
+                          <div className="flex items-center gap-3">
+                            <span
+                              className="inline-block h-2.5 w-2.5 rounded-full"
+                              style={statusDotStyles[statusValue] || statusDotStyles.pending}
+                            />
+                            <div
+                              className="flex items-center"
+                              title={isGroupReviewed ? reviewedLockMessage : undefined}
+                            >
                               <select
                                 id={selectId}
                                 aria-label="Status"
-                                className={`mt-2 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm focus:border-[var(--accent-color)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)] dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)] dark:text-gray-200 dark:focus:border-[var(--accent-color)] dark:focus:ring-[var(--accent-color)] ${
+                                className={`min-w-[160px] ${
                                   isGroupReviewed ? 'cursor-not-allowed opacity-60' : ''
                                 }`}
                                 value={statusValue}
@@ -5565,101 +5784,96 @@ useEffect(() => {
                                 ))}
                               </select>
                             </div>
-                            {showEditButton && (
-                              <>
+                          </div>
+                          {showEditButton && (
+                            <button
+                              type="button"
+                              className="btn-action text-sm font-medium"
+                              onClick={() =>
+                                setExpandedRequests((prev) => ({
+                                  ...prev,
+                                  [cardKey]: !prev[cardKey],
+                                }))
+                              }
+                            >
+                              {isExpanded ? 'Hide edit request' : 'View edit request'}
+                            </button>
+                          )}
+                        </div>
+                        {showEditButton && isExpanded && (
+                          <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 p-4 text-sm text-gray-700 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-hover)] dark:text-gray-200">
+                            <div className="mb-3 flex flex-wrap items-center gap-2">
+                              <span
+                                className="inline-flex"
+                                title={isGroupReviewed ? reviewedLockMessage : undefined}
+                              >
                                 <button
                                   type="button"
-                                  className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 shadow-sm transition hover:bg-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-color)] dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)] dark:text-gray-200 dark:hover:bg-[var(--dark-sidebar-hover)]"
-                                  onClick={() =>
-                                    setExpandedRequests((prev) => ({
-                                      ...prev,
-                                      [cardKey]: !prev[cardKey],
-                                    }))
-                                  }
+                                  className={editActionButtonClass}
+                                  onClick={() => handleOpenEditModal('note')}
+                                  disabled={isGroupReviewed}
+                                  aria-disabled={isGroupReviewed}
                                 >
-                                  {isExpanded ? 'Hide edit request' : 'View edit request'}
+                                  <FiPlus className="h-4 w-4" aria-hidden="true" />
+                                  <span>Add note</span>
                                 </button>
-                                {isExpanded && (
-                                  <div className="space-y-3 rounded-xl border border-dashed border-gray-300 bg-gray-50 p-3 text-sm text-gray-700 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-hover)] dark:text-gray-200">
-                                    <div className="flex flex-col gap-2">
-                                      <span
-                                        className="inline-flex"
-                                        title={
-                                          isGroupReviewed ? reviewedLockMessage : undefined
-                                        }
-                                      >
-                                        <button
-                                          type="button"
-                                          className={editActionButtonClass}
-                                          onClick={() => handleOpenEditModal('note')}
-                                          disabled={isGroupReviewed}
-                                          aria-disabled={isGroupReviewed}
-                                        >
-                                          <FiPlus className="h-4 w-4" aria-hidden="true" />
-                                          <span>Add note</span>
-                                        </button>
-                                      </span>
-                                      <span
-                                        className="inline-flex"
-                                        title={
-                                          isGroupReviewed ? reviewedLockMessage : undefined
-                                        }
-                                      >
-                                        <button
-                                          type="button"
-                                          className={editActionButtonClass}
-                                          onClick={() => handleOpenEditModal('copy')}
-                                          disabled={isGroupReviewed}
-                                          aria-disabled={isGroupReviewed}
-                                        >
-                                          <FiEdit3 className="h-4 w-4" aria-hidden="true" />
-                                          <span>Edit Copy</span>
-                                        </button>
-                                      </span>
-                                    </div>
-                                    {hasEditInfo?.comment && (
-                                      <div className="space-y-2">
-                                        <h4 className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-300">
-                                          Notes
-                                        </h4>
-                                        {noteEntries.map((entry, noteIdx) => (
-                                          <div key={noteIdx} className="space-y-1">
-                                            <p className="whitespace-pre-wrap break-words leading-relaxed">
-                                              {entry.body}
-                                            </p>
-                                            {entry.meta && (
-                                              <p className="text-xs text-gray-500 dark:text-gray-400">
-                                                {entry.meta}
-                                              </p>
-                                            )}
-                                          </div>
-                                        ))}
-                                      </div>
-                                    )}
-                                    {hasEditInfo?.copyEdit && (
-                                      <div className="space-y-1">
-                                        <h4 className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-300">
-                                          Requested Copy
-                                        </h4>
-                                        <pre className="whitespace-pre-wrap break-words leading-relaxed">
-                                          {hasEditInfo.copyEdit}
-                                        </pre>
-                                      </div>
-                                    )}
-                                    {!hasEditInfo?.comment && !hasEditInfo?.copyEdit && (
-                                      <p className="text-sm text-gray-500 dark:text-gray-300">
-                                        No edit details provided.
+                              </span>
+                              <span
+                                className="inline-flex"
+                                title={isGroupReviewed ? reviewedLockMessage : undefined}
+                              >
+                                <button
+                                  type="button"
+                                  className={editActionButtonClass}
+                                  onClick={() => handleOpenEditModal('copy')}
+                                  disabled={isGroupReviewed}
+                                  aria-disabled={isGroupReviewed}
+                                >
+                                  <FiEdit3 className="h-4 w-4" aria-hidden="true" />
+                                  <span>Edit Copy</span>
+                                </button>
+                              </span>
+                            </div>
+                            {hasEditInfo?.comment && (
+                              <div className="mb-3 space-y-1">
+                                <h4 className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-300">
+                                  Notes
+                                </h4>
+                                {noteEntries.map((entry, noteIdx) => (
+                                  <div key={noteIdx} className="space-y-1">
+                                    <p className="whitespace-pre-wrap break-words leading-relaxed">
+                                      {entry.body}
+                                    </p>
+                                    {entry.meta && (
+                                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                                        {entry.meta}
                                       </p>
                                     )}
                                   </div>
-                                )}
-                              </>
+                                ))}
+                              </div>
+                            )}
+                            {hasEditInfo?.copyEdit && (
+                              <div className="space-y-1">
+                                <h4 className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-300">
+                                  Requested Copy
+                                </h4>
+                                <pre className="whitespace-pre-wrap break-words leading-relaxed">
+                                  {hasEditInfo.copyEdit}
+                                </pre>
+                              </div>
+                            )}
+                            {!hasEditInfo?.comment && !hasEditInfo?.copyEdit && (
+                              <p className="text-sm text-gray-500 dark:text-gray-300">
+                                No edit details provided.
+                              </p>
                             )}
                           </div>
-                        </div>
+                        )}
                       </div>
                     );
                   }
+
 
                   return (
                     <div
@@ -5695,60 +5909,44 @@ useEffect(() => {
                         <div className="space-y-4">
                           <div
                             className={`grid items-start gap-3 ${
-                              sortedAssets.length > 1 ? 'sm:grid-cols-2' : ''
+                              assetCount > 1 ? 'sm:grid-cols-2' : ''
                             }`}
                           >
-                            {sortedAssets.map((asset, assetIdx) => {
-                              const assetUrl = asset.firebaseUrl || asset.adUrl || '';
-                              const assetAspect = getAssetAspectRatio(asset);
-                              const assetCssAspect = getCssAspectRatioValue(assetAspect);
-                              const assetStyle = assetCssAspect
-                                ? { aspectRatio: assetCssAspect }
-                                : {};
-                              const assetKey =
-                                getAssetDocumentId(asset) || assetUrl || assetIdx;
-                              const isSquareAsset = shouldRenderInlineCopy &&
-                                assetIdx === squareAssetIndex;
+                            {displayItems.map((item, itemIdx) => {
+                              const includesSquare = itemIncludesSquareAsset(item);
                               const wrapperClasses = [
                                 'flex w-full flex-col self-start',
-                                isSquareAsset ? 'gap-3' : '',
+                                shouldRenderInlineCopy && includesSquare ? 'gap-3' : '',
+                                item.type === 'carousel' && assetCount > 1 ? 'sm:col-span-2' : '',
                               ]
                                 .filter(Boolean)
                                 .join(' ');
-                              const assetNode = (
-                                <div className="mx-auto w-full max-w-[712px] overflow-hidden rounded-lg sm:mx-0">
-                                  <div className="relative w-full" style={assetStyle}>
-                                    {isVideoUrl(assetUrl) ? (
-                                      <VideoPlayer
-                                        src={assetUrl}
-                                        className="h-full w-full object-contain"
-                                        style={assetStyle}
-                                      />
-                                    ) : (
-                                      <OptimizedImage
-                                        pngUrl={assetUrl}
-                                        webpUrl={
-                                          assetUrl ? assetUrl.replace(/\.png$/, '.webp') : undefined
-                                        }
-                                        alt={asset.filename || 'Ad'}
-                                        cacheKey={assetUrl}
-                                        className="h-full w-full object-contain"
-                                        style={assetStyle}
-                                      />
-                                    )}
-                                  </div>
-                                </div>
+                              const keyBase =
+                                item.type === 'carousel'
+                                  ? item.key
+                                  : getAssetDocumentId(item.asset) ||
+                                    item.asset?.firebaseUrl ||
+                                    item.asset?.adUrl ||
+                                    itemIdx;
+                              const content = renderDisplayItem(
+                                item,
+                                itemIdx,
+                                Math.max(assetCount, 1),
+                                'desktop',
                               );
-                              if (isSquareAsset) {
+                              if (!content) {
+                                return null;
+                              }
+                              if (shouldRenderInlineCopy && includesSquare) {
                                 return (
-                                  <div key={assetKey} className={wrapperClasses}>
-                                    {renderInlineCopyBlock(assetNode)}
+                                  <div key={`desktop-${keyBase}`} className={wrapperClasses}>
+                                    {renderInlineCopyBlock(content)}
                                   </div>
                                 );
                               }
                               return (
-                                <div key={assetKey} className={wrapperClasses}>
-                                  {assetNode}
+                                <div key={`desktop-${keyBase}`} className={wrapperClasses}>
+                                  {content}
                                 </div>
                               );
                             })}
