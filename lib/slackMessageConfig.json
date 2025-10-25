@@ -1,0 +1,103 @@
+{
+  "types": [
+    { "id": "designed", "label": "Designed" },
+    { "id": "briefed", "label": "Briefed" },
+    { "id": "reviewed", "label": "Reviewed" },
+    { "id": "blocked", "label": "Blocked" },
+    { "id": "overall-feedback", "label": "Overall Feedback" }
+  ],
+  "defaults": {
+    "designed": {
+      "internal": "{{brand}}\nAd group {{adGroup}} has been designed by {{designer}}!\n{{adGroupLink}}\n{{mentionsLine}}",
+      "external": "Ad group {{adGroup}} is ready for review.\n{{productTagsLine}}\n{{reviewLink}}\n{{mentionsLine}}"
+    },
+    "briefed": {
+      "internal": "{{brand}}\nAd group {{adGroup}} has been briefed by {{editor}}!\n{{noteBlock}}\n{{adGroupLink}}\n{{mentionsLine}}",
+      "external": ""
+    },
+    "reviewed": {
+      "internal": "{{brand}}  {{editor}}  {{designer}}\nAd group {{adGroup}} has been reviewed!\nApproved: {{approved}}\nEdit Requests: {{editRequests}}\nRejections: {{rejected}}\n{{adGroupLink}}\n{{mentionsLine}}",
+      "external": "Review completed for {{adGroup}}\nApproved: {{approved}}\nEdit Requests: {{editRequests}}\nRejections: {{rejected}}\n{{reviewLink}}\n{{mentionsLine}}"
+    },
+    "blocked": {
+      "internal": "{{brand}}  {{editor}}  {{designer}}\nAd group {{adGroup}} is blocked!\n{{noteBlock}}\n{{adGroupLink}}\n{{mentionsLine}}",
+      "external": ""
+    },
+    "overall-feedback": {
+      "internal": "{{brand}}  {{editor}}  {{designer}}\nOverall feedback note received for {{adGroup}}\n{{feedbackNote}}\n{{adGroupLink}}\n{{mentionsLine}}",
+      "external": ""
+    }
+  },
+  "placeholders": [
+    {
+      "id": "brand",
+      "label": "Brand code",
+      "description": "Inline formatted brand code (e.g. `BRAND`)."
+    },
+    {
+      "id": "adGroup",
+      "label": "Ad group",
+      "description": "Inline formatted ad group name."
+    },
+    {
+      "id": "designer",
+      "label": "Designer",
+      "description": "Inline formatted designer name or `Unassigned`."
+    },
+    {
+      "id": "editor",
+      "label": "Editor",
+      "description": "Inline formatted editor name or `Unknown`."
+    },
+    {
+      "id": "approved",
+      "label": "Approved count",
+      "description": "Inline formatted number of approved creatives."
+    },
+    {
+      "id": "editRequests",
+      "label": "Edit requests count",
+      "description": "Inline formatted number of edit requests."
+    },
+    {
+      "id": "rejected",
+      "label": "Rejected count",
+      "description": "Inline formatted number of rejections."
+    },
+    {
+      "id": "reviewLink",
+      "label": "Review link",
+      "description": "Slack formatted link to the review view."
+    },
+    {
+      "id": "adGroupLink",
+      "label": "Ad group link",
+      "description": "Slack formatted link to the ad group view (falls back to review link)."
+    },
+    {
+      "id": "noteBlock",
+      "label": "Note block",
+      "description": "Formatted note block that includes a bold label when a note is present."
+    },
+    {
+      "id": "feedbackNote",
+      "label": "Feedback note",
+      "description": "Note text or a default message when none is provided."
+    },
+    {
+      "id": "productTagsLine",
+      "label": "Product tags",
+      "description": "Hashtag formatted list of products for designed messages."
+    },
+    {
+      "id": "mentions",
+      "label": "Mentions",
+      "description": "Space separated Slack mentions for the configured recipients."
+    },
+    {
+      "id": "mentionsLine",
+      "label": "Mentions line",
+      "description": "Prefixed mention line (e.g. `Notify: <@user>`)."
+    }
+  ]
+}

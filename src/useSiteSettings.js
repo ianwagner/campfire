@@ -3,6 +3,7 @@ import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from './firebase/config';
 import { DEFAULT_ACCENT_COLOR } from './themeColors';
 import { DEFAULT_MONTH_COLORS } from './constants';
+import slackMessageConfig from '../lib/slackMessageConfig.json';
 import { applyAccentColor } from './utils/theme';
 import { applyFavicon } from './utils/favicon';
 import debugLog from './utils/debugLog';
@@ -23,6 +24,58 @@ try {
   storedMonthColors = null;
   storedTagStrokeWeight = null;
 }
+const MESSAGE_TYPES = (slackMessageConfig.types || []).map((type) => type.id);
+
+const createDefaultSlackMessageTemplates = () => {
+  const defaults = {};
+  MESSAGE_TYPES.forEach((typeId) => {
+    const configDefaults = slackMessageConfig.defaults?.[typeId] || {};
+    defaults[typeId] = {
+      internal: { text: typeof configDefaults.internal === 'string' ? configDefaults.internal : '' },
+      external: { text: typeof configDefaults.external === 'string' ? configDefaults.external : '' },
+    };
+  });
+  return defaults;
+};
+
+const normalizeSlackMessageTemplates = (value) => {
+  const defaults = createDefaultSlackMessageTemplates();
+  if (!value || typeof value !== 'object') {
+    return defaults;
+  }
+
+  const merged = {};
+  MESSAGE_TYPES.forEach((typeId) => {
+    const base = defaults[typeId];
+    const incoming = value[typeId];
+    const toText = (entry, fallback) => {
+      if (!entry) return fallback;
+      if (typeof entry === 'string') return entry;
+      if (typeof entry.text === 'string') return entry.text;
+      return fallback;
+    };
+
+    merged[typeId] = {
+      internal: { text: toText(incoming?.internal, base.internal.text) },
+      external: { text: toText(incoming?.external, base.external.text) },
+    };
+  });
+
+  return merged;
+};
+
+const prepareSlackTemplatesForSave = (value) => {
+  const normalized = normalizeSlackMessageTemplates(value);
+  const payload = {};
+  MESSAGE_TYPES.forEach((typeId) => {
+    const entry = normalized[typeId];
+    payload[typeId] = {
+      internal: { text: entry.internal.text || '' },
+      external: { text: entry.external.text || '' },
+    };
+  });
+  return payload;
+};
 const defaultSettings = {
   logoUrl: '',
   iconUrl: '',
@@ -35,6 +88,7 @@ const defaultSettings = {
     projectCreation: 1,
     editRequest: 1,
   },
+  slackMessageTemplates: createDefaultSlackMessageTemplates(),
 };
 
 
@@ -61,11 +115,15 @@ const useSiteSettings = (applyAccent = true) => {
             data.tagStrokeWeight != null
               ? data.tagStrokeWeight
               : defaultSettings.tagStrokeWeight;
+          const slackMessageTemplates = normalizeSlackMessageTemplates(
+            data.slackMessageTemplates
+          );
           setSettings({
             ...defaultSettings,
             ...data,
             monthColors,
             tagStrokeWeight,
+            slackMessageTemplates,
           });
           const color = data.accentColor || defaultSettings.accentColor;
           if (applyAccent) {
@@ -111,7 +169,10 @@ const useSiteSettings = (applyAccent = true) => {
           } catch (e) {
             /* ignore */
           }
-          setSettings(newDefaults);
+          setSettings({
+            ...newDefaults,
+            slackMessageTemplates: createDefaultSlackMessageTemplates(),
+          });
         }
       } catch (err) {
         console.error('Failed to fetch site settings', err);
@@ -163,9 +224,23 @@ const useSiteSettings = (applyAccent = true) => {
 
   const saveSettings = async (newSettings) => {
     debugLog('Saving site settings');
-    await setDoc(doc(db, 'settings', 'site'), newSettings, { merge: true });
+    const payload = { ...newSettings };
+    if (payload.slackMessageTemplates) {
+      payload.slackMessageTemplates = prepareSlackTemplatesForSave(
+        payload.slackMessageTemplates
+      );
+    }
+
+    await setDoc(doc(db, 'settings', 'site'), payload, { merge: true });
     debugLog('Site settings saved');
-    setSettings((prev) => ({ ...prev, ...newSettings }));
+    setSettings((prev) => ({
+      ...prev,
+      ...payload,
+      slackMessageTemplates:
+        payload.slackMessageTemplates != null
+          ? normalizeSlackMessageTemplates(payload.slackMessageTemplates)
+          : prev.slackMessageTemplates,
+    }));
     if (newSettings.accentColor) {
       try {
         localStorage.setItem('accentColor', newSettings.accentColor);
