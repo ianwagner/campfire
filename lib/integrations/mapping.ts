@@ -458,7 +458,7 @@ function collectRecipeFieldContainers(
 }
 
 function collectCandidateContainers(ad: FirestoreRecord): Record<string, unknown>[] {
-  const rawCandidates: unknown[] = [
+  const seeds: unknown[] = [
     ad,
     (ad as Record<string, unknown>).recipeFields,
     (ad as Record<string, unknown>).recipe_fields,
@@ -477,22 +477,50 @@ function collectCandidateContainers(ad: FirestoreRecord): Record<string, unknown
     ad.values,
   ];
 
-  const candidates: unknown[] = [];
-  for (const candidate of rawCandidates) {
-    candidates.push(candidate);
-    if (isRecord(candidate)) {
-      candidates.push(...collectRecipeFieldContainers(candidate));
+  const queue: unknown[] = [];
+  const enqueue = (value: unknown) => {
+    if (value === undefined || value === null) {
+      return;
+    }
+    queue.push(value);
+  };
+
+  for (const seed of seeds) {
+    enqueue(seed);
+  }
+
+  const seenRecords = new Set<Record<string, unknown>>();
+  const containers: Record<string, unknown>[] = [];
+
+  while (queue.length) {
+    const current = queue.shift();
+    if (Array.isArray(current)) {
+      for (const entry of current) {
+        enqueue(entry);
+      }
+      continue;
+    }
+
+    if (!isRecord(current)) {
+      continue;
+    }
+
+    if (seenRecords.has(current)) {
+      continue;
+    }
+
+    seenRecords.add(current);
+    containers.push(current);
+
+    for (const nested of collectRecipeFieldContainers(current)) {
+      enqueue(nested);
+    }
+
+    for (const value of Object.values(current)) {
+      enqueue(value);
     }
   }
 
-  const seen = new Set<Record<string, unknown>>();
-  const containers: Record<string, unknown>[] = [];
-  for (const candidate of candidates) {
-    if (isRecord(candidate) && !seen.has(candidate)) {
-      seen.add(candidate);
-      containers.push(candidate);
-    }
-  }
   return containers;
 }
 
