@@ -378,12 +378,18 @@ const AdminIntegrations = () => {
   useEffect(() => {
     if (!form) return;
     setHeaderRows(rowsFromHeaders(form.headers || {}));
+    const jsonataDraft =
+      typeof form.mapping?.expression === "string" ? form.mapping.expression : "";
+    const handlebarsDraft =
+      typeof form.mapping?.template === "string" ? form.mapping.template : "";
+
     setMappingDrafts({
-      jsonata: form.mapping?.type === "jsonata" ? form.mapping.expression || "" : form.mapping?.expression || "",
-      handlebars: form.mapping?.type === "handlebars" ? form.mapping.template || "" : form.mapping?.template || "",
-      literal: form.mapping?.type === "literal"
-        ? formatJson(form.mapping.template, "{}")
-        : formatJson(form.mapping?.template || {}, "{}"),
+      jsonata: jsonataDraft,
+      handlebars: handlebarsDraft,
+      literal:
+        form.mapping?.type === "literal"
+          ? formatJson(form.mapping.template, "{}")
+          : formatJson(form.mapping?.template || {}, "{}"),
     });
     setLiteralError(null);
     setPartialsInput(
