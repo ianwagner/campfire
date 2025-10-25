@@ -5915,17 +5915,25 @@ useEffect(() => {
                               const wrapperClasses = combineClasses(
                                 'flex w-full flex-col self-start',
                                 isInlineCopyAsset ? 'gap-3' : '',
-                                item.isSquare ? 'items-center' : '',
+                                item.isSquare ? 'items-center sm:items-center sm:justify-self-center' : '',
                               );
                               const containerClasses = combineClasses(
-                                'relative mx-auto w-full overflow-hidden sm:mx-0',
+                                'relative w-full overflow-hidden',
                                 item.isSquare
-                                  ? 'max-w-[333px] rounded-xl'
-                                  : 'max-w-[712px] rounded-lg',
+                                  ? 'mx-auto max-w-[333px] rounded-xl'
+                                  : 'mx-auto max-w-[712px] rounded-lg sm:mx-0',
                               );
                               const cacheKey =
                                 assetUrl ||
                                 (isCarouselItem ? `${item.key}-${safeCarouselIndex}` : item.key);
+                              const overlayLabel = `${displayIdx + 1}/${Math.max(
+                                displayItems.length,
+                                1,
+                              )}${
+                                isCarouselItem && totalSlides > 1
+                                  ? ` • ${safeCarouselIndex + 1}/${totalSlides}`
+                                  : ''
+                              }`;
                               const handleCarouselShift = (delta) => {
                                 if (!isCarouselItem || totalSlides <= 1 || !carouselKey) return;
                                 setCarouselIndices((prev) => {
@@ -5978,11 +5986,14 @@ useEffect(() => {
                                         <FiChevronRight className="h-4 w-4" aria-hidden="true" />
                                         <span className="sr-only">Next slide</span>
                                       </button>
-                                      <div className="pointer-events-none absolute bottom-3 right-3 rounded-full bg-black/60 px-2 py-0.5 text-xs font-medium text-white">
-                                        {safeCarouselIndex + 1}/{totalSlides}
-                                      </div>
                                     </>
                                   ) : null}
+                                  {(displayItems.length > 1 ||
+                                    (isCarouselItem && totalSlides > 1)) && (
+                                    <div className="pointer-events-none absolute bottom-3 right-3 rounded-full bg-black/60 px-2 py-0.5 text-xs font-medium text-white">
+                                      {overlayLabel}
+                                    </div>
+                                  )}
                                 </div>
                               );
                               if (isInlineCopyAsset) {
