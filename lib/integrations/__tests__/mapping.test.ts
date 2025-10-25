@@ -1,4 +1,9 @@
-import { __TESTING__, type FirestoreRecord } from "../mapping";
+import {
+  __TESTING__,
+  type FirestoreRecord,
+  type MappingContext,
+  renderPayload,
+} from "../mapping";
 import type { Integration } from "../types";
 
 describe("collectRecipeFieldValues", () => {
@@ -121,5 +126,89 @@ describe("groupAdsByRecipeIdentifier", () => {
     );
     expect(exports[0].asset1x1Url).toBe("https://cdn.example.com/square.png");
     expect(exports[0].asset9x16Url).toBe("https://cdn.example.com/vertical.png");
+  });
+});
+
+describe("renderPayload", () => {
+  it("treats undefined json helper values as null", async () => {
+    const generatedAt = "2024-01-01T00:00:00.000Z";
+
+    const integration: Integration = {
+      id: "integration-handlebars",
+      version: "1",
+      name: "Handlebars Integration",
+      slug: "handlebars-integration",
+      description: "",
+      active: true,
+      baseUrl: "https://example.com",
+      endpointPath: "/hook",
+      method: "POST",
+      auth: { strategy: "none" },
+      mapping: {
+        type: "handlebars",
+        version: "1",
+        template: '{"foo": {{json optionalValue}} }',
+      },
+      schemaRef: null,
+      recipeTypeId: null,
+      retryPolicy: {
+        maxAttempts: 1,
+        initialIntervalMs: 1000,
+        maxIntervalMs: 1000,
+        backoffMultiplier: 1,
+      },
+      headers: {},
+      createdAt: generatedAt,
+      updatedAt: generatedAt,
+    };
+
+    const summary = { reviewId: "review-1" };
+
+    const defaultExport = {
+      ...summary,
+      integrationId: integration.id,
+      generatedAt,
+      ads: [],
+    };
+
+    const context: MappingContext = {
+      integration,
+      reviewId: "review-1",
+      payload: {},
+      dryRun: false,
+      review: { id: "review-1" },
+      ads: [],
+      client: null,
+      recipeType: null,
+      recipeFieldKeys: [],
+      standardAds: [],
+      summary,
+      defaultExport,
+      generatedAt,
+      data: {
+        integration,
+        review: { id: "review-1" },
+        ads: [],
+        client: null,
+        recipeType: null,
+        recipeTypeId: null,
+        recipeFieldKeys: [],
+        payload: {},
+        reviewId: "review-1",
+        dryRun: false,
+        generatedAt,
+        summary,
+        standardAds: [],
+        exportRows: [],
+        rows: [],
+        defaultExport,
+        standardExport: defaultExport,
+        optionalValue: undefined,
+      },
+    };
+
+    const payload = await renderPayload(integration, context);
+
+    expect(payload).toEqual({ foo: null });
   });
 });
