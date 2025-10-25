@@ -2,30 +2,30 @@ import deleteGroup from './utils/deleteGroup';
 
 jest.mock('./firebase/config', () => ({ db: {}, storage: {} }));
 
-const getDocs = jest.fn();
-const deleteDoc = jest.fn();
-const docMock = jest.fn((...args) => args.slice(1).join('/'));
-const collectionMock = jest.fn((...args) => args);
-const queryMock = jest.fn((...args) => args);
-const whereMock = jest.fn((...args) => args);
+const mockGetDocs = jest.fn();
+const mockDeleteDoc = jest.fn();
+const mockDoc = jest.fn((...args) => args.slice(1).join('/'));
+const mockCollection = jest.fn((...args) => args);
+const mockQuery = jest.fn((...args) => args);
+const mockWhere = jest.fn((...args) => args);
 
 jest.mock('firebase/firestore', () => ({
-  collection: (...args) => collectionMock(...args),
-  getDocs: (...args) => getDocs(...args),
-  query: (...args) => queryMock(...args),
-  where: (...args) => whereMock(...args),
-  doc: (...args) => docMock(...args),
-  deleteDoc: (...args) => deleteDoc(...args),
+  collection: (...args) => mockCollection(...args),
+  getDocs: (...args) => mockGetDocs(...args),
+  query: (...args) => mockQuery(...args),
+  where: (...args) => mockWhere(...args),
+  doc: (...args) => mockDoc(...args),
+  deleteDoc: (...args) => mockDeleteDoc(...args),
 }));
 
-const listAll = jest.fn();
-const refMock = jest.fn((storage, path) => path);
-const deleteObject = jest.fn();
+const mockListAll = jest.fn();
+const mockRef = jest.fn((storage, path) => path);
+const mockDeleteObject = jest.fn();
 
 jest.mock('firebase/storage', () => ({
-  listAll: (...args) => listAll(...args),
-  ref: (...args) => refMock(...args),
-  deleteObject: (...args) => deleteObject(...args),
+  listAll: (...args) => mockListAll(...args),
+  ref: (...args) => mockRef(...args),
+  deleteObject: (...args) => mockDeleteObject(...args),
 }));
 
 describe('deleteGroup utility', () => {
@@ -37,25 +37,25 @@ describe('deleteGroup utility', () => {
     const assetSnap = { docs: [{ id: 'a1' }, { id: 'a2' }] };
     const crossSnap = { docs: [{ id: 'c1' }] };
 
-    getDocs
+    mockGetDocs
       .mockResolvedValueOnce(assetSnap)
       .mockResolvedValueOnce(crossSnap);
 
-    listAll
+    mockListAll
       .mockResolvedValueOnce({ items: ['i1'], prefixes: ['p1'] })
       .mockResolvedValueOnce({ items: ['i2'], prefixes: [] });
 
     await deleteGroup('g1', 'B1', 'Group1');
 
-    expect(collectionMock).toHaveBeenCalledWith({}, 'adGroups', 'g1', 'assets');
-    expect(collectionMock).toHaveBeenCalledWith({}, 'adAssets');
-    expect(deleteDoc).toHaveBeenCalledWith('adGroups/g1/assets/a1');
-    expect(deleteDoc).toHaveBeenCalledWith('adGroups/g1/assets/a2');
-    expect(deleteDoc).toHaveBeenCalledWith('adAssets/c1');
-    expect(listAll).toHaveBeenCalledTimes(2);
-    expect(deleteObject).toHaveBeenCalledWith('i1');
-    expect(deleteObject).toHaveBeenCalledWith('i2');
-    expect(deleteDoc).toHaveBeenCalledWith('adGroups/g1');
-    expect(refMock).toHaveBeenCalledWith({}, 'Campfire/Brands/B1/Adgroups/Group1');
+    expect(mockCollection).toHaveBeenCalledWith({}, 'adGroups', 'g1', 'assets');
+    expect(mockCollection).toHaveBeenCalledWith({}, 'adAssets');
+    expect(mockDeleteDoc).toHaveBeenCalledWith('adGroups/g1/assets/a1');
+    expect(mockDeleteDoc).toHaveBeenCalledWith('adGroups/g1/assets/a2');
+    expect(mockDeleteDoc).toHaveBeenCalledWith('adAssets/c1');
+    expect(mockListAll).toHaveBeenCalledTimes(2);
+    expect(mockDeleteObject).toHaveBeenCalledWith('i1');
+    expect(mockDeleteObject).toHaveBeenCalledWith('i2');
+    expect(mockDeleteDoc).toHaveBeenCalledWith('adGroups/g1');
+    expect(mockRef).toHaveBeenCalledWith({}, 'Campfire/Brands/B1/Adgroups/Group1');
   });
 });

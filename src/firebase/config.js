@@ -19,21 +19,25 @@ const requiredVars = [
   'VITE_FIREBASE_MESSAGING_SENDER_ID',
   'VITE_FIREBASE_APP_ID',
 ];
-const missing = requiredVars.filter((v) => !import.meta.env[v]);
-if (missing.length) {
+const env = (typeof import.meta !== 'undefined' && import.meta?.env) || {};
+const isTestEnv =
+  (typeof process !== 'undefined' && process?.env?.NODE_ENV === 'test') ||
+  env?.MODE === 'test';
+const missing = requiredVars.filter((v) => !env[v]);
+if (missing.length && !isTestEnv) {
   const message = `Missing Firebase environment variables: ${missing.join(', ')}`;
   console.warn(message);
   throw new Error(message);
 }
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  apiKey: env.VITE_FIREBASE_API_KEY || 'test-api-key',
+  authDomain: env.VITE_FIREBASE_AUTH_DOMAIN || 'test-auth-domain',
+  projectId: env.VITE_FIREBASE_PROJECT_ID || 'test-project',
   // Bucket is manually created in Google Cloud Storage, not a Firebase-managed
   // bucket, so omit the `.appspot.com` suffix.
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID
+  storageBucket: env.VITE_FIREBASE_STORAGE_BUCKET || 'test-bucket',
+  messagingSenderId: env.VITE_FIREBASE_MESSAGING_SENDER_ID || 'test-sender',
+  appId: env.VITE_FIREBASE_APP_ID || 'test-app-id'
 };
 
 // ✅ Initialize Firebase
