@@ -7,8 +7,323 @@ const {
   missingFirebaseEnvVars,
 } = require("./firebase");
 const { normalizeAudience } = require("./audience");
+const slackMessageConfig = require("../../lib/slackMessageConfig.json");
 
 const SLACK_BOT_TOKEN = process.env.SLACK_BOT_TOKEN;
+
+const SUPPORTED_STATUSES = Array.isArray(slackMessageConfig.types)
+  ? slackMessageConfig.types
+      .map((type) => (type && typeof type.id === "string" ? type.id : null))
+      .filter((id) => typeof id === "string" && id.trim())
+  : ["designed", "briefed", "reviewed", "blocked", "overall-feedback"];
+
+const SLACK_TEMPLATE_CACHE_TTL_MS = 60 * 1000;
+const SLACK_TAG_CACHE_TTL_MS = 60 * 1000;
+const SLACK_USER_CACHE_TTL_MS = 10 * 60 * 1000;
+
+const slackTemplateCache = { expiresAt: 0, value: null };
+const brandTagCache = new Map();
+const slackUserCache = new Map();
+
+function createDefaultTemplateState() {
+  const defaults = {};
+  SUPPORTED_STATUSES.forEach((status) => {
+    const templateDefaults =
+      slackMessageConfig.defaults && slackMessageConfig.defaults[status]
+        ? slackMessageConfig.defaults[status]
+        : {};
+    defaults[status] = {
+      internal:
+        typeof templateDefaults.internal === "string"
+          ? templateDefaults.internal
+          : "",
+      external:
+        typeof templateDefaults.external === "string"
+          ? templateDefaults.external
+          : "",
+    };
+  });
+  return defaults;
+}
+
+function resolveTemplateSection(overrideEntry, section, fallback) {
+  if (overrideEntry === undefined) {
+    return fallback;
+  }
+
+  if (typeof overrideEntry === "string") {
+    return overrideEntry;
+  }
+
+  if (overrideEntry && typeof overrideEntry === "object") {
+    if (!(section in overrideEntry)) {
+      return fallback;
+    }
+    const value = overrideEntry[section];
+    if (typeof value === "string") {
+      return value;
+    }
+    if (value && typeof value.text === "string") {
+      return value.text;
+    }
+    return "";
+  }
+
+  return fallback;
+}
+
+function mergeSlackTemplates(overrides) {
+  const defaults = createDefaultTemplateState();
+  if (!overrides || typeof overrides !== "object") {
+    return defaults;
+  }
+
+  const merged = {};
+  SUPPORTED_STATUSES.forEach((status) => {
+    const defaultEntry = defaults[status];
+    const overrideEntry = overrides[status];
+    merged[status] = {
+      internal: resolveTemplateSection(overrideEntry, "internal", defaultEntry.internal),
+      external: resolveTemplateSection(overrideEntry, "external", defaultEntry.external),
+    };
+  });
+
+  return merged;
+}
+
+async function getSlackMessageTemplates() {
+  const now = Date.now();
+  if (slackTemplateCache.value && slackTemplateCache.expiresAt > now) {
+    return slackTemplateCache.value;
+  }
+
+  let templates = createDefaultTemplateState();
+  try {
+    const snap = await db.collection("settings").doc("site").get();
+    if (snap.exists) {
+      const data = snap.data() || {};
+      templates = mergeSlackTemplates(data.slackMessageTemplates || {});
+    }
+  } catch (error) {
+    console.error("Failed to load Slack message templates", error);
+    templates = createDefaultTemplateState();
+  }
+
+  slackTemplateCache.value = templates;
+  slackTemplateCache.expiresAt = now + SLACK_TEMPLATE_CACHE_TTL_MS;
+  return templates;
+}
+
+function createEmptyBrandTagState() {
+  const state = {};
+  SUPPORTED_STATUSES.forEach((status) => {
+    state[status] = { internal: [], external: [] };
+  });
+  return state;
+}
+
+function normalizeEmailList(value) {
+  if (!value) {
+    return [];
+  }
+
+  if (Array.isArray(value)) {
+    return Array.from(
+      new Set(
+        value
+          .map((item) => (typeof item === "string" ? item.trim().toLowerCase() : ""))
+          .filter(Boolean)
+      )
+    );
+  }
+
+  if (typeof value === "string") {
+    return Array.from(
+      new Set(
+        value
+          .split(/[\n,]/)
+          .map((item) => item.trim().toLowerCase())
+          .filter(Boolean)
+      )
+    );
+  }
+
+  return [];
+}
+
+function normalizeBrandSlackTags(value) {
+  const base = createEmptyBrandTagState();
+  if (!value || typeof value !== "object") {
+    return base;
+  }
+
+  SUPPORTED_STATUSES.forEach((status) => {
+    const entry = value[status];
+    if (!entry || typeof entry !== "object") {
+      base[status] = { internal: [], external: [] };
+      return;
+    }
+
+    base[status] = {
+      internal: normalizeEmailList(entry.internal),
+      external: normalizeEmailList(entry.external),
+    };
+  });
+
+  return base;
+}
+
+async function getBrandSlackTags(brandCandidates) {
+  const now = Date.now();
+  const candidateSet = new Set();
+
+  if (Array.isArray(brandCandidates)) {
+    brandCandidates.forEach((candidate) => {
+      if (typeof candidate !== "string") {
+        return;
+      }
+      const trimmed = candidate.trim();
+      if (!trimmed) {
+        return;
+      }
+      candidateSet.add(trimmed);
+      candidateSet.add(normalizeBrandCode(trimmed));
+    });
+  }
+
+  const uniqueCandidates = Array.from(candidateSet).filter(Boolean);
+  const cacheKey = uniqueCandidates[0] || "";
+
+  if (cacheKey) {
+    const cached = brandTagCache.get(cacheKey);
+    if (cached && cached.expiresAt > now) {
+      return cached.value;
+    }
+  }
+
+  const base = createEmptyBrandTagState();
+
+  try {
+    for (const candidate of uniqueCandidates) {
+      const snap = await db
+        .collection("brands")
+        .where("code", "==", candidate)
+        .limit(1)
+        .get();
+
+      if (!snap.empty) {
+        const data = snap.docs[0].data() || {};
+        const normalized = normalizeBrandSlackTags(data.slackMessageTags);
+        if (cacheKey) {
+          brandTagCache.set(cacheKey, {
+            value: normalized,
+            expiresAt: now + SLACK_TAG_CACHE_TTL_MS,
+          });
+        }
+        return normalized;
+      }
+    }
+  } catch (error) {
+    console.error("Failed to load brand Slack tagging", error);
+  }
+
+  if (cacheKey) {
+    brandTagCache.set(cacheKey, {
+      value: base,
+      expiresAt: now + SLACK_TAG_CACHE_TTL_MS,
+    });
+  }
+
+  return base;
+}
+
+async function lookupSlackUserIdByEmail(token, workspaceKey, email) {
+  const normalizedEmail = typeof email === "string" ? email.trim().toLowerCase() : "";
+  if (!normalizedEmail) {
+    return null;
+  }
+
+  const cacheKey = `${workspaceKey || ""}:${normalizedEmail}`;
+  const now = Date.now();
+  const cached = slackUserCache.get(cacheKey);
+  if (cached && cached.expiresAt > now) {
+    return cached.userId;
+  }
+
+  try {
+    const response = await fetchWithFallback(
+      `https://slack.com/api/users.lookupByEmail?email=${encodeURIComponent(normalizedEmail)}`,
+      {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+    const body = await response.json();
+    if (!response.ok || !body.ok) {
+      const errorCode = body.error || `${response.status}`;
+      console.error("Slack lookupByEmail failed", {
+        email: normalizedEmail,
+        workspaceKey,
+        error: errorCode,
+      });
+      slackUserCache.set(cacheKey, {
+        userId: null,
+        expiresAt: now + SLACK_USER_CACHE_TTL_MS,
+      });
+      return null;
+    }
+
+    const userId = body.user && typeof body.user.id === "string" ? body.user.id : null;
+    slackUserCache.set(cacheKey, {
+      userId,
+      expiresAt: now + SLACK_USER_CACHE_TTL_MS,
+    });
+    return userId;
+  } catch (error) {
+    console.error("Slack lookupByEmail error", {
+      email: normalizedEmail,
+      workspaceKey,
+      error,
+    });
+    slackUserCache.set(cacheKey, {
+      userId: null,
+      expiresAt: now + SLACK_USER_CACHE_TTL_MS,
+    });
+    return null;
+  }
+}
+
+async function resolveSlackMentions(emails, token, workspaceKey) {
+  if (!Array.isArray(emails) || !emails.length) {
+    return "";
+  }
+
+  const normalized = Array.from(
+    new Set(
+      emails
+        .map((email) => (typeof email === "string" ? email.trim().toLowerCase() : ""))
+        .filter(Boolean)
+    )
+  );
+
+  if (!normalized.length) {
+    return "";
+  }
+
+  const lookups = await Promise.all(
+    normalized.map((email) => lookupSlackUserIdByEmail(token, workspaceKey, email))
+  );
+
+  const userIds = lookups.filter((id) => typeof id === "string" && id);
+  const unique = Array.from(new Set(userIds));
+  if (!unique.length) {
+    return "";
+  }
+
+  return unique.map((id) => `<@${id}>`).join(" ");
+}
 
 const workspaceAccessTokenCache = new Map();
 
@@ -248,133 +563,6 @@ function formatInlineCode(value, fallback) {
   return `\`${sanitizeInlineCodeValue(finalValue)}\``;
 }
 
-function buildInternalMessage(status, context) {
-  const brand = formatInlineCode(
-    context.brandCode,
-    context.brandCode || "UNKNOWN"
-  );
-  const adGroup = formatInlineCode(
-    context.adGroupName,
-    context.adGroupName || "Ad Group"
-  );
-  const designer = formatInlineCode(
-    context.designerName,
-    context.designerName || "Unassigned"
-  );
-  const editor = formatInlineCode(
-    context.editorName,
-    context.editorName || "Unknown"
-  );
-  const approved = formatInlineCode(
-    String(Number(context.approvedCount) || 0),
-    "0"
-  );
-  const editRequests = formatInlineCode(
-    String(Number(context.editRequestedCount) || 0),
-    "0"
-  );
-  const rejections = formatInlineCode(
-    String(Number(context.rejectedCount) || 0),
-    "0"
-  );
-  const reviewLink = context.reviewUrl
-    ? `<${context.reviewUrl}|View details>`
-    : "View details";
-  const adGroupLink = context.adGroupUrl
-    ? `<${context.adGroupUrl}|View details>`
-    : reviewLink;
-
-  const sections = [];
-  const lines = [];
-  const addSection = (text) => {
-    if (typeof text !== "string") {
-      return;
-    }
-
-    const trimmed = text.trim();
-    if (!trimmed) {
-      return;
-    }
-
-    sections.push({
-      type: "section",
-      text: {
-        type: "mrkdwn",
-        text: trimmed,
-      },
-    });
-    lines.push(trimmed);
-  };
-
-  const addDivider = () => {
-    sections.push({ type: "divider" });
-  };
-
-  const noteText =
-    typeof context.note === "string" && context.note.trim()
-      ? context.note.trim()
-      : "";
-
-  switch (status) {
-    case "designed":
-      addSection(brand);
-      addSection(`Ad group: ${adGroup} has been designed by ${designer}!`);
-      addSection(adGroupLink);
-      break;
-    case "briefed":
-      addSection(brand);
-      addSection(`Ad group: ${adGroup} has been briefed by ${editor}!`);
-      if (noteText) {
-        addDivider();
-        addSection(noteText);
-      }
-      addSection(adGroupLink);
-      break;
-    case "reviewed": {
-      const header = [brand, editor, designer].join("  ");
-      addSection(header);
-      addSection(`Ad group: ${adGroup} has been reviewed!`);
-      addSection(`Approved: ${approved}`);
-      addSection(`Edit Requests: ${editRequests}`);
-      addSection(`Rejections: ${rejections}`);
-      addSection(adGroupLink);
-      break;
-    }
-    case "blocked": {
-      const header = [brand, editor, designer].join("  ");
-      addSection(header);
-      addSection(`Ad group: ${adGroup} is blocked!`);
-      if (noteText) {
-        addDivider();
-        addSection(noteText);
-      }
-      addSection(adGroupLink);
-      break;
-    }
-    case "overall-feedback": {
-      const header = [brand, editor, designer].join("  ");
-      const feedbackNote = noteText || "No additional note provided.";
-      addSection(header);
-      addSection(`Overall feedback note received for ${adGroup}`);
-      addDivider();
-      addSection(feedbackNote);
-      addSection(adGroupLink);
-      break;
-    }
-    default:
-      return null;
-  }
-
-  if (!lines.length) {
-    return null;
-  }
-
-  return {
-    text: lines.join("\n"),
-    blocks: sections,
-  };
-}
-
 function formatProductTags(names) {
   if (!Array.isArray(names)) {
     return [];
@@ -412,50 +600,279 @@ function formatProductTags(names) {
   return tags;
 }
 
-function buildExternalMessage(status, context) {
-  const adGroup = formatInlineCode(
-    context.adGroupName,
-    context.adGroupName || "Ad Group"
+function createTemplateContext(context, mentionText) {
+  const brand = formatInlineCode(context.brandCode, context.brandCode || "UNKNOWN");
+  const adGroup = formatInlineCode(context.adGroupName, context.adGroupName || "Ad Group");
+  const designer = formatInlineCode(
+    context.designerName,
+    context.designerName || "Unassigned"
   );
+  const editor = formatInlineCode(context.editorName, context.editorName || "Unknown");
+  const approved = formatInlineCode(String(Number(context.approvedCount) || 0), "0");
+  const editRequests = formatInlineCode(
+    String(Number(context.editRequestedCount) || 0),
+    "0"
+  );
+  const rejections = formatInlineCode(String(Number(context.rejectedCount) || 0), "0");
   const reviewLink = context.reviewUrl
     ? `<${context.reviewUrl}|View details>`
     : "View details";
+  const adGroupLink = context.adGroupUrl
+    ? `<${context.adGroupUrl}|View details>`
+    : reviewLink;
+  const noteText =
+    typeof context.note === "string" && context.note.trim() ? context.note.trim() : "";
+  const noteBlock = noteText ? `*Note:*\n${noteText}` : "";
+  const feedbackNote = noteText || "No additional note provided.";
+  const productTags = formatProductTags(context.productNames || []);
+  const productTagsLine = productTags.length
+    ? `Offers in this batch: ${productTags.join(" ")}`
+    : "";
+  const mentions = mentionText ? mentionText.trim() : "";
+  const mentionsLine = mentions ? `Notify: ${mentions}` : "";
+
+  return {
+    brand,
+    adGroup,
+    designer,
+    editor,
+    approved,
+    editRequests,
+    rejected,
+    reviewLink,
+    reviewLinkLine: reviewLink,
+    adGroupLink,
+    adGroupLinkLine: adGroupLink,
+    note: noteText,
+    noteLine: noteText,
+    noteBlock,
+    feedbackNote,
+    productTags: productTags.join(" "),
+    productTagsLine,
+    mentions,
+    mentionsLine,
+    brandCode: context.brandCode,
+    adGroupName: context.adGroupName,
+    designerName: context.designerName,
+    editorName: context.editorName,
+    approvedCount: context.approvedCount,
+    editRequestedCount: context.editRequestedCount,
+    rejectedCount: context.rejectedCount,
+    reviewUrl: context.reviewUrl,
+    adGroupUrl: context.adGroupUrl,
+    productNames: context.productNames,
+  };
+}
+
+function applyTemplate(templateText, templateContext) {
+  if (typeof templateText !== "string" || !templateText) {
+    return "";
+  }
+
+  const replaced = templateText.replace(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g, (match, key) => {
+    if (Object.prototype.hasOwnProperty.call(templateContext, key)) {
+      const value = templateContext[key];
+      if (value === null || value === undefined) {
+        return "";
+      }
+      return String(value);
+    }
+    return "";
+  });
+
+  const lines = replaced
+    .split(/\r?\n/)
+    .map((line) => line.replace(/\s+$/g, ""))
+    .reduce((acc, line) => {
+      if (!line.trim()) {
+        if (acc.length === 0 || acc[acc.length - 1] === "") {
+          return acc;
+        }
+        acc.push("");
+      } else {
+        acc.push(line);
+      }
+      return acc;
+    }, []);
+
+  while (lines.length && lines[lines.length - 1] === "") {
+    lines.pop();
+  }
+
+  return lines.join("\n").trim();
+}
+
+function buildBlocksFromTemplate(text) {
+  if (typeof text !== "string" || !text.trim()) {
+    return null;
+  }
+
+  const segments = text.split(/\n{2,}/).map((segment) => segment.trim()).filter(Boolean);
+  if (!segments.length) {
+    return null;
+  }
+
+  return segments.map((segment) => ({
+    type: "section",
+    text: {
+      type: "mrkdwn",
+      text: segment,
+    },
+  }));
+}
+
+function buildDefaultInternalMessage(status, context) {
+  const sections = [];
+  const lines = [];
+  const addSection = (text) => {
+    if (typeof text !== "string") {
+      return;
+    }
+    const trimmed = text.trim();
+    if (!trimmed) {
+      return;
+    }
+    sections.push({
+      type: "section",
+      text: {
+        type: "mrkdwn",
+        text: trimmed,
+      },
+    });
+    lines.push(trimmed);
+  };
+
+  const addDivider = () => {
+    sections.push({ type: "divider" });
+  };
 
   switch (status) {
-    case "designed": {
-      const productTags = formatProductTags(context.productNames);
-      const lines = [`Ad group: ${adGroup} is ready for review.`];
-      if (productTags.length) {
-        lines.push(`Offers in this batch: ${productTags.join(" ")}`);
+    case "designed":
+      addSection(context.brand);
+      addSection(`Ad group: ${context.adGroup} has been designed by ${context.designer}!`);
+      addSection(context.adGroupLink);
+      break;
+    case "briefed":
+      addSection(context.brand);
+      addSection(`Ad group: ${context.adGroup} has been briefed by ${context.editor}!`);
+      if (context.noteLine) {
+        addDivider();
+        addSection(context.noteLine);
       }
-      lines.push(reviewLink);
-      return lines.join("\n");
-    }
+      addSection(context.adGroupLink);
+      break;
     case "reviewed": {
-      const approved = formatInlineCode(
-        String(Number(context.approvedCount) || 0),
-        "0"
-      );
-      const editRequests = formatInlineCode(
-        String(Number(context.editRequestedCount) || 0),
-        "0"
-      );
-      const rejections = formatInlineCode(
-        String(Number(context.rejectedCount) || 0),
-        "0"
-      );
-
-      return [
-        `Review completed for ${adGroup}`,
-        `Approved: ${approved}`,
-        `Edit Requests: ${editRequests}`,
-        `Rejections: ${rejections}`,
-        reviewLink,
-      ].join("\n");
+      const header = [context.brand, context.editor, context.designer].join("  ");
+      addSection(header);
+      addSection(`Ad group: ${context.adGroup} has been reviewed!`);
+      addSection(`Approved: ${context.approved}`);
+      addSection(`Edit Requests: ${context.editRequests}`);
+      addSection(`Rejections: ${context.rejected}`);
+      addSection(context.adGroupLink);
+      break;
+    }
+    case "blocked": {
+      const header = [context.brand, context.editor, context.designer].join("  ");
+      addSection(header);
+      addSection(`Ad group: ${context.adGroup} is blocked!`);
+      if (context.noteLine) {
+        addDivider();
+        addSection(context.noteLine);
+      }
+      addSection(context.adGroupLink);
+      break;
+    }
+    case "overall-feedback": {
+      const header = [context.brand, context.editor, context.designer].join("  ");
+      addSection(header);
+      addSection(`Overall feedback note received for ${context.adGroup}`);
+      addDivider();
+      addSection(context.feedbackNote);
+      addSection(context.adGroupLink);
+      break;
     }
     default:
       return null;
   }
+
+  if (context.mentionsLine) {
+    addSection(context.mentionsLine);
+  }
+
+  if (!lines.length) {
+    return null;
+  }
+
+  return {
+    text: lines.join("\n"),
+    blocks: sections,
+  };
+}
+
+function buildInternalMessage(status, context, templates, mentionText) {
+  const templateEntry = templates && templates[status] ? templates[status].internal : undefined;
+  if (templateEntry === "") {
+    return null;
+  }
+
+  const templateContext = createTemplateContext(context, mentionText);
+  if (typeof templateEntry === "string" && templateEntry) {
+    const rendered = applyTemplate(templateEntry, templateContext);
+    if (rendered) {
+      const blocks = buildBlocksFromTemplate(rendered);
+      return blocks ? { text: rendered, blocks } : { text: rendered };
+    }
+  }
+
+  return buildDefaultInternalMessage(status, templateContext);
+}
+
+function buildDefaultExternalMessage(status, context) {
+  switch (status) {
+    case "designed": {
+      const lines = [`Ad group: ${context.adGroup} is ready for review.`];
+      if (context.productTagsLine) {
+        lines.push(context.productTagsLine);
+      }
+      lines.push(context.reviewLinkLine);
+      if (context.mentionsLine) {
+        lines.push(context.mentionsLine);
+      }
+      return lines.filter((line) => typeof line === "string" && line.trim()).join("\n");
+    }
+    case "reviewed": {
+      const lines = [
+        `Review completed for ${context.adGroup}`,
+        `Approved: ${context.approved}`,
+        `Edit Requests: ${context.editRequests}`,
+        `Rejections: ${context.rejected}`,
+        context.reviewLinkLine,
+      ];
+      if (context.mentionsLine) {
+        lines.push(context.mentionsLine);
+      }
+      return lines.filter((line) => typeof line === "string" && line.trim()).join("\n");
+    }
+    default:
+      return null;
+  }
+}
+
+function buildExternalMessage(status, context, templates, mentionText) {
+  const templateEntry = templates && templates[status] ? templates[status].external : undefined;
+  if (templateEntry === "") {
+    return null;
+  }
+
+  const templateContext = createTemplateContext(context, mentionText);
+  if (typeof templateEntry === "string" && templateEntry) {
+    const rendered = applyTemplate(templateEntry, templateContext);
+    if (rendered) {
+      return rendered;
+    }
+  }
+
+  return buildDefaultExternalMessage(status, templateContext);
 }
 
 async function getRecipeProductNames(adGroupId) {
@@ -597,10 +1014,7 @@ module.exports = async function handler(req, res) {
     return;
   }
 
-  if (
-    !status ||
-    !["designed", "briefed", "reviewed", "blocked", "overall-feedback"].includes(status)
-  ) {
+  if (!status || !SUPPORTED_STATUSES.includes(status)) {
     res.status(400).json({ error: "Unsupported status" });
     return;
   }
@@ -718,7 +1132,14 @@ module.exports = async function handler(req, res) {
       ? normalizeBrandCode(resolvedBrandCodeRaw)
       : normalizedBrandCode;
 
-    const internalMessage = buildInternalMessage(status, {
+    const [templates, brandSlackTags] = await Promise.all([
+      getSlackMessageTemplates(),
+      getBrandSlackTags(brandCandidates),
+    ]);
+
+    const statusTagConfig = brandSlackTags[status] || { internal: [], external: [] };
+
+    const baseContext = {
       brandCode: brandCodeForMessage,
       adGroupName: displayName,
       designerName,
@@ -729,38 +1150,17 @@ module.exports = async function handler(req, res) {
       reviewUrl,
       adGroupUrl,
       note,
-    });
-
-    const externalText = buildExternalMessage(status, {
-      adGroupName: displayName,
-      approvedCount,
-      editRequestedCount,
-      rejectedCount,
-      reviewUrl,
       productNames,
-    });
-
-    const externalPayload = externalText ? { text: externalText } : null;
+    };
 
     const results = [];
+    const mentionCache = new Map();
     for (const doc of docsById.values()) {
       try {
         const docData = doc.data() || {};
         const audience = normalizeAudience(docData.audience) || "external";
-        const payload =
-          audience === "internal" ? internalMessage : externalPayload;
-
-        if (!payload) {
-          results.push({
-            channel: doc.id,
-            ok: true,
-            skipped: true,
-            message: "No message available for this status.",
-          });
-          continue;
-        }
-
         let token;
+        let workspaceKey = "internal";
 
         if (audience === "internal") {
           if (!SLACK_BOT_TOKEN) {
@@ -775,6 +1175,7 @@ module.exports = async function handler(req, res) {
             throw new Error("Slack workspace ID is not configured for this channel");
           }
 
+          workspaceKey = workspaceId;
           token = await getWorkspaceAccessToken(workspaceId);
 
           if (!token) {
@@ -782,6 +1183,45 @@ module.exports = async function handler(req, res) {
               `No Slack access token found for workspace ${workspaceId}. Please reinstall the Slack app.`,
             );
           }
+        }
+
+        const mentionEmails =
+          audience === "internal"
+            ? statusTagConfig.internal || []
+            : statusTagConfig.external || [];
+
+        let mentionText = "";
+        if (mentionEmails.length) {
+          const mentionCacheKey = `${workspaceKey}:${audience}:${status}`;
+          if (mentionCache.has(mentionCacheKey)) {
+            mentionText = mentionCache.get(mentionCacheKey);
+          } else {
+            mentionText = await resolveSlackMentions(mentionEmails, token, workspaceKey);
+            mentionCache.set(mentionCacheKey, mentionText);
+          }
+        }
+
+        let payload;
+        if (audience === "internal") {
+          payload = buildInternalMessage(status, baseContext, templates, mentionText);
+        } else {
+          const externalText = buildExternalMessage(
+            status,
+            baseContext,
+            templates,
+            mentionText,
+          );
+          payload = externalText ? { text: externalText } : null;
+        }
+
+        if (!payload) {
+          results.push({
+            channel: doc.id,
+            ok: true,
+            skipped: true,
+            message: "No message available for this status.",
+          });
+          continue;
         }
 
         const response = await postSlackMessage(doc.id, payload, token);
