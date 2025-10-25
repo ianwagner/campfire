@@ -293,6 +293,7 @@ function formatJson(value, fallback = "") {
 
 const AdminIntegrations = () => {
   const [integrations, setIntegrations] = useState([]);
+  const [integrationsError, setIntegrationsError] = useState(null);
   const [selectedId, setSelectedId] = useState(null);
   const [form, setForm] = useState(null);
   const [recipeTypes, setRecipeTypes] = useState([]);
@@ -358,20 +359,33 @@ const AdminIntegrations = () => {
   }, []);
 
   useEffect(() => {
-    const unsubscribe = onSnapshot(collection(db, "integrations"), (snapshot) => {
-      const items = snapshot.docs.map((docSnap) => {
-        const data = docSnap.data();
-        return normalizeIntegration(docSnap.id, data);
-      });
-      items.sort((a, b) => (a.name || a.id).localeCompare(b.name || b.id));
-      setIntegrations(items);
-      if (selectedId) {
-        const current = items.find((item) => item.id === selectedId);
-        if (current) {
-          setForm(current);
+    const unsubscribe = onSnapshot(
+      collection(db, "integrations"),
+      (snapshot) => {
+        const items = snapshot.docs.map((docSnap) => {
+          const data = docSnap.data();
+          return normalizeIntegration(docSnap.id, data);
+        });
+        items.sort((a, b) => (a.name || a.id).localeCompare(b.name || b.id));
+        setIntegrations(items);
+        setIntegrationsError(null);
+        if (selectedId) {
+          const current = items.find((item) => item.id === selectedId);
+          if (current) {
+            setForm(current);
+          }
         }
+      },
+      (error) => {
+        console.error("Failed to load integrations", error);
+        setIntegrations([]);
+        setIntegrationsError(
+          error instanceof Error ? error.message : "Failed to load integrations."
+        );
+        setForm(null);
+        setSelectedId(null);
       }
-    });
+    );
     return () => unsubscribe();
   }, [selectedId]);
 
@@ -870,6 +884,11 @@ const AdminIntegrations = () => {
 
   return (
     <div className="min-h-screen bg-slate-50 p-6">
+      {integrationsError && (
+        <div className="mb-4 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+          {integrationsError}
+        </div>
+      )}
       <div className="flex flex-col gap-6 lg:flex-row">
         <aside className="lg:w-80 w-full">
           <div className="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
