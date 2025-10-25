@@ -3953,7 +3953,10 @@ function registerHandlebarsArtifacts(
   context: MappingContext,
   runtime: typeof Handlebars
 ): void {
-  runtime.registerHelper("json", (value) => JSON.stringify(value));
+  runtime.registerHelper("json", (value) => {
+    const serialized = JSON.stringify(value);
+    return serialized === undefined ? "null" : serialized;
+  });
 
   if (engine.partials) {
     for (const [name, template] of Object.entries(engine.partials)) {
