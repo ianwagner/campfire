@@ -5622,6 +5622,19 @@ useEffect(() => {
                     }));
                   };
 
+                  const handleCollapseRejectedCard = () => {
+                    setReplacementPrompts((prev) => ({
+                      ...prev,
+                      [cardKey]: {
+                        ...prev[cardKey],
+                        collapsed: true,
+                        showPrompt: false,
+                        error: '',
+                        submitting: false,
+                      },
+                    }));
+                  };
+
                   const handleOpenReplacementPrompt = () => {
                     setReplacementPrompts((prev) => {
                       const previousState = prev[cardKey] || {};
@@ -5679,15 +5692,6 @@ useEffect(() => {
                               Cancel
                             </Button>
                             <Button
-                              variant="neutral"
-                              size="sm"
-                              type="button"
-                              onClick={() => handleReplacementDecision('no')}
-                              disabled={isReplacementBusy}
-                            >
-                              Keep it hidden
-                            </Button>
-                            <Button
                               variant="accent"
                               size="sm"
                               type="button"
@@ -5702,9 +5706,7 @@ useEffect(() => {
                     );
                   };
 
-                  const rejectedAssetClass = isRejectedStatus
-                    ? 'opacity-60 grayscale'
-                    : '';
+                  const rejectedAssetClass = '';
                   const contentMaskClass = showReplacementPrompt
                     ? 'pointer-events-none blur-[1px]'
                     : '';
@@ -5720,29 +5722,29 @@ useEffect(() => {
                           className="w-full overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)]"
                         >
                           <div className="flex flex-col gap-3 p-4">
-                            <div className="flex flex-wrap items-center justify-between gap-2">
-                              <h3 className="text-lg font-semibold leading-tight text-gray-900 dark:text-[var(--dark-text)]">
-                                {recipeLabel}
-                              </h3>
-                              {latestVersionNumber > 1 ? (
-                                hasMultipleVersions ? (
-                                  <InfoTooltip text="Toggle between versions" placement="bottom">
-                                    <button
-                                      type="button"
-                                      onClick={handleVersionBadgeClick}
-                                      className="inline-flex items-center rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600 transition hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:bg-[var(--dark-sidebar-hover)] dark:text-gray-200 dark:hover:bg-[var(--dark-sidebar-bg)] dark:focus:ring-offset-gray-900"
-                                      aria-label={`Toggle version (currently V${displayVersionNumber || latestVersionNumber || ''})`}
-                                    >
-                                      V{displayVersionNumber || latestVersionNumber}
-                                    </button>
-                                  </InfoTooltip>
-                                ) : (
-                                  <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600 dark:bg-[var(--dark-sidebar-hover)] dark:text-gray-200">
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <h3 className="text-lg font-semibold leading-tight text-gray-900 dark:text-[var(--dark-text)]">
+                              {recipeLabel}
+                            </h3>
+                            {latestVersionNumber > 1 ? (
+                              hasMultipleVersions ? (
+                                <InfoTooltip text="Toggle between versions" placement="bottom">
+                                  <button
+                                    type="button"
+                                    onClick={handleVersionBadgeClick}
+                                    className="inline-flex items-center rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600 transition hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:bg-[var(--dark-sidebar-hover)] dark:text-gray-200 dark:hover:bg-[var(--dark-sidebar-bg)] dark:focus:ring-offset-gray-900"
+                                    aria-label={`Toggle version (currently V${displayVersionNumber || latestVersionNumber || ''})`}
+                                  >
                                     V{displayVersionNumber || latestVersionNumber}
-                                  </span>
-                                )
-                              ) : null}
-                            </div>
+                                  </button>
+                                </InfoTooltip>
+                              ) : (
+                                <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600 dark:bg-[var(--dark-sidebar-hover)] dark:text-gray-200">
+                                  V{displayVersionNumber || latestVersionNumber}
+                                </span>
+                              )
+                            ) : null}
+                          </div>
                             <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-300">
                               <span
                                 className="inline-block h-2.5 w-2.5 rounded-full"
@@ -5786,34 +5788,46 @@ useEffect(() => {
                         <div className="relative">
                           {renderReplacementOverlay()}
                           <div className={combineClasses('flex flex-col gap-4 p-4', contentMaskClass)}>
-                          <div className="flex flex-col gap-2">
-                            <div className="flex flex-wrap items-center justify-between gap-2">
-                              <h3 className="text-lg font-semibold leading-tight text-gray-900 dark:text-[var(--dark-text)]">
-                                {recipeLabel}
-                              </h3>
-                              {latestVersionNumber > 1 ? (
-                                hasMultipleVersions ? (
-                                  <InfoTooltip text="Toggle between versions" placement="bottom">
-                                    <button
-                                      type="button"
-                                      onClick={handleVersionBadgeClick}
-                                      className="inline-flex items-center rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600 transition hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:bg-[var(--dark-sidebar-hover)] dark:text-gray-200 dark:hover:bg-[var(--dark-sidebar-bg)] dark:focus:ring-offset-gray-900"
-                                      aria-label={`Toggle version (currently V${displayVersionNumber || latestVersionNumber || ''})`}
-                                    >
-                                      V{displayVersionNumber || latestVersionNumber}
-                                    </button>
-                                  </InfoTooltip>
-                                ) : (
-                                  <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600 dark:bg-[var(--dark-sidebar-hover)] dark:text-gray-200">
-                                    V{displayVersionNumber || latestVersionNumber}
-                                  </span>
-                                )
-                              ) : null}
-                            </div>
-                            <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-300">
-                              <span
-                                className="inline-block h-2.5 w-2.5 rounded-full"
-                                style={statusDotStyles[statusValue] || statusDotStyles.pending}
+                            <div className="flex flex-col gap-2">
+                              <div className="flex flex-wrap items-center justify-between gap-2">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <h3 className="text-lg font-semibold leading-tight text-gray-900 dark:text-[var(--dark-text)]">
+                                    {recipeLabel}
+                                  </h3>
+                                  {latestVersionNumber > 1 ? (
+                                    hasMultipleVersions ? (
+                                      <InfoTooltip text="Toggle between versions" placement="bottom">
+                                        <button
+                                          type="button"
+                                          onClick={handleVersionBadgeClick}
+                                          className="inline-flex items-center rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600 transition hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:bg-[var(--dark-sidebar-hover)] dark:text-gray-200 dark:hover:bg-[var(--dark-sidebar-bg)] dark:focus:ring-offset-gray-900"
+                                          aria-label={`Toggle version (currently V${displayVersionNumber || latestVersionNumber || ''})`}
+                                        >
+                                          V{displayVersionNumber || latestVersionNumber}
+                                        </button>
+                                      </InfoTooltip>
+                                    ) : (
+                                      <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600 dark:bg-[var(--dark-sidebar-hover)] dark:text-gray-200">
+                                        V{displayVersionNumber || latestVersionNumber}
+                                      </span>
+                                    )
+                                  ) : null}
+                                </div>
+                                {isRejectedStatus ? (
+                                  <Button
+                                    variant="neutral"
+                                    size="sm"
+                                    type="button"
+                                    onClick={handleCollapseRejectedCard}
+                                  >
+                                    Hide ad details
+                                  </Button>
+                                ) : null}
+                              </div>
+                              <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-300">
+                                <span
+                                  className="inline-block h-2.5 w-2.5 rounded-full"
+                                  style={statusDotStyles[statusValue] || statusDotStyles.pending}
                               />
                               <span className="font-medium">{statusLabel}</span>
                             </div>
@@ -6112,32 +6126,42 @@ useEffect(() => {
                       <div className="relative">
                         {renderReplacementOverlay()}
                         <div className={combineClasses('flex flex-col gap-4 p-4', contentMaskClass)}>
-                        <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <h3 className="mb-0 text-lg font-semibold leading-tight text-gray-900 dark:text-[var(--dark-text)]">
-                              {recipeLabel}
-                            </h3>
-                            {latestVersionNumber > 1 ? (
-                              hasMultipleVersions ? (
-                                <InfoTooltip text="Toggle between versions" placement="bottom">
-                                  <button
-                                    type="button"
-                                    onClick={handleVersionBadgeClick}
-                                    className="inline-flex items-center rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600 transition hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:bg-[var(--dark-sidebar-hover)] dark:text-gray-200 dark:hover:bg-[var(--dark-sidebar-bg)] dark:focus:ring-offset-gray-900"
-                                    aria-label={`Toggle version (currently V${displayVersionNumber || latestVersionNumber || ''})`}
-                                  >
+                          <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <h3 className="mb-0 text-lg font-semibold leading-tight text-gray-900 dark:text-[var(--dark-text)]">
+                                {recipeLabel}
+                              </h3>
+                              {latestVersionNumber > 1 ? (
+                                hasMultipleVersions ? (
+                                  <InfoTooltip text="Toggle between versions" placement="bottom">
+                                    <button
+                                      type="button"
+                                      onClick={handleVersionBadgeClick}
+                                      className="inline-flex items-center rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600 transition hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:bg-[var(--dark-sidebar-hover)] dark:text-gray-200 dark:hover:bg-[var(--dark-sidebar-bg)] dark:focus:ring-offset-gray-900"
+                                      aria-label={`Toggle version (currently V${displayVersionNumber || latestVersionNumber || ''})`}
+                                    >
+                                      V{displayVersionNumber || latestVersionNumber}
+                                    </button>
+                                  </InfoTooltip>
+                                ) : (
+                                  <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600 dark:bg-[var(--dark-sidebar-hover)] dark:text-gray-200">
                                     V{displayVersionNumber || latestVersionNumber}
-                                  </button>
-                                </InfoTooltip>
-                              ) : (
-                                <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600 dark:bg-[var(--dark-sidebar-hover)] dark:text-gray-200">
-                                  V{displayVersionNumber || latestVersionNumber}
-                                </span>
-                              )
+                                  </span>
+                                )
+                              ) : null}
+                            </div>
+                            {isRejectedStatus ? (
+                              <Button
+                                variant="neutral"
+                                size="sm"
+                                type="button"
+                                onClick={handleCollapseRejectedCard}
+                              >
+                                Hide ad details
+                              </Button>
                             ) : null}
                           </div>
-                        </div>
-                        <div className="space-y-4">
+                          <div className="space-y-4">
                           <div
                             className={combineClasses(
                               `grid items-start gap-3 ${
