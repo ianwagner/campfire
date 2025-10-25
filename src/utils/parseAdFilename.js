@@ -9,6 +9,7 @@ export default function parseAdFilename(filename) {
 
   let aspectRatio = '';
   let version;
+  let carouselPage;
 
   if (parts.length >= 5) {
     aspectRatio = parts[3] || '';
@@ -23,5 +24,13 @@ export default function parseAdFilename(filename) {
     }
   }
 
-  return { brandCode, adGroupCode, recipeCode, aspectRatio, version };
+  if (parts.length >= 2) {
+    const lastPart = parts[parts.length - 1];
+    const prevPart = parts[parts.length - 2] || '';
+    if (/^[A-Z]$/i.test(lastPart) && /^V\d+$/i.test(prevPart)) {
+      carouselPage = lastPart.toUpperCase();
+    }
+  }
+
+  return { brandCode, adGroupCode, recipeCode, aspectRatio, version, carouselPage };
 }
