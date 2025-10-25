@@ -96,6 +96,7 @@ import aggregateRecipeStatusCounts from "./utils/aggregateRecipeStatusCounts";
 import FeedbackPanel from "./components/FeedbackPanel.jsx";
 import detectMissingRatios from "./utils/detectMissingRatios";
 import notifySlackStatusChange from "./utils/notifySlackStatusChange";
+import { runIntegrationForAdGroup } from "./utils/runIntegrationForAdGroup";
 import { getCopyLetter } from "./utils/copyLetter";
 import buildFeedbackEntries, {
   buildFeedbackEntriesForGroup,
@@ -3958,6 +3959,7 @@ const AdGroupDetail = () => {
     if (!id) return;
     const newStatus = e.target.value;
     if (!statusOptions.includes(newStatus)) return;
+    const previousStatus = group?.status;
     const visibilityDefaults =
       newStatus === "designed" && group?.visibility !== "public"
         ? {
@@ -3977,6 +3979,30 @@ const AdGroupDetail = () => {
         status: newStatus,
         ...visibilityDefaults,
       }));
+
+      if (
+        newStatus === "done" &&
+        previousStatus !== "done" &&
+        assignedIntegrationId
+      ) {
+        try {
+          await runIntegrationForAdGroup(id, {
+            assets,
+            integrationId: assignedIntegrationId,
+            integrationName: assignedIntegrationName,
+          });
+        } catch (integrationError) {
+          const message =
+            integrationError instanceof Error
+              ? integrationError.message
+              : "Integration dispatch failed.";
+          console.error(
+            "Failed to dispatch integration after status change",
+            integrationError,
+          );
+          window.alert(`Integration dispatch failed: ${message}`);
+        }
+      }
     } catch (err) {
       console.error("Failed to update status", err);
     }

@@ -58,6 +58,7 @@ import {
 import { Bubbles } from 'lucide-react';
 import { archiveGroup } from './utils/archiveGroup';
 import createArchiveTicket from './utils/createArchiveTicket';
+import { runIntegrationForAdGroup } from './utils/runIntegrationForAdGroup';
 import isVideoUrl from './utils/isVideoUrl';
 import stripVersion from './utils/stripVersion';
 import { deductRecipeCredits } from './utils/credits.js';
@@ -363,6 +364,15 @@ const ProjectDetail = () => {
     })();
 
     const updateStatus = async () => {
+      const previousStatus = group?.status;
+      const integrationId =
+        typeof group?.assignedIntegrationId === 'string'
+          ? group.assignedIntegrationId
+          : '';
+      const integrationName =
+        typeof group?.assignedIntegrationName === 'string'
+          ? group.assignedIntegrationName
+          : '';
       try {
         await updateDoc(doc(db, 'adGroups', groupId), { status: newStatus });
       } catch (err) {
@@ -380,6 +390,18 @@ const ProjectDetail = () => {
         url: detailUrl,
         adGroupUrl,
       });
+
+      if (newStatus === 'done' && previousStatus !== 'done' && integrationId) {
+        try {
+          await runIntegrationForAdGroup(groupId, {
+            assets,
+            integrationId,
+            integrationName,
+          });
+        } catch (err) {
+          console.error('Failed to dispatch integration after status update', err);
+        }
+      }
     };
 
     updateStatus();
@@ -816,6 +838,15 @@ const ProjectDetail = () => {
       : 'Scrub review history? This will remove older revisions.';
     if (!window.confirm(confirmMsg)) return;
     try {
+      const previousStatus = group?.status;
+      const integrationId =
+        typeof group?.assignedIntegrationId === 'string'
+          ? group.assignedIntegrationId
+          : '';
+      const integrationName =
+        typeof group?.assignedIntegrationName === 'string'
+          ? group.assignedIntegrationName
+          : '';
       const chains = {};
       assets.forEach((a) => {
         const root = a.parentAdId || a.id;
@@ -928,6 +959,18 @@ const ProjectDetail = () => {
       );
       await updateDoc(doc(db, 'adGroups', groupId), { status: newStatus });
       setGroup((p) => ({ ...p, status: newStatus }));
+
+      if (newStatus === 'done' && previousStatus !== 'done' && integrationId) {
+        try {
+          await runIntegrationForAdGroup(groupId, {
+            assets: updatedAssets,
+            integrationId,
+            integrationName,
+          });
+        } catch (err) {
+          console.error('Failed to dispatch integration after scrubbing history', err);
+        }
+      }
     } catch (err) {
       console.error('Failed to scrub review history', err);
     }
@@ -936,6 +979,15 @@ const ProjectDetail = () => {
   const handleUndoScrub = async () => {
     if (!groupId) return;
     try {
+      const previousStatus = group?.status;
+      const integrationId =
+        typeof group?.assignedIntegrationId === 'string'
+          ? group.assignedIntegrationId
+          : '';
+      const integrationName =
+        typeof group?.assignedIntegrationName === 'string'
+          ? group.assignedIntegrationName
+          : '';
       const rootsSnap = await getDocs(
         collection(db, 'adGroups', groupId, 'scrubbedHistory'),
       );
@@ -997,6 +1049,18 @@ const ProjectDetail = () => {
       await updateDoc(doc(db, 'adGroups', groupId), { status: newStatus });
       setGroup((p) => ({ ...p, status: newStatus }));
       setAssets(updatedAssets);
+
+      if (newStatus === 'done' && previousStatus !== 'done' && integrationId) {
+        try {
+          await runIntegrationForAdGroup(groupId, {
+            assets: updatedAssets,
+            integrationId,
+            integrationName,
+          });
+        } catch (err) {
+          console.error('Failed to dispatch integration after undoing scrub', err);
+        }
+      }
     } catch (err) {
       console.error('Failed to undo scrub', err);
     }
