@@ -438,6 +438,8 @@ function collectRecipeFieldContainers(
 function collectCandidateContainers(ad: FirestoreRecord): Record<string, unknown>[] {
   const rawCandidates: unknown[] = [
     ad,
+    (ad as Record<string, unknown>).recipeFields,
+    (ad as Record<string, unknown>).recipe_fields,
     ad.fields,
     ad.metadata,
     ad.components,
@@ -445,6 +447,8 @@ function collectCandidateContainers(ad: FirestoreRecord): Record<string, unknown
     ad.details,
     ad.payload,
     ad.recipe,
+    isRecord(ad.recipe) ? ad.recipe.recipeFields : undefined,
+    isRecord(ad.recipe) ? ad.recipe.recipe_fields : undefined,
     isRecord(ad.recipe) ? ad.recipe.fields : undefined,
     isRecord(ad.recipe) ? ad.recipe.metadata : undefined,
     ad.writeInValues,
@@ -834,6 +838,9 @@ const STANDARD_FIELD_EXTRACTORS: Record<StandardFieldKey, StandardFieldExtractor
   recipeNumber: (context) =>
     extractFromSources(
       [
+        "Recipe Number",
+        "Recipe No",
+        "Recipe #",
         "recipeNo",
         "recipeNumber",
         "recipeId",

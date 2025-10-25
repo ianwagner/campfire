@@ -122,4 +122,66 @@ describe("groupAdsByRecipeIdentifier", () => {
     expect(exports[0].asset1x1Url).toBe("https://cdn.example.com/square.png");
     expect(exports[0].asset9x16Url).toBe("https://cdn.example.com/vertical.png");
   });
+
+  it("preserves recipe number values when exporting standard ads", () => {
+    const review: FirestoreRecord = { id: "review-1", name: "Review" };
+    const generatedAt = "2024-01-01T00:00:00.000Z";
+
+    const integration: Integration = {
+      id: "integration-1",
+      version: "1",
+      name: "Test Integration",
+      slug: "test-integration",
+      description: "",
+      active: true,
+      baseUrl: "https://example.com",
+      endpointPath: "/hook",
+      method: "POST",
+      auth: { strategy: "none" },
+      mapping: { type: "literal", version: "1", template: {} },
+      schemaRef: null,
+      recipeTypeId: null,
+      retryPolicy: {
+        maxAttempts: 1,
+        initialIntervalMs: 1000,
+        maxIntervalMs: 1000,
+        backoffMultiplier: 1,
+      },
+      headers: {},
+      createdAt: generatedAt,
+      updatedAt: generatedAt,
+    };
+
+    const ads: FirestoreRecord[] = [
+      {
+        id: "ad-1",
+        name: "Square",
+        recipeFields: {
+          "Recipe Number": "RC-200",
+        },
+        assets: [
+          {
+            aspectRatio: "1x1",
+            url: "https://cdn.example.com/square.png",
+          },
+        ],
+      },
+    ];
+
+    const exports = __TESTING__.buildStandardAdExports(ads, {
+      review,
+      client: null,
+      recipeType: null,
+      summary: { reviewId: review.id, reviewName: review.name },
+      generatedAt,
+      integration,
+      dryRun: true,
+    });
+
+    expect(exports).toHaveLength(1);
+    expect(exports[0].recipeNumber).toBe("RC-200");
+    expect(exports[0].recipeFields).toEqual(
+      expect.objectContaining({ "Recipe Number": "RC-200" })
+    );
+  });
 });
