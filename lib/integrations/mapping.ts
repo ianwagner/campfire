@@ -1757,6 +1757,187 @@ function enrichAdsWithRecipeFields(
   });
 }
 
+const RECIPE_ASSET_KEYS = ["1x1", "9x16"] as const;
+
+function isEmptyValue(value: unknown): boolean {
+  if (value === undefined || value === null) {
+    return true;
+  }
+
+  return typeof value === "string" && !value.trim();
+}
+
+function cloneRecipeFields(ad: FirestoreRecord): Record<string, unknown> | undefined {
+  if (isRecord(ad.recipeFields)) {
+    return { ...(ad.recipeFields as Record<string, unknown>) };
+  }
+
+  const legacy = (ad as Record<string, unknown>).recipe_fields;
+  if (isRecord(legacy)) {
+    return { ...(legacy as Record<string, unknown>) };
+  }
+
+  return undefined;
+}
+
+function normalizeRecipeIdentifierCandidate(value: unknown): string | undefined {
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    return trimmed ? trimmed : undefined;
+  }
+
+  if (typeof value === "number") {
+    return String(value);
+  }
+
+  return undefined;
+}
+
+function resolveRecipeIdentifier(ad: FirestoreRecord): string {
+  const recipeFields = isRecord(ad.recipeFields)
+    ? (ad.recipeFields as Record<string, unknown>)
+    : undefined;
+
+  const recipeNumber = normalizeRecipeIdentifierCandidate(
+    recipeFields?.["Recipe Number"]
+  );
+  if (recipeNumber) {
+    return recipeNumber;
+  }
+
+  const recipeCode = normalizeRecipeIdentifierCandidate(
+    (ad as Record<string, unknown>).recipeCode
+  );
+  if (recipeCode) {
+    return recipeCode;
+  }
+
+  const identifier = normalizeRecipeIdentifierCandidate(ad.id);
+  return identifier ?? String(ad.id);
+}
+
+function mergeAssetMaps(
+  current: Record<string, string>,
+  incoming: Record<string, string>
+): Record<string, string> {
+  const result: Record<string, string> = { ...current };
+
+  for (const [label, url] of Object.entries(incoming)) {
+    if (!result[label]) {
+      result[label] = url;
+    }
+  }
+
+  return result;
+}
+
+function mergeRecipeFieldRecords(
+  current: Record<string, unknown> | undefined,
+  incoming: Record<string, unknown> | undefined
+): Record<string, unknown> | undefined {
+  if (!current && !incoming) {
+    return undefined;
+  }
+
+  const result: Record<string, unknown> = {
+    ...(current ?? {}),
+  };
+
+  if (incoming) {
+    for (const [key, value] of Object.entries(incoming)) {
+      if (isEmptyValue(result[key]) && !isEmptyValue(value)) {
+        result[key] = value;
+      }
+    }
+  }
+
+  return Object.keys(result).length ? result : undefined;
+}
+
+function applyAssetMapToRecipeFields(
+  recipeFields: Record<string, unknown> | undefined,
+  assetMap: Record<string, string>
+): Record<string, unknown> | undefined {
+  if (!recipeFields && !Object.keys(assetMap).length) {
+    return undefined;
+  }
+
+  const result: Record<string, unknown> = {
+    ...(recipeFields ?? {}),
+  };
+
+  let mutated = false;
+  for (const label of RECIPE_ASSET_KEYS) {
+    const candidate = assetMap[label];
+    if (isEmptyValue(result[label]) && !isEmptyValue(candidate)) {
+      result[label] = candidate;
+      mutated = true;
+    }
+  }
+
+  if (!mutated && !Object.keys(result).length) {
+    return undefined;
+  }
+
+  return result;
+}
+
+function groupAdsByRecipeIdentifier(
+  ads: FirestoreRecord[],
+  context: Omit<StandardFieldContext, "ad">
+): FirestoreRecord[] {
+  const groups = new Map<
+    string,
+    {
+      base: FirestoreRecord;
+      recipeFields?: Record<string, unknown>;
+      assetMap: Record<string, string>;
+    }
+  >();
+
+  for (const ad of ads) {
+    const identifier = resolveRecipeIdentifier(ad);
+    const assetContext: StandardFieldContext = {
+      ...context,
+      ad,
+    };
+    const assetMap = collectAssetMap(ad, assetContext);
+    const recipeFields = applyAssetMapToRecipeFields(
+      cloneRecipeFields(ad),
+      assetMap
+    );
+
+    const entry = groups.get(identifier);
+    if (!entry) {
+      groups.set(identifier, {
+        base: ad,
+        recipeFields,
+        assetMap: { ...assetMap },
+      });
+      continue;
+    }
+
+    entry.assetMap = mergeAssetMaps(entry.assetMap, assetMap);
+    const mergedFields = mergeRecipeFieldRecords(entry.recipeFields, recipeFields);
+    entry.recipeFields = applyAssetMapToRecipeFields(
+      mergedFields,
+      entry.assetMap
+    );
+  }
+
+  return Array.from(groups.values()).map(({ base, recipeFields, assetMap }) => {
+    const mergedRecipeFields = applyAssetMapToRecipeFields(recipeFields, assetMap);
+    if (!mergedRecipeFields || !Object.keys(mergedRecipeFields).length) {
+      return base;
+    }
+
+    return {
+      ...base,
+      recipeFields: mergedRecipeFields,
+    };
+  });
+}
+
 function normalizeRecipeTypeCandidate(value: string): string {
   const trimmed = value.trim().toLowerCase();
   if (!trimmed) {
@@ -2149,7 +2330,13 @@ export async function createMappingContext(
     recipeTypeId,
   });
 
-  const standardAds = buildStandardAdExports(enrichedAds, {
+  const groupedAds = groupAdsByRecipeIdentifier(enrichedAds, {
+    review: reviewData.review,
+    client: reviewData.client,
+    recipeType,
+  });
+
+  const standardAds = buildStandardAdExports(groupedAds, {
     review: reviewData.review,
     client: reviewData.client,
     recipeType,
@@ -2175,7 +2362,7 @@ export async function createMappingContext(
   const data = {
     integration,
     review: reviewData.review,
-    ads: enrichedAds,
+    ads: groupedAds,
     client: reviewData.client,
     recipeType,
     recipeTypeId: normalizedRecipeTypeId,
@@ -2198,7 +2385,7 @@ export async function createMappingContext(
     payload,
     dryRun,
     review: reviewData.review,
-    ads: enrichedAds,
+    ads: groupedAds,
     client: reviewData.client,
     recipeType,
     recipeFieldKeys,
@@ -2473,6 +2660,8 @@ async function validatePayloadAgainstSchema(
 
 export const __TESTING__ = {
   collectRecipeFieldValues,
+  groupAdsByRecipeIdentifier,
+  buildStandardAdExports,
 };
 
 export async function executeMapping(
