@@ -186,7 +186,7 @@ const BrandMessaging = ({ brandId, brandCode, brandName, role }) => {
         <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Slack mentions</h2>
         <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">
           Choose who should be tagged when Campfire sends Slack updates for {brandName || brandCode || 'this brand'}.
-          Add one email per line or separate addresses with commas.
+          Add one email per line or separate addresses with commas and we'll mention them in connected client Slack workspaces.
         </p>
       </div>
       {loading ? (
@@ -215,21 +215,7 @@ const BrandMessaging = ({ brandId, brandCode, brandName, role }) => {
                     <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{type.label}</h3>
                     <p className="mt-1 text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">{type.id}</p>
                   </div>
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <div className="flex flex-col gap-2">
-                      <label className="text-sm font-medium text-gray-700 dark:text-gray-200">Internal channels</label>
-                      <textarea
-                        rows={3}
-                        className="w-full rounded-lg border border-gray-300 bg-white p-3 text-sm shadow-sm focus:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-500/20 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar)] dark:text-gray-100"
-                        value={values.internal}
-                        onChange={handleChange(type.id, 'internal')}
-                        placeholder="email@example.com"
-                        disabled={!canEdit || saving}
-                      />
-                      <p className="text-xs text-gray-500 dark:text-gray-400">
-                        Mentioned in Campfire internal Slack channels.
-                      </p>
-                    </div>
+                  <div className="space-y-4">
                     <div className="flex flex-col gap-2">
                       <label className="text-sm font-medium text-gray-700 dark:text-gray-200">Client workspaces</label>
                       <textarea
