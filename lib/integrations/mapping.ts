@@ -397,8 +397,46 @@ function generateKeyCandidates(key: string): string[] {
   return Array.from(candidates).filter(Boolean);
 }
 
+const RECIPE_FIELDS_CONTAINER_KEYS = new Set(
+  generateKeyCandidates("recipe fields").map((candidate) =>
+    candidate.toLowerCase()
+  )
+);
+
+function isRecipeFieldsAlias(key: string): boolean {
+  if (!key) {
+    return false;
+  }
+
+  const normalized = generateKeyCandidates(key).map((candidate) =>
+    candidate.toLowerCase()
+  );
+  return normalized.some((candidate) =>
+    RECIPE_FIELDS_CONTAINER_KEYS.has(candidate)
+  );
+}
+
+function collectRecipeFieldContainers(
+  source: unknown
+): Record<string, unknown>[] {
+  if (!isRecord(source)) {
+    return [];
+  }
+
+  const containers: Record<string, unknown>[] = [];
+  for (const [rawKey, value] of Object.entries(source)) {
+    if (typeof rawKey !== "string") continue;
+    if (!isRecipeFieldsAlias(rawKey)) continue;
+    if (isRecord(value)) {
+      containers.push(value);
+    }
+  }
+
+  return containers;
+}
+
 function collectCandidateContainers(ad: FirestoreRecord): Record<string, unknown>[] {
-  const candidates = [
+  const rawCandidates: unknown[] = [
     ad,
     ad.fields,
     ad.metadata,
@@ -412,6 +450,14 @@ function collectCandidateContainers(ad: FirestoreRecord): Record<string, unknown
     ad.writeInValues,
     ad.values,
   ];
+
+  const candidates: unknown[] = [];
+  for (const candidate of rawCandidates) {
+    candidates.push(candidate);
+    if (isRecord(candidate)) {
+      candidates.push(...collectRecipeFieldContainers(candidate));
+    }
+  }
 
   const seen = new Set<Record<string, unknown>>();
   const containers: Record<string, unknown>[] = [];
@@ -2424,6 +2470,10 @@ async function validatePayloadAgainstSchema(
     );
   }
 }
+
+export const __TESTING__ = {
+  collectRecipeFieldValues,
+};
 
 export async function executeMapping(
   engine: MappingEngine,
