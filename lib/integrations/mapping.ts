@@ -77,11 +77,15 @@ export interface IntegrationAdExport extends Record<string, unknown> {
   audience?: string;
   angle?: string;
   primaryCopy?: string;
+  primaryText?: string;
+  primary_text?: string;
   headline?: string;
   description?: string;
   destinationUrl?: string;
   goLiveDate?: string;
   status?: string;
+  format?: string;
+  market?: string;
   asset1x1Url?: string | null;
   asset9x16Url?: string | null;
   assets: Record<string, string | null>;
@@ -599,10 +603,19 @@ const STANDARD_FIELD_ALIASES = {
     "Primary",
     "primary",
     "primaryText",
+    "primary_text",
     "Primary Copy",
     "primaryCopy",
     "copy.primary",
     "copy.primaryText",
+    "copy.primary_text",
+  ],
+  primaryText: [
+    "Primary Text",
+    "primaryText",
+    "primary_text",
+    "copy.primaryText",
+    "copy.primary_text",
   ],
   headline: ["Headline", "headline", "copy.headline"],
   description: [
@@ -625,6 +638,20 @@ const STANDARD_FIELD_ALIASES = {
   ],
   assetSquare: ["1x1", "Square", "1:1", "squareAsset"],
   assetVertical: ["9x16", "Vertical", "Story", "9:16", "verticalAsset"],
+  format: [
+    "Format",
+    "format",
+    "format.name",
+    "formatName",
+    "format_label",
+  ],
+  market: [
+    "Market",
+    "market",
+    "market.name",
+    "marketName",
+    "market_label",
+  ],
 } as const;
 
 type StandardFieldKey = keyof typeof STANDARD_FIELD_ALIASES;
@@ -899,6 +926,17 @@ const STANDARD_FIELD_EXTRACTORS: Record<StandardFieldKey, StandardFieldExtractor
       ["primary", "primaryText", "primaryCopy", "copy.primary", "copy.primaryText"],
       [context.ad, context.review]
     ),
+  primaryText: (context) =>
+    extractFromSources(
+      [
+        "primaryText",
+        "primary_text",
+        "copy.primaryText",
+        "copy.primary_text",
+        "copy.primary",
+      ],
+      [context.ad, context.review]
+    ),
   headline: (context) =>
     extractFromSources(["headline", "copy.headline"], [context.ad, context.review]),
   description: (context) =>
@@ -920,6 +958,16 @@ const STANDARD_FIELD_EXTRACTORS: Record<StandardFieldKey, StandardFieldExtractor
     ),
   assetSquare: (context) => resolveAssetUrl(context, ["1x1", "1:1", "square"]),
   assetVertical: (context) => resolveAssetUrl(context, ["9x16", "9:16", "vertical", "story"]),
+  format: (context) =>
+    extractFromSources(
+      ["format", "format.name", "formatName", "format.label"],
+      [context.ad, context.ad.recipe, context.review, context.client]
+    ),
+  market: (context) =>
+    extractFromSources(
+      ["market", "market.name", "marketName", "market.label"],
+      [context.ad, context.ad.recipe, context.review, context.client]
+    ),
 };
 
 const STANDARD_FIELD_LOOKUP: Map<string, StandardFieldExtractor> = (() => {
@@ -1076,23 +1124,89 @@ function getFirstString(...values: unknown[]): string | undefined {
   return undefined;
 }
 
+function inferAssetLabelFromString(value: unknown): string | undefined {
+  if (typeof value !== "string") {
+    return undefined;
+  }
+
+  const direct = normalizeAssetLabel(value);
+  if (direct) {
+    if (/^\d+x\d+$/.test(direct)) {
+      return direct;
+    }
+    if (direct === "1x1" || direct === "9x16") {
+      return direct;
+    }
+  }
+
+  const match = value.match(/(\d+)\s*[x×:]\s*(\d+)/i);
+  if (match) {
+    const normalized = normalizeAssetLabel(`${match[1]}x${match[2]}`);
+    if (normalized) {
+      return normalized;
+    }
+  }
+
+  if (/square/i.test(value)) {
+    return "1x1";
+  }
+
+  if (/(vertical|portrait|story|stories|reel|reels)/i.test(value)) {
+    return "9x16";
+  }
+
+  return direct || undefined;
+}
+
 function collectAssetMap(
   ad: FirestoreRecord,
   context: StandardFieldContext
 ): Record<string, string> {
   const result: Record<string, string> = {};
+  const adRecord = ad as Record<string, unknown>;
 
-  const assign = (label: unknown, value: unknown) => {
+  const assign = (label: unknown, value: unknown): boolean => {
     if (typeof label !== "string") {
-      return;
+      return false;
     }
     const normalized = normalizeAssetLabel(label);
     if (!normalized || result[normalized]) {
-      return;
+      return false;
     }
     const formatted = formatUrl(value);
-    if (formatted) {
-      result[normalized] = formatted;
+    if (!formatted) {
+      return false;
+    }
+    result[normalized] = formatted;
+    return true;
+  };
+
+  const tryAssign = (value: unknown, ...labelCandidates: unknown[]) => {
+    const formatted = formatUrl(value);
+    if (!formatted) {
+      return;
+    }
+
+    for (const candidate of labelCandidates) {
+      if (assign(candidate, formatted)) {
+        return;
+      }
+    }
+
+    for (const candidate of labelCandidates) {
+      const inferred = inferAssetLabelFromString(candidate);
+      if (inferred && assign(inferred, formatted)) {
+        return;
+      }
+    }
+
+    const inferredFromValue = inferAssetLabelFromString(formatted);
+    if (inferredFromValue && assign(inferredFromValue, formatted)) {
+      return;
+    }
+
+    if (!result.default) {
+      result.default = formatted;
     }
   };
 
@@ -1202,8 +1316,8 @@ function collectAssetMap(
     }
   };
 
-  const recipeRecord = isRecord(ad.recipe)
-    ? (ad.recipe as Record<string, unknown>)
+  const recipeRecord = isRecord(adRecord.recipe)
+    ? (adRecord.recipe as Record<string, unknown>)
     : undefined;
   const reviewRecord = context.review as Record<string, unknown>;
   const clientRecord = context.client
@@ -1211,15 +1325,15 @@ function collectAssetMap(
     : undefined;
 
   const sources: unknown[] = [
-    ad.assets,
-    ad.media,
-    ad.files,
-    ad.images,
+    adRecord.assets,
+    adRecord.media,
+    adRecord.files,
+    adRecord.images,
     recipeRecord?.assets,
     recipeRecord?.media,
     recipeRecord?.files,
     recipeRecord?.images,
-    ad.recipeFields,
+    adRecord.recipeFields,
     reviewRecord.assets,
     reviewRecord.media,
     reviewRecord.files,
@@ -1228,7 +1342,7 @@ function collectAssetMap(
     clientRecord?.media,
   ];
 
-  const componentSources = [ad.components, recipeRecord?.components];
+  const componentSources = [adRecord.components, recipeRecord?.components];
   for (const componentSource of componentSources) {
     if (Array.isArray(componentSource)) {
       for (const component of componentSource) {
@@ -1244,6 +1358,50 @@ function collectAssetMap(
 
   for (const source of sources) {
     inspect(source);
+  }
+
+  const labelHints: unknown[] = [
+    adRecord.aspectRatio,
+    adRecord.aspect_ratio,
+    adRecord.ratio,
+    adRecord.aspect,
+    adRecord.size,
+    adRecord.dimension,
+    adRecord.orientation,
+    recipeRecord?.aspectRatio,
+    recipeRecord?.ratio,
+    recipeRecord?.aspect,
+  ];
+
+  const nameHints: unknown[] = [
+    adRecord.filename,
+    adRecord.file_name,
+    adRecord.name,
+    adRecord.label,
+    adRecord.title,
+    recipeRecord?.filename,
+    recipeRecord?.file_name,
+    recipeRecord?.label,
+    recipeRecord?.name,
+    ad.id,
+  ];
+
+  const urlCandidates: unknown[] = [
+    adRecord.firebaseUrl,
+    (adRecord as Record<string, unknown>).firebase_url,
+    adRecord.downloadUrl,
+    (adRecord as Record<string, unknown>).download_url,
+    adRecord.storageUrl,
+    (adRecord as Record<string, unknown>).storage_url,
+    adRecord.assetUrl,
+    (adRecord as Record<string, unknown>).asset_url,
+    adRecord.previewUrl,
+    (adRecord as Record<string, unknown>).preview_url,
+    adRecord.url,
+  ];
+
+  for (const url of urlCandidates) {
+    tryAssign(url, ...labelHints, ...nameHints);
   }
 
   return result;
@@ -1430,6 +1588,10 @@ function buildStandardAdExports(
     const primaryCopy = formatRowValue(
       extractStandardFieldValue("primary", fieldContext)
     );
+    const primaryText = getFirstString(
+      formatRowValue(extractStandardFieldValue("primaryText", fieldContext)),
+      primaryCopy
+    );
     const headline = formatRowValue(
       extractStandardFieldValue("headline", fieldContext)
     );
@@ -1441,6 +1603,12 @@ function buildStandardAdExports(
       extractStandardFieldValue("goLive", fieldContext)
     );
     const status = formatRowValue(extractStandardFieldValue("status", fieldContext));
+    const formatName = formatRowValue(
+      extractStandardFieldValue("format", fieldContext)
+    );
+    const market = formatRowValue(
+      extractStandardFieldValue("market", fieldContext)
+    );
 
     const assetCandidates = collectAssetMap(ad, fieldContext);
     const assetMap: Record<string, string | null> = { "1x1": null, "9x16": null };
@@ -1569,11 +1737,15 @@ function buildStandardAdExports(
       audience,
       angle,
       primaryCopy,
+      primaryText,
+      primary_text: primaryText,
       headline,
       description,
       destinationUrl,
       goLiveDate,
       status,
+      format: formatName,
+      market,
       asset1x1Url,
       asset9x16Url,
       assets,
