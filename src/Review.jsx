@@ -5413,18 +5413,26 @@ useEffect(() => {
                     }
                     if (value === 'reject') {
                       setManualStatus((prev) => ({ ...prev, [cardKey]: 'reject' }));
-                      setReplacementPrompts((prev) => ({
-                        ...prev,
-                        [cardKey]: {
-                          ...prev[cardKey],
-                          showPrompt: true,
-                          collapsed: false,
-                          response: replacementResponse,
-                          note: replacementNote,
-                          error: '',
-                          submitting: false,
-                        },
-                      }));
+                      setReplacementPrompts((prev) => {
+                        const previousState = prev[cardKey] || {};
+                        const nextResponse =
+                          previousState.response ??
+                          (typeof replacementResponse === 'string'
+                            ? replacementResponse
+                            : null);
+                        return {
+                          ...prev,
+                          [cardKey]: {
+                            ...previousState,
+                            showPrompt: true,
+                            collapsed: false,
+                            response: nextResponse,
+                            note: replacementNote,
+                            error: '',
+                            submitting: false,
+                          },
+                        };
+                      });
                       return;
                     }
                     setManualStatus((prev) => {
@@ -5511,29 +5519,20 @@ useEffect(() => {
                     !showReplacementPrompt &&
                     !replacementCollapsed;
 
-                  const handlePromptYes = () => {
-                    setReplacementPrompts((prev) => ({
-                      ...prev,
-                      [cardKey]: {
-                        ...prev[cardKey],
-                        response: 'yes',
-                        note: replacementNote,
-                        error: '',
-                        submitting: false,
-                      },
-                    }));
-                  };
-
-                  const handleReplacementPromptBack = () => {
-                    setReplacementPrompts((prev) => ({
-                      ...prev,
-                      [cardKey]: {
-                        ...prev[cardKey],
-                        response: null,
-                        error: '',
-                        submitting: false,
-                      },
-                    }));
+                  const handleCancelReplacementPrompt = () => {
+                    setReplacementPrompts((prev) => {
+                      const previousState = prev[cardKey] || {};
+                      return {
+                        ...prev,
+                        [cardKey]: {
+                          ...previousState,
+                          showPrompt: false,
+                          error: '',
+                          submitting: false,
+                          note: existingReplacementRequest?.note || '',
+                        },
+                      };
+                    });
                   };
 
                   const handleReplacementNoteChange = (event) => {
@@ -5623,105 +5622,80 @@ useEffect(() => {
                     }));
                   };
 
-                  const handleOpenReplacementPrompt = (mode = 'question') => {
-                    setReplacementPrompts((prev) => ({
-                      ...prev,
-                      [cardKey]: {
-                        ...prev[cardKey],
-                        collapsed: false,
-                        showPrompt: true,
-                        response: mode === 'form' ? 'yes' : null,
-                        error: '',
-                        submitting: false,
-                      },
-                    }));
+                  const handleOpenReplacementPrompt = () => {
+                    setReplacementPrompts((prev) => {
+                      const previousState = prev[cardKey] || {};
+                      return {
+                        ...prev,
+                        [cardKey]: {
+                          ...previousState,
+                          collapsed: false,
+                          showPrompt: true,
+                          error: '',
+                          submitting: false,
+                        },
+                      };
+                    });
                   };
 
                   const renderReplacementOverlay = () => {
                     if (!showReplacementPrompt) return null;
-                    const heading =
-                      replacementResponse === 'yes'
-                        ? 'Share replacement direction'
-                        : 'Request a replacement?';
+                    const heading = 'Share replacement direction';
                     const description =
-                      replacementResponse === 'yes'
-                        ? 'Let us know what you would like to see in the next version.'
-                        : 'Would you like us to replace this ad with a new ad?';
-                    const canSubmitReplacement =
-                      replacementResponse === 'yes'
-                        ? (replacementNote || '').trim().length > 0
-                        : true;
+                      'Let us know what you would like to see in the next version.';
+                    const trimmedReplacementNote = (replacementNote || '').trim();
+                    const canSubmitReplacement = trimmedReplacementNote.length > 0;
                     return (
                       <div className="absolute inset-0 z-20 flex items-center justify-center bg-white/95 px-4 py-6 backdrop-blur-sm dark:bg-[rgba(15,23,42,0.95)]">
                         <div className="w-full max-w-md rounded-2xl border border-gray-200 bg-white p-5 shadow-lg dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)]">
                           <h3 className="text-lg font-semibold text-gray-900 dark:text-[var(--dark-text)]">{heading}</h3>
                           <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">{description}</p>
-                          {replacementResponse === 'yes' ? (
-                            <>
-                              <label
-                                className="mt-4 block text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-300"
-                                htmlFor={`${cardKey}-replacement-note`}
-                              >
-                                Replacement direction
-                              </label>
-                              <textarea
-                                id={`${cardKey}-replacement-note`}
-                                value={replacementNote}
-                                onChange={handleReplacementNoteChange}
-                                className="mt-1 w-full rounded-lg border border-gray-300 p-2 text-sm leading-snug focus:border-[var(--accent-color)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-color)] disabled:cursor-not-allowed disabled:opacity-60 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)] dark:text-gray-100"
-                                rows={4}
-                                placeholder="Share any guidance you'd like the team to consider."
-                                disabled={isReplacementBusy}
-                              />
-                            </>
-                          ) : null}
+                          <label
+                            className="mt-4 block text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-300"
+                            htmlFor={`${cardKey}-replacement-note`}
+                          >
+                            Replacement direction
+                          </label>
+                          <textarea
+                            id={`${cardKey}-replacement-note`}
+                            value={replacementNote}
+                            onChange={handleReplacementNoteChange}
+                            className="mt-1 w-full rounded-lg border border-gray-300 p-2 text-sm leading-snug focus:border-[var(--accent-color)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-color)] disabled:cursor-not-allowed disabled:opacity-60 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)] dark:text-gray-100"
+                            rows={4}
+                            placeholder="Share any guidance you'd like the team to consider."
+                            disabled={isReplacementBusy}
+                          />
                           {replacementError ? (
                             <p className="mt-3 text-sm font-medium text-red-600 dark:text-red-400">{replacementError}</p>
                           ) : null}
                           <div className="mt-6 flex flex-wrap justify-end gap-2">
-                            {replacementResponse === 'yes' ? (
-                              <>
-                                <Button
-                                  variant="neutral"
-                                  size="sm"
-                                  type="button"
-                                  onClick={handleReplacementPromptBack}
-                                  disabled={isReplacementBusy}
-                                >
-                                  Back
-                                </Button>
-                                <Button
-                                  variant="accent"
-                                  size="sm"
-                                  type="button"
-                                  onClick={() => handleReplacementDecision('yes')}
-                                  disabled={isReplacementBusy || !canSubmitReplacement}
-                                >
-                                  {isReplacementBusy ? 'Sending…' : 'Send request'}
-                                </Button>
-                              </>
-                            ) : (
-                              <>
-                                <Button
-                                  variant="neutral"
-                                  size="sm"
-                                  type="button"
-                                  onClick={() => handleReplacementDecision('no')}
-                                  disabled={isReplacementBusy}
-                                >
-                                  No, keep it hidden
-                                </Button>
-                                <Button
-                                  variant="accent"
-                                  size="sm"
-                                  type="button"
-                                  onClick={handlePromptYes}
-                                  disabled={isReplacementBusy}
-                                >
-                                  Yes, replace it
-                                </Button>
-                              </>
-                            )}
+                            <Button
+                              variant="neutral"
+                              size="sm"
+                              type="button"
+                              onClick={handleCancelReplacementPrompt}
+                              disabled={isReplacementBusy}
+                            >
+                              Cancel
+                            </Button>
+                            <Button
+                              variant="neutral"
+                              size="sm"
+                              type="button"
+                              onClick={() => handleReplacementDecision('no')}
+                              disabled={isReplacementBusy}
+                            >
+                              Keep it hidden
+                            </Button>
+                            <Button
+                              variant="accent"
+                              size="sm"
+                              type="button"
+                              onClick={() => handleReplacementDecision('yes')}
+                              disabled={isReplacementBusy || !canSubmitReplacement}
+                            >
+                              {isReplacementBusy ? 'Sending…' : 'Send request'}
+                            </Button>
                           </div>
                         </div>
                       </div>
@@ -5792,11 +5766,7 @@ useEffect(() => {
                                 variant="accent"
                                 size="sm"
                                 type="button"
-                                onClick={() =>
-                                  handleOpenReplacementPrompt(
-                                    replacementResponse === 'yes' ? 'form' : 'question',
-                                  )
-                                }
+                                onClick={handleOpenReplacementPrompt}
                               >
                                 {replacementResponse === 'yes'
                                   ? 'Update replacement notes'
@@ -5961,11 +5931,7 @@ useEffect(() => {
                                 <button
                                   type="button"
                                   className="text-xs font-semibold text-[var(--accent-color)] underline-offset-2 hover:underline"
-                                  onClick={() =>
-                                    handleOpenReplacementPrompt(
-                                      replacementResponse === 'yes' ? 'form' : 'question',
-                                    )
-                                  }
+                                  onClick={handleOpenReplacementPrompt}
                                 >
                                   {replacementResponse === 'yes'
                                     ? 'Update replacement notes'
@@ -6127,11 +6093,7 @@ useEffect(() => {
                             variant="accent"
                             size="sm"
                             type="button"
-                            onClick={() =>
-                              handleOpenReplacementPrompt(
-                                replacementResponse === 'yes' ? 'form' : 'question',
-                              )
-                            }
+                            onClick={handleOpenReplacementPrompt}
                           >
                             {replacementResponse === 'yes'
                               ? 'Update replacement notes'
@@ -6284,11 +6246,7 @@ useEffect(() => {
                               <button
                                 type="button"
                                 className="font-semibold text-[var(--accent-color)] underline-offset-2 hover:underline"
-                                onClick={() =>
-                                  handleOpenReplacementPrompt(
-                                    replacementResponse === 'yes' ? 'form' : 'question',
-                                  )
-                                }
+                                onClick={handleOpenReplacementPrompt}
                               >
                                 {replacementResponse === 'yes'
                                   ? 'Update replacement notes'

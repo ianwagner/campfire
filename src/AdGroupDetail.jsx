@@ -4298,6 +4298,38 @@ const AdGroupDetail = () => {
       })
       .filter(Boolean);
 
+    const firstReplacementSummary = replacementSummaries[0] || null;
+    let replacementRequestDisplay = null;
+    if (firstReplacementSummary) {
+      const { request } = firstReplacementSummary;
+      const metaParts = [];
+      if (request.requestedBy) {
+        metaParts.push(`by ${request.requestedBy}`);
+      }
+      const formattedRequestedAt = formatIntegrationDate(request.requestedAt);
+      if (formattedRequestedAt) {
+        metaParts.push(formattedRequestedAt);
+      }
+      replacementRequestDisplay = (
+        <div className="w-full rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-left shadow-sm dark:border-amber-500/40 dark:bg-amber-500/10">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-amber-700 dark:bg-amber-400/20 dark:text-amber-100">
+              <FiRefreshCw className="h-3 w-3" aria-hidden="true" />
+              Replacement Requested
+            </span>
+          </div>
+          <p className="mt-2 whitespace-pre-wrap text-sm text-amber-900 dark:text-amber-50">
+            {request.note}
+          </p>
+          {metaParts.length > 0 && (
+            <p className="mt-1 text-xs text-amber-700 dark:text-amber-200/80">
+              Requested {metaParts.join(" · ")}
+            </p>
+          )}
+        </div>
+      );
+    }
+
     const normalizedRecipe = normalizeRecipeCode(g.recipeCode);
     const storedAssignmentId = normalizedRecipe
       ? copyAssignments[normalizedRecipe]
@@ -4496,45 +4528,9 @@ const AdGroupDetail = () => {
                   </>
                 )
               )}
-              {replacementSummaries.length > 0 && (
+              {replacementRequestDisplay && (
                 <div className="flex w-full flex-col gap-2">
-                  {replacementSummaries.map(({ asset, request }) => {
-                    const assetLabel = asset.filename || "Unnamed asset";
-                    const metaParts = [];
-                    if (request.requestedBy) {
-                      metaParts.push(`by ${request.requestedBy}`);
-                    }
-                    const formattedRequestedAt = formatIntegrationDate(
-                      request.requestedAt,
-                    );
-                    if (formattedRequestedAt) {
-                      metaParts.push(formattedRequestedAt);
-                    }
-                    return (
-                      <div
-                        key={asset.id || `${asset.filename || "asset"}-replacement`}
-                        className="w-full rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-left shadow-sm dark:border-amber-500/40 dark:bg-amber-500/10"
-                      >
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-amber-700 dark:bg-amber-400/20 dark:text-amber-100">
-                            <FiRefreshCw className="h-3 w-3" aria-hidden="true" />
-                            Replacement Requested
-                          </span>
-                          <span className="text-[11px] font-medium text-amber-700 dark:text-amber-200">
-                            {assetLabel}
-                          </span>
-                        </div>
-                        <p className="mt-2 whitespace-pre-wrap text-sm text-amber-900 dark:text-amber-50">
-                          {request.note}
-                        </p>
-                        {metaParts.length > 0 && (
-                          <p className="mt-1 text-xs text-amber-700 dark:text-amber-200/80">
-                            Requested {metaParts.join(" · ")}
-                          </p>
-                        )}
-                      </div>
-                    );
-                  })}
+                  {replacementRequestDisplay}
                 </div>
               )}
             </div>
