@@ -5,10 +5,10 @@ import RoleGuard from './RoleGuard';
 
 jest.mock('./LoadingOverlay', () => () => <div>Loading</div>);
 
-const Navigate = jest.fn(({ to }) => <div>Navigate:{to}</div>);
+const mockNavigate = jest.fn(({ to }) => <div>Navigate:{to}</div>);
 
 jest.mock('react-router-dom', () => ({
-  Navigate: (props) => Navigate(props),
+  Navigate: (props) => mockNavigate(props),
 }));
 
 afterEach(() => {
@@ -22,7 +22,7 @@ test('renders children when admin claim present', () => {
     </RoleGuard>
   );
   expect(getByText('Secret')).toBeInTheDocument();
-  expect(Navigate).not.toHaveBeenCalled();
+  expect(mockNavigate).not.toHaveBeenCalled();
 });
 
 test('redirects when admin claim missing', () => {

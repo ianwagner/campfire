@@ -7,16 +7,16 @@ jest.mock('./firebase/config', () => ({ db: {} }));
 
 jest.mock('./useAgencyTheme', () => () => ({ agency: { logoUrl: 'logo.png', name: 'Mock Agency' } }));
 
-const getDocs = jest.fn();
-const getDoc = jest.fn();
+const mockGetDocs = jest.fn();
+const mockGetDoc = jest.fn();
 
 jest.mock('firebase/firestore', () => ({
   collection: jest.fn((...args) => args),
   collectionGroup: jest.fn((...args) => args),
   query: jest.fn((...args) => args),
   where: jest.fn(),
-  getDocs: (...args) => getDocs(...args),
-  getDoc: (...args) => getDoc(...args),
+  getDocs: (...args) => mockGetDocs(...args),
+  getDoc: (...args) => mockGetDoc(...args),
   addDoc: jest.fn(),
   serverTimestamp: jest.fn(),
   doc: jest.fn((...args) => args.slice(1).join('/')),
@@ -45,12 +45,12 @@ test('renders agency logo once loaded', async () => {
     ],
   };
 
-  getDocs.mockImplementation((args) => {
+  mockGetDocs.mockImplementation((args) => {
     const col = Array.isArray(args) ? args[0] : args;
     if (col[1] === 'assets') return Promise.resolve(assetSnapshot);
     return Promise.resolve({ docs: [] });
   });
-  getDoc.mockResolvedValue({ exists: () => true, data: () => ({ name: 'Group 1' }) });
+  mockGetDoc.mockResolvedValue({ exists: () => true, data: () => ({ name: 'Group 1' }) });
 
   render(<Review user={{ uid: 'u1' }} brandCodes={['BR1']} agencyId="agency1" />);
 

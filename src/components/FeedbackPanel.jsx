@@ -343,7 +343,7 @@ const FeedbackPanel = ({
                 <div className="flex flex-col gap-1">
                   <div className="flex flex-wrap items-baseline gap-2">
                     <h4 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                      {getEntryDisplayTitle(selectedEntry)}
+                      {`${getEntryDisplayTitle(selectedEntry)} – Details`}
                     </h4>
                     {selectedEntry.recipeCode ? (
                       <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-medium uppercase tracking-wide text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-200">
