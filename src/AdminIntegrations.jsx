@@ -761,20 +761,37 @@ const AdminIntegrations = () => {
       setSampleError("Enter a review ID to load sample data.");
       return;
     }
+    if (!form) {
+      setSampleError("Select an integration before loading sample data.");
+      return;
+    }
     setSampleError(null);
     setSampleLoading(true);
     try {
+      const integrationPayload = buildIntegrationPayload(form, headerRows);
       const response = await fetch("/api/integrations/sample-data", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ reviewId }),
+        body: JSON.stringify({ reviewId, integration: integrationPayload }),
       });
       if (!response.ok) {
         const error = await response.json().catch(() => ({}));
         throw new Error(error.error || `Failed to load review ${reviewId}`);
       }
       const data = await response.json();
-      setSampleData({ review: data.review, ads: data.ads, client: data.client });
+      const context = data.context ?? {
+        review: data.review,
+        ads: data.ads,
+        client: data.client,
+        recipeType: data.recipeType,
+        recipeFieldKeys: data.recipeFieldKeys,
+        standardAds: data.standardAds,
+        summary: data.summary,
+        defaultExport: data.defaultExport,
+        generatedAt: data.generatedAt,
+        data: data.data,
+      };
+      setSampleData(context);
       setSampleError(null);
     } catch (error) {
       setSampleError(error instanceof Error ? error.message : String(error));
@@ -822,7 +839,19 @@ const AdminIntegrations = () => {
       }
       const data = await response.json();
       setTestResult({ mode, ...data });
-      setSampleData(data.context);
+      const context = data.context ?? {
+        review: data.review,
+        ads: data.ads,
+        client: data.client,
+        recipeType: data.recipeType,
+        recipeFieldKeys: data.recipeFieldKeys,
+        standardAds: data.standardAds,
+        summary: data.summary,
+        defaultExport: data.defaultExport,
+        generatedAt: data.generatedAt,
+        data: data.data,
+      };
+      setSampleData(context);
       setTestError(null);
     } catch (error) {
       setTestError(error instanceof Error ? error.message : String(error));
@@ -1628,6 +1657,47 @@ const AdminIntegrations = () => {
                       </pre>
                     </div>
                   )}
+                {Array.isArray(sampleData?.standardAds) &&
+                  sampleData.standardAds.length > 0 && (
+                    <div>
+                      <h3 className="text-sm font-semibold text-slate-700">Standard Ads</h3>
+                      <pre className="bg-slate-100 rounded-md p-3 text-xs overflow-x-auto whitespace-pre-wrap">
+                        {formatJson(sampleData.standardAds, "[]")}
+                      </pre>
+                    </div>
+                  )}
+                {sampleData?.defaultExport && (
+                  <div>
+                    <h3 className="text-sm font-semibold text-slate-700">Default Export</h3>
+                    <pre className="bg-slate-100 rounded-md p-3 text-xs overflow-x-auto whitespace-pre-wrap">
+                      {formatJson(sampleData.defaultExport, "{}")}
+                    </pre>
+                  </div>
+                )}
+                {sampleData?.summary && (
+                  <div>
+                    <h3 className="text-sm font-semibold text-slate-700">Summary</h3>
+                    <pre className="bg-slate-100 rounded-md p-3 text-xs overflow-x-auto whitespace-pre-wrap">
+                      {formatJson(sampleData.summary, "{}")}
+                    </pre>
+                  </div>
+                )}
+                {sampleData?.generatedAt && (
+                  <div>
+                    <h3 className="text-sm font-semibold text-slate-700">Generated At</h3>
+                    <pre className="bg-slate-100 rounded-md p-3 text-xs overflow-x-auto whitespace-pre-wrap">
+                      {sampleData.generatedAt}
+                    </pre>
+                  </div>
+                )}
+                {sampleData?.data && (
+                  <div>
+                    <h3 className="text-sm font-semibold text-slate-700">Mapping Data</h3>
+                    <pre className="bg-slate-100 rounded-md p-3 text-xs overflow-x-auto whitespace-pre-wrap">
+                      {formatJson(sampleData.data, "{}")}
+                    </pre>
+                  </div>
+                )}
               </div>
             </div>
           </div>

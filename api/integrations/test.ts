@@ -81,6 +81,11 @@ const handler: ApiHandler<IntegrationTestRequestBody> = async (req, res) => {
       client: mappingContext.client,
       recipeType: mappingContext.recipeType,
       recipeFieldKeys: mappingContext.recipeFieldKeys,
+      standardAds: mappingContext.standardAds,
+      summary: mappingContext.summary,
+      defaultExport: mappingContext.defaultExport,
+      generatedAt: mappingContext.generatedAt,
+      data: mappingContext.data,
     },
   });
 };
