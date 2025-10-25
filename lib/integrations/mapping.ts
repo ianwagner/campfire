@@ -1767,10 +1767,13 @@ function extractRecipeFieldKeys(recipeType: FirestoreRecord | null): string[] {
   for (const source of writeInSources) {
     if (!Array.isArray(source)) continue;
     for (const entry of source) {
-      if (isRecord(entry)) {
-        addKey(entry.key);
-        addKey(entry.name);
+      if (typeof entry === "string") {
+        addKey(entry);
+        continue;
       }
+      if (!isRecord(entry)) continue;
+      addKey(entry.key);
+      addKey(entry.name);
     }
   }
 
