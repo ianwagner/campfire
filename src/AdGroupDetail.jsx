@@ -39,6 +39,7 @@ import {
 } from "react-icons/fi";
 import { Bubbles } from "lucide-react";
 import { toDateSafe } from "./utils/helpdesk";
+import sanitizeSrc from "./utils/sanitizeSrc";
 import { FaMagic } from "react-icons/fa";
 import RecipePreview from "./RecipePreview.jsx";
 import CopyRecipePreview from "./CopyRecipePreview.jsx";
@@ -3284,7 +3285,9 @@ const AdGroupDetail = () => {
     const files = [];
     for (const asset of briefAssets) {
       try {
-        const resp = await fetch(asset.firebaseUrl);
+        const url = sanitizeSrc(asset.firebaseUrl);
+        if (!url) continue;
+        const resp = await fetch(url);
         const buf = await resp.arrayBuffer();
         files.push({ path: asset.filename, data: buf });
       } catch (err) {
@@ -4293,7 +4296,9 @@ const AdGroupDetail = () => {
         const info = parseAdFilename(asset.filename || "");
         const recipe = asset.recipeCode || info.recipeCode || "";
         const folder = `${root}${recipe}`;
-        const resp = await fetch(asset.firebaseUrl);
+        const url = sanitizeSrc(asset.firebaseUrl);
+        if (!url) continue;
+        const resp = await fetch(url);
         const buf = await resp.arrayBuffer();
         files.push({ path: `${folder}/${asset.filename}`, data: buf });
       }
@@ -5862,48 +5867,46 @@ const AdGroupDetail = () => {
                   } : undefined}
                 >
                   {briefAssets.length > 0 ? (
-                    briefAssets.map((a) => (
-                      <div key={a.id} className="asset-card group cursor-pointer">
-                        {(() => {
-                          const ext = fileExt(a.filename || '');
-                          if (a.firebaseUrl && ext === 'svg') {
-                            const img = (
-                              <img
-                                src={a.firebaseUrl}
-                                alt={a.filename}
-                                className="max-h-32 max-w-[10rem] object-contain"
-                              />
-                            );
-                            return (
-                              <a href={a.firebaseUrl} download>
-                                {img}
-                              </a>
-                            );
-                          }
-                          if (
-                            a.firebaseUrl &&
-                            !['ai', 'pdf'].includes(ext) &&
-                            !['otf', 'ttf', 'woff', 'woff2'].includes(ext)
-                          ) {
-                            const img = (
-                              <OptimizedImage
-                                pngUrl={a.firebaseUrl}
-                                alt={a.filename}
-                                className="max-h-32 max-w-[10rem] object-contain"
-                              />
-                            );
-                            return (
-                              <a href={a.firebaseUrl} download>
-                                {img}
-                              </a>
-                            );
-                          }
+                    briefAssets.map((a) => {
+                      const ext = fileExt(a.filename || '');
+                      const sanitizedUrl = sanitizeSrc(a.firebaseUrl);
+                      const linkHref = sanitizedUrl || a.firebaseUrl || undefined;
+                      const displaySrc = sanitizedUrl || a.firebaseUrl || '';
+                      const preview = (() => {
+                        if (a.firebaseUrl && ext === 'svg') {
                           return (
-                            <a href={a.firebaseUrl} download>
-                              <PlaceholderIcon ext={ext} />
-                            </a>
+                            <img
+                              src={displaySrc}
+                              alt={a.filename}
+                              className="max-h-32 max-w-[10rem] object-contain"
+                            />
                           );
-                        })()}
+                        }
+                        if (
+                          a.firebaseUrl &&
+                          !['ai', 'pdf'].includes(ext) &&
+                          !['otf', 'ttf', 'woff', 'woff2'].includes(ext)
+                        ) {
+                          return (
+                            <OptimizedImage
+                              pngUrl={a.firebaseUrl}
+                              alt={a.filename}
+                              className="max-h-32 max-w-[10rem] object-contain"
+                            />
+                          );
+                        }
+                        return <PlaceholderIcon ext={ext} />;
+                      })();
+
+                      return (
+                        <div key={a.id} className="asset-card group cursor-pointer">
+                          {linkHref ? (
+                            <a href={linkHref} download>
+                              {preview}
+                            </a>
+                          ) : (
+                            preview
+                          )}
                         {a.note && (
                           <div className="absolute bottom-1 right-1 rounded-full bg-accent p-1 text-white">
                             <FiFileText size={14} />
@@ -5911,13 +5914,15 @@ const AdGroupDetail = () => {
                         )}
                         {userRole === 'admin' && (
                           <div className="absolute inset-0 hidden flex-col items-center justify-center gap-1 bg-black bg-opacity-60 p-1 text-xs text-white group-hover:flex">
-                            <a
-                              href={a.firebaseUrl}
-                              download
-                              className="btn-secondary px-1 py-0.5"
-                            >
-                              Download
-                            </a>
+                            {linkHref ? (
+                              <a
+                                href={linkHref}
+                                download
+                                className="btn-secondary px-1 py-0.5"
+                              >
+                                Download
+                              </a>
+                            ) : null}
                             <label className="btn-secondary px-1 py-0.5 cursor-pointer">
                               Replace
                               <input
@@ -5949,7 +5954,7 @@ const AdGroupDetail = () => {
                           </div>
                         )}
                       </div>
-                    ))
+                    })
                   ) : (
                     <p className="w-full text-center text-sm text-gray-500 dark:text-gray-400">
                       {canAddBriefAssets
