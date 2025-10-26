@@ -75,6 +75,7 @@ import getVersion from './utils/getVersion';
 import stripVersion from './utils/stripVersion';
 import { isRealtimeReviewerEligible } from './utils/realtimeEligibility';
 import notifySlackStatusChange from './utils/notifySlackStatusChange';
+import getFinalizeGroupStatus from './utils/getFinalizeGroupStatus';
 import { toDateSafe, countUnreadHelpdeskTickets } from './utils/helpdesk';
 import { createZip } from './utils/zip';
 import {
@@ -4792,8 +4793,10 @@ useEffect(() => {
           ? ads.filter((asset) => asset.status === 'approved')
           : [];
 
+      const nextStatus = getFinalizeGroupStatus(ads);
+
       const updateData = {
-        status: 'reviewed',
+        status: nextStatus,
         reviewProgress: null,
         lastUpdated: serverTimestamp(),
         completedAt: serverTimestamp(),
@@ -4807,7 +4810,7 @@ useEffect(() => {
         brandCode: groupBrandCode || brandCode || '',
         adGroupId: groupId,
         adGroupName: adGroupDisplayName,
-        status: 'reviewed',
+        status: nextStatus,
         url: detailUrl,
         adGroupUrl,
       });
@@ -4817,7 +4820,7 @@ useEffect(() => {
           await addDoc(collection(db, 'adGroups', groupId, 'publicUpdates'), {
             type: 'status',
             update: {
-              status: 'reviewed',
+              status: nextStatus,
               reviewProgress: null,
               lastUpdated: new Date().toISOString(),
               completedAt: new Date().toISOString(),
@@ -4831,7 +4834,7 @@ useEffect(() => {
         }
       }
 
-      setGroupStatus('reviewed');
+      setGroupStatus(nextStatus);
       setInitialStatus('done');
       setStarted(false);
       setShowFinalizeModal(null);
