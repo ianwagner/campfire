@@ -5907,53 +5907,54 @@ const AdGroupDetail = () => {
                           ) : (
                             preview
                           )}
-                        {a.note && (
-                          <div className="absolute bottom-1 right-1 rounded-full bg-accent p-1 text-white">
-                            <FiFileText size={14} />
-                          </div>
-                        )}
-                        {userRole === 'admin' && (
-                          <div className="absolute inset-0 hidden flex-col items-center justify-center gap-1 bg-black bg-opacity-60 p-1 text-xs text-white group-hover:flex">
-                            {linkHref ? (
-                              <a
-                                href={linkHref}
-                                download
+                          {a.note && (
+                            <div className="absolute bottom-1 right-1 rounded-full bg-accent p-1 text-white">
+                              <FiFileText size={14} />
+                            </div>
+                          )}
+                          {userRole === 'admin' && (
+                            <div className="absolute inset-0 hidden flex-col items-center justify-center gap-1 bg-black bg-opacity-60 p-1 text-xs text-white group-hover:flex">
+                              {linkHref ? (
+                                <a
+                                  href={linkHref}
+                                  download
+                                  className="btn-secondary px-1 py-0.5"
+                                >
+                                  Download
+                                </a>
+                              ) : null}
+                              <label className="btn-secondary px-1 py-0.5 cursor-pointer">
+                                Replace
+                                <input
+                                  type="file"
+                                  className="hidden"
+                                  onChange={(e) => {
+                                    replaceBriefAsset(a, e.target.files[0]);
+                                    e.target.value = null;
+                                  }}
+                                />
+                              </label>
+                              <button
+                                onClick={() => addBriefAssetNote(a)}
                                 className="btn-secondary px-1 py-0.5"
                               >
-                                Download
-                              </a>
-                            ) : null}
-                            <label className="btn-secondary px-1 py-0.5 cursor-pointer">
-                              Replace
-                              <input
-                                type="file"
-                                className="hidden"
-                                onChange={(e) => {
-                                  replaceBriefAsset(a, e.target.files[0]);
-                                  e.target.value = null;
-                                }}
-                              />
-                            </label>
-                            <button
-                              onClick={() => addBriefAssetNote(a)}
-                              className="btn-secondary px-1 py-0.5"
-                            >
-                              Note
-                            </button>
-                            <button
-                              onClick={() => deleteBriefAsset(a)}
-                              className="btn-delete px-1 py-0.5"
-                            >
-                              Delete
-                            </button>
-                          </div>
-                        )}
-                        {userRole === 'designer' && a.note && (
-                          <div className="absolute inset-0 hidden whitespace-pre-wrap break-words items-center justify-center bg-black/60 p-1 text-center text-xs text-white group-hover:flex">
-                            {a.note}
-                          </div>
-                        )}
-                      </div>
+                                Note
+                              </button>
+                              <button
+                                onClick={() => deleteBriefAsset(a)}
+                                className="btn-delete px-1 py-0.5"
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          )}
+                          {userRole === 'designer' && a.note && (
+                            <div className="absolute inset-0 hidden whitespace-pre-wrap break-words items-center justify-center bg-black/60 p-1 text-center text-xs text-white group-hover:flex">
+                              {a.note}
+                            </div>
+                          )}
+                        </div>
+                      );
                     })
                   ) : (
                     <p className="w-full text-center text-sm text-gray-500 dark:text-gray-400">
