@@ -1751,6 +1751,29 @@ function formatDateField(...values: unknown[]): string | undefined {
   return undefined;
 }
 
+function formatGoLiveDate(value: string | undefined): string | undefined {
+  if (!value) {
+    return undefined;
+  }
+
+  const parsed = tryParseDate(value);
+  if (parsed) {
+    return parsed.toISOString().slice(0, 10);
+  }
+
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return undefined;
+  }
+
+  const match = /^\d{4}-\d{2}-\d{2}/.exec(trimmed);
+  if (match) {
+    return match[0];
+  }
+
+  return trimmed;
+}
+
 function formatUrl(value: unknown): string | undefined {
   const formatted = formatRowValue(value);
   return formatted ? formatted.trim() : undefined;
@@ -2135,8 +2158,8 @@ function buildStandardAdExports(
       extractStandardFieldValue("description", fieldContext)
     );
     const destinationUrl = formatUrl(extractStandardFieldValue("url", fieldContext));
-    const goLiveDate = formatDateField(
-      extractStandardFieldValue("goLive", fieldContext)
+    const goLiveDate = formatGoLiveDate(
+      formatDateField(extractStandardFieldValue("goLive", fieldContext))
     );
     const status = formatRowValue(extractStandardFieldValue("status", fieldContext));
 
@@ -3335,6 +3358,7 @@ function buildAggregatedAdsFromAdGroup({
       adGroupRecord?.metadata,
       adGroupRecord
     );
+    const goLiveDate = formatGoLiveDate(formatDateField(goLive));
 
     const recipeStatus = typeof recipeData.status === "string"
       ? recipeData.status.toLowerCase()
@@ -3427,7 +3451,7 @@ function buildAggregatedAdsFromAdGroup({
       moment,
       funnel,
       market,
-      goLiveDate: goLive,
+      goLiveDate: goLiveDate ?? goLive,
       goLive,
       destinationUrl,
       url: destinationUrl,
