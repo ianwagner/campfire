@@ -784,6 +784,7 @@ const Review = forwardRef(
   const statusBarRef = useRef(null);
   const toolbarRef = useRef(null);
   const recipePreviewRef = useRef(null);
+  const autoDispatchedIntegrationAssetIdsRef = useRef(new Set());
   const [statusBarPinned, setStatusBarPinned] = useState(false);
   const statusBarPinnedRef = useRef(statusBarPinned);
   useEffect(() => {
@@ -4164,15 +4165,15 @@ useEffect(() => {
         errorMessage: '',
       });
 
-      const payload = {
-        adGroupId: groupId,
-        integrationId: assignedIntegrationId,
-        integrationName: assignedIntegrationName || '',
-        approvedAssetIds: assetsList
-          .map((asset) => getAssetDocumentId(asset))
-          .filter(Boolean),
-        approvedAssets: assetsList.map((asset) => ({
-          id: getAssetDocumentId(asset),
+      const errors = [];
+
+      for (let index = 0; index < assetsList.length; index += 1) {
+        const asset = assetsList[index];
+        const assetId = getAssetDocumentId(asset);
+        const attempt = index + 1;
+
+        const approvedAsset = {
+          id: assetId,
           filename: asset.filename || '',
           status: asset.status || '',
           firebaseUrl: asset.firebaseUrl || '',
@@ -4181,143 +4182,168 @@ useEffect(() => {
           aspectRatio: asset.aspectRatio || '',
           recipeCode: asset.recipeCode || '',
           version: getVersion(asset),
-        })),
-      };
+        };
 
-      let responsePayloadSnapshot = null;
-      let responseHeadersSnapshot = null;
-      let responseStatusCode = null;
-      let requestPayloadSnapshot = payload;
-      let responseText = '';
-      let parsedResponse = null;
-      let errorHandled = false;
+        const payload = {
+          adGroupId: groupId,
+          integrationId: assignedIntegrationId,
+          integrationName: assignedIntegrationName || '',
+          approvedAssetId: assetId,
+          approvedAdId: assetId,
+          approvedAssetIds: assetId ? [assetId] : [],
+          approvedAssets: [approvedAsset],
+          approvedAsset,
+        };
 
-      try {
-        const response = await fetch('/api/integration-worker', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            integrationId: assignedIntegrationId,
-            reviewId: groupId,
-            attempt: 1,
-            payload,
-          }),
-        });
+        let responsePayloadSnapshot = null;
+        let responseHeadersSnapshot = null;
+        let responseStatusCode = null;
+        let requestPayloadSnapshot = payload;
+        let responseText = '';
+        let parsedResponse = null;
+        let errorHandled = false;
 
-        responseStatusCode = response.status;
-        responseText = await response.text();
-        if (responseText) {
-          try {
-            parsedResponse = JSON.parse(responseText);
-          } catch (err) {
-            parsedResponse = null;
-          }
-        }
+        try {
+          const response = await fetch('/api/integration-worker', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              integrationId: assignedIntegrationId,
+              reviewId: groupId,
+              attempt,
+              payload,
+            }),
+          });
 
-        if (
-          parsedResponse &&
-          typeof parsedResponse === 'object' &&
-          parsedResponse !== null
-        ) {
-          if (
-            parsedResponse.request &&
-            typeof parsedResponse.request === 'object' &&
-            parsedResponse.request !== null &&
-            Object.prototype.hasOwnProperty.call(parsedResponse.request, 'body')
-          ) {
-            requestPayloadSnapshot = parsedResponse.request.body;
-          } else if (
-            parsedResponse.mapping &&
-            typeof parsedResponse.mapping === 'object' &&
-            parsedResponse.mapping !== null &&
-            Object.prototype.hasOwnProperty.call(parsedResponse.mapping, 'payload')
-          ) {
-            requestPayloadSnapshot = parsedResponse.mapping.payload;
-          }
-
-          if (
-            parsedResponse.dispatch &&
-            typeof parsedResponse.dispatch === 'object' &&
-            parsedResponse.dispatch !== null
-          ) {
-            const dispatchData = parsedResponse.dispatch;
-            if (Object.prototype.hasOwnProperty.call(dispatchData, 'body')) {
-              responsePayloadSnapshot = dispatchData.body;
-            }
-            if (Object.prototype.hasOwnProperty.call(dispatchData, 'headers')) {
-              responseHeadersSnapshot = dispatchData.headers;
-            }
-            if (
-              Object.prototype.hasOwnProperty.call(dispatchData, 'status') &&
-              typeof dispatchData.status === 'number'
-            ) {
-              responseStatusCode = dispatchData.status;
-            }
-          }
-        }
-
-        if (responsePayloadSnapshot === null && responseText) {
-          try {
-            responsePayloadSnapshot = JSON.parse(responseText);
-          } catch (err) {
-            responsePayloadSnapshot = responseText;
-          }
-        }
-
-        if (responseStatusCode === null) {
           responseStatusCode = response.status;
-        }
+          responseText = await response.text();
+          if (responseText) {
+            try {
+              parsedResponse = JSON.parse(responseText);
+            } catch (err) {
+              parsedResponse = null;
+            }
+          }
 
-        if (!response.ok) {
-          const message = (() => {
+          if (
+            parsedResponse &&
+            typeof parsedResponse === 'object' &&
+            parsedResponse !== null
+          ) {
             if (
-              parsedResponse &&
-              typeof parsedResponse === 'object' &&
-              parsedResponse !== null
+              parsedResponse.request &&
+              typeof parsedResponse.request === 'object' &&
+              parsedResponse.request !== null &&
+              Object.prototype.hasOwnProperty.call(parsedResponse.request, 'body')
             ) {
-              if (typeof parsedResponse.error === 'string') {
-                return parsedResponse.error;
+              requestPayloadSnapshot = parsedResponse.request.body;
+            } else if (
+              parsedResponse.mapping &&
+              typeof parsedResponse.mapping === 'object' &&
+              parsedResponse.mapping !== null &&
+              Object.prototype.hasOwnProperty.call(parsedResponse.mapping, 'payload')
+            ) {
+              requestPayloadSnapshot = parsedResponse.mapping.payload;
+            }
+
+            if (
+              parsedResponse.dispatch &&
+              typeof parsedResponse.dispatch === 'object' &&
+              parsedResponse.dispatch !== null
+            ) {
+              const dispatchData = parsedResponse.dispatch;
+              if (Object.prototype.hasOwnProperty.call(dispatchData, 'body')) {
+                responsePayloadSnapshot = dispatchData.body;
               }
-              if (typeof parsedResponse.message === 'string') {
-                return parsedResponse.message;
+              if (Object.prototype.hasOwnProperty.call(dispatchData, 'headers')) {
+                responseHeadersSnapshot = dispatchData.headers;
+              }
+              if (
+                Object.prototype.hasOwnProperty.call(dispatchData, 'status') &&
+                typeof dispatchData.status === 'number'
+              ) {
+                responseStatusCode = dispatchData.status;
               }
             }
-            return response.statusText || 'Integration request failed.';
-          })();
+          }
 
-          errorHandled = true;
-          await updateIntegrationStatusForAssets(assetsList, 'error', {
-            errorMessage: message,
+          if (responsePayloadSnapshot === null && responseText) {
+            try {
+              responsePayloadSnapshot = JSON.parse(responseText);
+            } catch (err) {
+              responsePayloadSnapshot = responseText;
+            }
+          }
+
+          if (responseStatusCode === null) {
+            responseStatusCode = response.status;
+          }
+
+          if (!response.ok) {
+            const message = (() => {
+              if (
+                parsedResponse &&
+                typeof parsedResponse === 'object' &&
+                parsedResponse !== null
+              ) {
+                if (typeof parsedResponse.error === 'string') {
+                  return parsedResponse.error;
+                }
+                if (typeof parsedResponse.message === 'string') {
+                  return parsedResponse.message;
+                }
+              }
+              return response.statusText || 'Integration request failed.';
+            })();
+
+            errorHandled = true;
+            await updateIntegrationStatusForAssets([asset], 'error', {
+              errorMessage: message,
+              requestPayload: requestPayloadSnapshot,
+              responsePayload: responsePayloadSnapshot,
+              responseStatus: responseStatusCode,
+              responseHeaders: responseHeadersSnapshot,
+            });
+            errors.push({
+              assetId,
+              message,
+            });
+            continue;
+          }
+
+          await updateIntegrationStatusForAssets([asset], 'received', {
             requestPayload: requestPayloadSnapshot,
             responsePayload: responsePayloadSnapshot,
             responseStatus: responseStatusCode,
             responseHeaders: responseHeadersSnapshot,
+            errorMessage: '',
           });
-          throw new Error(message);
+        } catch (error) {
+          const message =
+            error instanceof Error ? error.message : 'Integration dispatch failed.';
+          if (!errorHandled) {
+            await updateIntegrationStatusForAssets([asset], 'error', {
+              errorMessage: message,
+              requestPayload: requestPayloadSnapshot,
+              responsePayload: responsePayloadSnapshot,
+              responseStatus: responseStatusCode,
+              responseHeaders: responseHeadersSnapshot,
+            });
+          }
+          errors.push({
+            assetId,
+            message,
+          });
         }
+      }
 
-        await updateIntegrationStatusForAssets(assetsList, 'received', {
-          requestPayload: requestPayloadSnapshot,
-          responsePayload: responsePayloadSnapshot,
-          responseStatus: responseStatusCode,
-          responseHeaders: responseHeadersSnapshot,
-          errorMessage: '',
-        });
-      } catch (error) {
-        const message =
-          error instanceof Error ? error.message : 'Integration dispatch failed.';
-        if (!errorHandled) {
-          await updateIntegrationStatusForAssets(assetsList, 'error', {
-            errorMessage: message,
-            requestPayload: requestPayloadSnapshot,
-            responsePayload: responsePayloadSnapshot,
-            responseStatus: responseStatusCode,
-            responseHeaders: responseHeadersSnapshot,
-          });
-        }
-        throw error;
+      if (errors.length > 0) {
+        const combinedMessage = errors
+          .map((entry) => `${entry.assetId || 'ad'}: ${entry.message}`)
+          .join('; ');
+        throw new Error(combinedMessage);
       }
     },
     [
@@ -4327,6 +4353,80 @@ useEffect(() => {
       updateIntegrationStatusForAssets,
     ],
   );
+
+  useEffect(() => {
+    const normalizedStatus = normalizeKeyPart(groupStatus).toLowerCase();
+
+    if (!groupId || !assignedIntegrationId || normalizedStatus !== 'done') {
+      autoDispatchedIntegrationAssetIdsRef.current = new Set();
+      return;
+    }
+
+    const eligibleAssets = ads.filter((asset) => {
+      if (!asset || typeof asset !== 'object') {
+        return false;
+      }
+      const assetStatus = normalizeKeyPart(asset.status).toLowerCase();
+      if (assetStatus !== 'approved') {
+        return false;
+      }
+      const statuses =
+        asset.integrationStatuses && typeof asset.integrationStatuses === 'object'
+          ? asset.integrationStatuses
+          : null;
+      const statusEntry = statuses ? statuses[assignedIntegrationId] : null;
+      const state = normalizeKeyPart(statusEntry?.state).toLowerCase();
+      if (state === 'received' || state === 'sending') {
+        return false;
+      }
+      return true;
+    });
+
+    if (eligibleAssets.length === 0) {
+      return;
+    }
+
+    const assetsToDispatch = [];
+    const dispatchedIds = [];
+
+    for (const asset of eligibleAssets) {
+      const docId = getAssetDocumentId(asset);
+      if (!docId) {
+        continue;
+      }
+      if (autoDispatchedIntegrationAssetIdsRef.current.has(docId)) {
+        continue;
+      }
+      autoDispatchedIntegrationAssetIdsRef.current.add(docId);
+      dispatchedIds.push(docId);
+      assetsToDispatch.push(asset);
+    }
+
+    if (assetsToDispatch.length === 0) {
+      return;
+    }
+
+    let cancelled = false;
+
+    dispatchIntegrationForApprovedAds(assetsToDispatch).catch((error) => {
+      console.error('Failed to dispatch integration when group marked done', error);
+      if (!cancelled) {
+        dispatchedIds.forEach((id) =>
+          autoDispatchedIntegrationAssetIdsRef.current.delete(id),
+        );
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    ads,
+    assignedIntegrationId,
+    dispatchIntegrationForApprovedAds,
+    groupId,
+    groupStatus,
+  ]);
 
   const handleFinalizeReview = async (approvePending = false) => {
     if (!groupId) {
