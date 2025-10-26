@@ -38,6 +38,7 @@ import {
   FiExternalLink,
 } from "react-icons/fi";
 import { Bubbles } from "lucide-react";
+import { toDateSafe } from "./utils/helpdesk";
 import { FaMagic } from "react-icons/fa";
 import RecipePreview from "./RecipePreview.jsx";
 import CopyRecipePreview from "./CopyRecipePreview.jsx";
@@ -4439,6 +4440,61 @@ const AdGroupDetail = () => {
       INTEGRATION_TONE_STYLES.info;
     const integrationAssetLabel =
       integrationSummary?.asset?.filename || "Unnamed asset";
+    const replacementEntries = activeAds
+      .map((asset) => {
+        const request = asset.replacementRequest;
+        const note = (request?.note || '').trim();
+        if (!note) return null;
+        const requestedAt = toDateSafe(request?.requestedAt);
+        const info = parseAdFilename(asset.filename || '');
+        const aspect = info.aspectRatio || asset.aspectRatio || '';
+        const assetLabel = aspect ? aspect.toUpperCase() : asset.filename || '';
+        return {
+          note,
+          requestedBy:
+            request?.requestedBy ||
+            request?.requestedByEmail ||
+            request?.requestedById ||
+            '',
+          requestedAt: requestedAt || null,
+          assetLabel,
+        };
+      })
+      .filter(Boolean);
+    const replacementSummary = (() => {
+      if (!replacementEntries.length) return null;
+      replacementEntries.sort(
+        (a, b) => (b.requestedAt?.getTime?.() || 0) - (a.requestedAt?.getTime?.() || 0),
+      );
+      const labels = Array.from(
+        new Set(replacementEntries.map((entry) => entry.assetLabel).filter(Boolean)),
+      );
+      return {
+        note: replacementEntries[0].note,
+        requestedBy: replacementEntries[0].requestedBy,
+        requestedAt: replacementEntries[0].requestedAt,
+        assetLabels: labels,
+      };
+    })();
+    const replacementMetaLine = replacementSummary
+      ? [
+          replacementSummary.requestedBy
+            ? `Logged by ${replacementSummary.requestedBy}`
+            : null,
+          replacementSummary.requestedAt
+            ? replacementSummary.requestedAt.toLocaleDateString(undefined, {
+                month: 'short',
+                day: 'numeric',
+                year: 'numeric',
+              })
+            : null,
+          replacementSummary.assetLabels?.length
+            ? `Affects ${replacementSummary.assetLabels.join(', ')}`
+            : null,
+        ]
+          .filter(Boolean)
+          .join(' • ')
+      : '';
 
     const normalizedRecipe = normalizeRecipeCode(g.recipeCode);
     const storedAssignmentId = normalizedRecipe
@@ -4585,6 +4641,28 @@ const AdGroupDetail = () => {
             <StatusBadge status={getRecipeStatus(g.assets)} />
           </td>
           <td className="text-sm">
+            {replacementSummary && (
+              <div className="mb-3 space-y-2">
+                <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-100">
+                  Replacement requested
+                  {replacementSummary.assetLabels?.length ? (
+                    <span className="ml-1 text-[10px] font-medium normal-case">
+                      {replacementSummary.assetLabels.join(', ')}
+                    </span>
+                  ) : null}
+                </span>
+                <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-100">
+                  <p className="whitespace-pre-wrap leading-relaxed">
+                    {replacementSummary.note}
+                  </p>
+                  {replacementMetaLine && (
+                    <p className="mt-2 text-[11px] font-medium uppercase tracking-wide text-amber-700/80 dark:text-amber-200/80">
+                      {replacementMetaLine}
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
             {integrationSummary ? (
               <div className="flex flex-col items-start gap-2">
                 <button
