@@ -731,29 +731,28 @@ const SiteSettings = () => {
                   </section>
                 );
               })}
-              </div>
               <div className="space-y-4 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar)]">
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
                   Available placeholders
                 </h3>
-              <p className="text-sm text-gray-600 dark:text-gray-300">
-                Use these tokens to insert dynamic values into your templates.
-              </p>
-              <div className="grid gap-3 sm:grid-cols-2">
-                {slackMessagePlaceholders.map((placeholder) => (
-                  <div
-                    key={placeholder.key}
-                    className="space-y-1 rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-bg)]"
-                  >
-                    <code className="rounded bg-gray-200 px-1 py-px text-xs font-semibold text-gray-700 dark:bg-gray-700 dark:text-gray-100">
-                      {`{{${placeholder.key}}}`}
-                    </code>
-                    <p className="text-sm text-gray-600 dark:text-gray-300">
-                      {placeholder.description}
-                    </p>
-                  </div>
-                ))}
-              </div>
+                <p className="text-sm text-gray-600 dark:text-gray-300">
+                  Use these tokens to insert dynamic values into your templates.
+                </p>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {slackMessagePlaceholders.map((placeholder) => (
+                    <div
+                      key={placeholder.key}
+                      className="space-y-1 rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-bg)]"
+                    >
+                      <code className="rounded bg-gray-200 px-1 py-px text-xs font-semibold text-gray-700 dark:bg-gray-700 dark:text-gray-100">
+                        {`{{${placeholder.key}}}`}
+                      </code>
+                      <p className="text-sm text-gray-600 dark:text-gray-300">
+                        {placeholder.description}
+                      </p>
+                    </div>
+                  ))}
+                </div>
               </div>
             </form>
           </div>
