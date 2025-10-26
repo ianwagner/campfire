@@ -382,6 +382,67 @@ function normalizeProductKey(value: unknown): string {
   return normalizeKeyPart(value).toLowerCase();
 }
 
+function buildProductUrlLookup(...sources: unknown[]): Map<string, string> {
+  const lookup = new Map<string, string>();
+
+  const register = (product: Record<string, unknown>) => {
+    const name = firstMeaningfulValue(
+      extractValueFromObject(product, "product.name"),
+      product["name"],
+      product["title"],
+      product["productName"],
+      product["product_name"],
+      product["product_title"],
+      product["product"]
+    );
+
+    const url = formatUrl(
+      firstMeaningfulValue(
+        extractValueFromObject(product, "product.url"),
+        product["url"],
+        product["href"],
+        product["link"],
+        product["productUrl"],
+        product["product_url"]
+      )
+    );
+
+    const normalizedName = normalizeProductKey(name);
+    if (!normalizedName || !url || lookup.has(normalizedName)) {
+      return;
+    }
+
+    lookup.set(normalizedName, url);
+  };
+
+  const inspect = (value: unknown) => {
+    if (!value) {
+      return;
+    }
+
+    if (Array.isArray(value)) {
+      value.forEach((entry) => inspect(entry));
+      return;
+    }
+
+    if (!isRecord(value)) {
+      return;
+    }
+
+    const record = value as Record<string, unknown>;
+    register(record);
+
+    const nested = record["products"];
+    if (Array.isArray(nested)) {
+      nested.forEach((entry) => inspect(entry));
+    }
+  };
+
+  sources.forEach((source) => inspect(source));
+
+  return lookup;
+}
+
 const CANONICAL_ASPECTS = [
   { label: "1x1", ratio: 1 },
   { label: "4x5", ratio: 4 / 5 },
@@ -3078,6 +3139,13 @@ function buildAggregatedAdsFromAdGroup({
     adGroupBrand?.code
   );
 
+  const productUrlLookup = buildProductUrlLookup(
+    reviewBrand?.products,
+    adGroupBrand?.products,
+    review.products,
+    adGroupRecord?.products
+  );
+
   return recipes.map((recipe, index) => {
     const recipeRecord: FirestoreRecord = { ...recipe };
     const recipeData = recipeRecord as Record<string, unknown>;
@@ -3114,6 +3182,13 @@ function buildAggregatedAdsFromAdGroup({
       extractValueFromObject(recipeComponents, "product.url"),
       extractValueFromObject(recipeComponents, "url")
     );
+
+    if (!hasMeaningfulValue(destinationUrl) && productName) {
+      const matchedUrl = productUrlLookup.get(normalizeProductKey(productName));
+      if (matchedUrl) {
+        destinationUrl = matchedUrl;
+      }
+    }
 
     if (!hasMeaningfulValue(destinationUrl)) {
       destinationUrl = pickMetaField(
@@ -3321,6 +3396,18 @@ function buildAggregatedAdsFromAdGroup({
       ...recipeMeta,
       ...assetFields,
     };
+
+    if (destinationUrl) {
+      if (!hasMeaningfulValue(recipeFields["product.url"])) {
+        recipeFields["product.url"] = destinationUrl;
+      }
+      if (!hasMeaningfulValue(recipeFields.productUrl)) {
+        recipeFields.productUrl = destinationUrl;
+      }
+      if (!hasMeaningfulValue(recipeFields.product_url)) {
+        recipeFields.product_url = destinationUrl;
+      }
+    }
 
     const aggregated: FirestoreRecord = {
       id: `${review.id}|${recipeRecord.id ?? recipeNumber ?? index}`,
