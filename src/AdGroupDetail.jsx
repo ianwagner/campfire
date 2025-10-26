@@ -146,6 +146,12 @@ const INTEGRATION_TONE_STYLES = {
   },
 };
 
+const INTEGRATION_TONE_PRIORITY = {
+  error: 3,
+  info: 2,
+  success: 1,
+};
+
 const resolveDate = (value) => {
   if (!value) return null;
   if (value instanceof Date) {
@@ -171,6 +177,54 @@ const formatIntegrationDate = (value) => {
   } catch (err) {
     return date.toISOString();
   }
+};
+
+const getIntegrationBadgePriority = (badge) =>
+  INTEGRATION_TONE_PRIORITY[badge?.tone] || 0;
+
+const getIntegrationBadgeUpdatedAt = (badge) => {
+  if (!badge || !badge.statusEntry) {
+    return 0;
+  }
+
+  const raw = badge.statusEntry.updatedAt;
+  if (!raw) {
+    return 0;
+  }
+
+  if (typeof raw === "number") {
+    return raw > 1e12 ? raw : raw * 1000;
+  }
+
+  if (typeof raw === "string") {
+    const parsed = Date.parse(raw);
+    return Number.isNaN(parsed) ? 0 : parsed;
+  }
+
+  if (raw instanceof Date) {
+    return Number.isNaN(raw.getTime()) ? 0 : raw.getTime();
+  }
+
+  if (typeof raw === "object") {
+    if (typeof raw.toDate === "function") {
+      try {
+        const date = raw.toDate();
+        return Number.isNaN(date.getTime()) ? 0 : date.getTime();
+      } catch (err) {
+        // fall through to seconds handling
+      }
+    }
+
+    if (typeof raw.seconds === "number") {
+      const seconds = raw.seconds;
+      const nanoseconds =
+        typeof raw.nanoseconds === "number" ? raw.nanoseconds : 0;
+      return seconds * 1000 + nanoseconds / 1e6;
+    }
+  }
+
+  const resolved = resolveDate(raw);
+  return resolved ? resolved.getTime() : 0;
 };
 
 const formatDateOnly = (value) => {
@@ -4350,12 +4404,41 @@ const AdGroupDetail = () => {
     );
 
     const activeAds = g.assets.filter((a) => a.status !== "archived");
-    const integrationSummaries = activeAds
-      .map((asset) => {
-        const badge = getIntegrationBadgeDetails(asset);
-        return badge ? { asset, badge } : null;
-      })
-      .filter(Boolean);
+    const integrationSummary = activeAds.reduce((best, asset) => {
+      const badge = getIntegrationBadgeDetails(asset);
+      if (!badge) {
+        return best;
+      }
+
+      const candidate = { asset, badge };
+      if (!best) {
+        return candidate;
+      }
+
+      const candidatePriority = getIntegrationBadgePriority(candidate.badge);
+      const bestPriority = getIntegrationBadgePriority(best.badge);
+      if (candidatePriority !== bestPriority) {
+        return candidatePriority > bestPriority ? candidate : best;
+      }
+
+      const candidateUpdatedAt = getIntegrationBadgeUpdatedAt(candidate.badge);
+      const bestUpdatedAt = getIntegrationBadgeUpdatedAt(best.badge);
+      if (candidateUpdatedAt !== bestUpdatedAt) {
+        return candidateUpdatedAt > bestUpdatedAt ? candidate : best;
+      }
+
+      return best;
+    }, null);
+    const integrationToneKey =
+      integrationSummary?.badge?.tone &&
+      INTEGRATION_TONE_STYLES[integrationSummary.badge.tone]
+        ? integrationSummary.badge.tone
+        : "info";
+    const integrationToneStyles =
+      INTEGRATION_TONE_STYLES[integrationToneKey] ||
+      INTEGRATION_TONE_STYLES.info;
+    const integrationAssetLabel =
+      integrationSummary?.asset?.filename || "Unnamed asset";
 
     const normalizedRecipe = normalizeRecipeCode(g.recipeCode);
     const storedAssignmentId = normalizedRecipe
@@ -4502,46 +4585,38 @@ const AdGroupDetail = () => {
             <StatusBadge status={getRecipeStatus(g.assets)} />
           </td>
           <td className="text-sm">
-            {integrationSummaries.length > 0 ? (
+            {integrationSummary ? (
               <div className="flex flex-col items-start gap-2">
-                {integrationSummaries.map(({ asset, badge }) => {
-                  const toneKey =
-                    badge?.tone && INTEGRATION_TONE_STYLES[badge.tone]
-                      ? badge.tone
-                      : "info";
-                  const toneStyles =
-                    INTEGRATION_TONE_STYLES[toneKey] ||
-                    INTEGRATION_TONE_STYLES.info;
-                  const assetLabel = asset.filename || "Unnamed asset";
-                  return (
-                    <button
-                      type="button"
-                      key={asset.id || `${asset.filename || "asset"}-${badge.state}`}
-                      onClick={() => setIntegrationDetail({ asset, badge })}
-                      className={`group inline-flex w-full max-w-[260px] items-start gap-2 rounded-lg border px-3 py-2 text-left text-xs font-semibold shadow-sm transition focus:outline-none focus:ring-2 ${toneStyles.container}`}
-                      title={`View integration delivery details for ${assetLabel}`}
+                <button
+                  type="button"
+                  onClick={() =>
+                    setIntegrationDetail({
+                      asset: integrationSummary.asset,
+                      badge: integrationSummary.badge,
+                    })
+                  }
+                  className={`group inline-flex w-full max-w-[260px] items-start gap-2 rounded-lg border px-3 py-2 text-left text-xs font-semibold shadow-sm transition focus:outline-none focus:ring-2 ${integrationToneStyles.container}`}
+                  title={`View integration delivery details for ${integrationAssetLabel}`}
+                >
+                  <span
+                    className={`mt-1 h-2 w-2 rounded-full ${integrationToneStyles.dot}`}
+                    aria-hidden="true"
+                  />
+                  <span className="flex min-w-0 flex-col">
+                    <span className="truncate text-xs font-semibold leading-tight">
+                      {integrationSummary.badge.text}
+                    </span>
+                    <span className="mt-0.5 truncate text-[11px] font-medium leading-tight opacity-80">
+                      {integrationAssetLabel}
+                    </span>
+                    <span
+                      className={`mt-1 inline-flex items-center gap-1 text-[11px] font-medium leading-tight opacity-90 ${integrationToneStyles.accent}`}
                     >
-                      <span
-                        className={`mt-1 h-2 w-2 rounded-full ${toneStyles.dot}`}
-                        aria-hidden="true"
-                      />
-                      <span className="flex min-w-0 flex-col">
-                        <span className="truncate text-xs font-semibold leading-tight">
-                          {badge.text}
-                        </span>
-                        <span className="mt-0.5 truncate text-[11px] font-medium leading-tight opacity-80">
-                          {assetLabel}
-                        </span>
-                        <span
-                          className={`mt-1 inline-flex items-center gap-1 text-[11px] font-medium leading-tight opacity-90 ${toneStyles.accent}`}
-                        >
-                          View payload & response
-                          <FiExternalLink className="h-3 w-3" aria-hidden="true" />
-                        </span>
-                      </span>
-                    </button>
-                  );
-                })}
+                      View payload & response
+                      <FiExternalLink className="h-3 w-3" aria-hidden="true" />
+                    </span>
+                  </span>
+                </button>
               </div>
             ) : (
               editAsset && (
