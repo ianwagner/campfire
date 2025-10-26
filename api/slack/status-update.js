@@ -204,6 +204,101 @@ function collectStringValues(value, add) {
   }
 }
 
+function getFirstNonEmptyString(...values) {
+  for (const value of values) {
+    if (typeof value === "string") {
+      const trimmed = value.trim();
+      if (trimmed) {
+        return trimmed;
+      }
+    }
+  }
+
+  return "";
+}
+
+function resolveIntegrationNameFromGroup(groupData) {
+  if (!groupData || typeof groupData !== "object") {
+    return "";
+  }
+
+  const candidates = [];
+  const addCandidate = (value) => {
+    if (typeof value !== "string") {
+      return;
+    }
+
+    const trimmed = value.trim();
+    if (trimmed && !candidates.includes(trimmed)) {
+      candidates.push(trimmed);
+    }
+  };
+
+  addCandidate(groupData.integrationName);
+  addCandidate(groupData.integrationDisplayName);
+  addCandidate(groupData.assignedIntegrationName);
+  addCandidate(groupData.assignedIntegrationDisplayName);
+
+  const integration =
+    groupData.integration && typeof groupData.integration === "object"
+      ? groupData.integration
+      : null;
+  if (integration) {
+    addCandidate(integration.name);
+    addCandidate(integration.displayName);
+    addCandidate(integration.label);
+    addCandidate(integration.title);
+  }
+
+  const assignedIntegration =
+    groupData.assignedIntegration &&
+    typeof groupData.assignedIntegration === "object"
+      ? groupData.assignedIntegration
+      : null;
+  if (assignedIntegration) {
+    addCandidate(assignedIntegration.name);
+    addCandidate(assignedIntegration.displayName);
+    addCandidate(assignedIntegration.label);
+    addCandidate(assignedIntegration.title);
+  }
+
+  const assignedIntegrationId = getFirstNonEmptyString(
+    groupData.assignedIntegrationId,
+    integration ? integration.id : "",
+  );
+
+  if (assignedIntegrationId) {
+    const statusMaps = [];
+    if (
+      groupData.integrationStatuses &&
+      typeof groupData.integrationStatuses === "object"
+    ) {
+      statusMaps.push(groupData.integrationStatuses);
+    }
+    if (
+      groupData.integrationStatus &&
+      typeof groupData.integrationStatus === "object"
+    ) {
+      statusMaps.push(groupData.integrationStatus);
+    }
+
+    for (const statusMap of statusMaps) {
+      if (!statusMap || typeof statusMap !== "object") {
+        continue;
+      }
+
+      const entry = statusMap[assignedIntegrationId];
+      if (entry && typeof entry === "object") {
+        addCandidate(entry.integrationName);
+        addCandidate(entry.name);
+        addCandidate(entry.displayName);
+      }
+    }
+  }
+
+  return candidates.length ? candidates[0] : "";
+}
+
 const userNameCache = new Map();
 
 async function getUserDisplayName(userId) {
@@ -432,6 +527,11 @@ function createTemplateReplacements(context = {}) {
     designerName: context.designerName || "Unassigned",
     editor: formatInlineCode(context.editorName, context.editorName || "Unknown"),
     editorName: context.editorName || "Unknown",
+    integration: formatInlineCode(
+      context.integrationName,
+      context.integrationName || "Unassigned",
+    ),
+    integrationName: context.integrationName || "Unassigned",
     approvedCount: formatInlineCode(
       String(Number(context.approvedCount) || 0),
       "0",
@@ -932,6 +1032,8 @@ module.exports = async function handler(req, res) {
       rejectedCount = toNumber(adGroupData.rejectedCount);
     }
 
+    let integrationName = resolveIntegrationNameFromGroup(adGroupData);
+
     let productNames = [];
     if (status === "designed") {
       productNames = await getRecipeProductNames(adGroupId);
@@ -999,6 +1101,28 @@ module.exports = async function handler(req, res) {
         ? brandDocData.slackMentions
         : null;
 
+    if (!integrationName && brandDocData && typeof brandDocData === "object") {
+      integrationName = getFirstNonEmptyString(
+        brandDocData.defaultIntegrationName,
+        brandDocData.defaultIntegrationDisplayName,
+        brandDocData.integrationName,
+        brandDocData.integrationDisplayName,
+      );
+
+      if (
+        !integrationName &&
+        brandDocData.defaultIntegration &&
+        typeof brandDocData.defaultIntegration === "object"
+      ) {
+        integrationName = getFirstNonEmptyString(
+          brandDocData.defaultIntegration.name,
+          brandDocData.defaultIntegration.displayName,
+          brandDocData.defaultIntegration.integrationName,
+          brandDocData.defaultIntegration.label,
+        );
+      }
+    }
+
     const resolvedBrandCodeRaw = brandCandidates.find(
       (value) => typeof value === "string" && value.trim()
     );
@@ -1023,6 +1147,7 @@ module.exports = async function handler(req, res) {
       reviewUrl,
       adGroupUrl,
       note,
+      integrationName,
     }, siteTemplates);
 
     const externalText = buildExternalMessage(status, {
@@ -1032,6 +1157,7 @@ module.exports = async function handler(req, res) {
       rejectedCount,
       reviewUrl,
       productNames,
+      integrationName,
     }, siteTemplates);
 
     const externalPayload = externalText ? { text: externalText } : null;

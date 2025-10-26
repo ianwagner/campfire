@@ -72,6 +72,14 @@
     "description": "Raw note content (empty when no note is provided)."
   },
   {
+    "key": "integration",
+    "description": "Integration name formatted with inline code styling."
+  },
+  {
+    "key": "integrationName",
+    "description": "Integration name without additional formatting."
+  },
+  {
     "key": "productTags",
     "description": "Product hashtags (e.g. #Widget) separated by spaces."
   },
