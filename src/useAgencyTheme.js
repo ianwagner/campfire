@@ -12,6 +12,8 @@ const defaultAgency = {
   allowedRecipeTypes: [],
   defaultIntegrationId: null,
   defaultIntegrationName: '',
+  slackNotificationMode: 'default',
+  slackNotificationChannelIds: [],
 };
 
 const getStoredAgency = (id) => {
