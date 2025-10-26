@@ -65,6 +65,7 @@ const BrandSlackMentions = ({ brandId: propId = null, brandCode: propCode = '' }
   const [resolvedBrandCode, setResolvedBrandCode] = useState(propCode);
   const [formValues, setFormValues] = useState(createEmptyState);
   const [initialValues, setInitialValues] = useState(createEmptyState);
+  const [existingMentions, setExistingMentions] = useState({});
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
@@ -79,6 +80,7 @@ const BrandSlackMentions = ({ brandId: propId = null, brandCode: propCode = '' }
         setResolvedBrandCode('');
         setFormValues(createEmptyState());
         setInitialValues(createEmptyState());
+        setExistingMentions({});
         return;
       }
 
@@ -113,7 +115,7 @@ const BrandSlackMentions = ({ brandId: propId = null, brandCode: propCode = '' }
           const data = brandDoc.data() || {};
           setResolvedBrandId(brandDoc.id);
           setResolvedBrandCode(data.code || propCode || '');
-          const config = data.slackMentions || {};
+          const config = data.slackMentions ? { ...data.slackMentions } : {};
           const nextValues = createEmptyState();
           EXTERNAL_MESSAGE_TYPES.forEach((type) => {
             if (Object.prototype.hasOwnProperty.call(config, type.key)) {
@@ -122,12 +124,14 @@ const BrandSlackMentions = ({ brandId: propId = null, brandCode: propCode = '' }
           });
           setFormValues(nextValues);
           setInitialValues(nextValues);
+          setExistingMentions(config);
         } else {
           setResolvedBrandId(propId || null);
           setResolvedBrandCode(propCode || '');
           const empty = createEmptyState();
           setFormValues(empty);
           setInitialValues(empty);
+          setExistingMentions({});
         }
       } catch (err) {
         console.error('Failed to load Slack mention settings', err);
@@ -136,6 +140,7 @@ const BrandSlackMentions = ({ brandId: propId = null, brandCode: propCode = '' }
           const empty = createEmptyState();
           setFormValues(empty);
           setInitialValues(empty);
+          setExistingMentions({});
         }
       } finally {
         if (!cancelled) {
@@ -187,7 +192,7 @@ const BrandSlackMentions = ({ brandId: propId = null, brandCode: propCode = '' }
     setError('');
 
     try {
-      const payload = {};
+      const payload = { ...existingMentions };
       EXTERNAL_MESSAGE_TYPES.forEach((type) => {
         const emails = parseEmails(formValues[type.key]);
         payload[type.key] = emails;
@@ -206,6 +211,7 @@ const BrandSlackMentions = ({ brandId: propId = null, brandCode: propCode = '' }
 
       setInitialValues(normalized);
       setFormValues(normalized);
+      setExistingMentions(payload);
       setMessage('Slack mention settings saved');
     } catch (err) {
       console.error('Failed to save Slack mention settings', err);
