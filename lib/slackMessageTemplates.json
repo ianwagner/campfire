@@ -1,0 +1,16 @@
+{
+  "internal": {
+    "designed": "{{brand}}\nAd group: {{adGroup}} has been designed by {{designer}}!\n\n{{adGroupLink}}",
+    "briefed": "{{brand}}\nAd group: {{adGroup}} has been briefed by {{editor}}!\n\n{{noteBlock}}\n\n{{adGroupLink}}",
+    "reviewed": "{{brand}}  {{editor}}  {{designer}}\nAd group: {{adGroup}} has been reviewed!\nApproved: {{approvedCount}}\nEdit Requests: {{editRequestedCount}}\nRejections: {{rejectedCount}}\n\n{{adGroupLink}}",
+    "blocked": "{{brand}}  {{editor}}  {{designer}}\nAd group: {{adGroup}} is blocked!\n\n[divider]\n\n{{noteSection}}\n\n{{adGroupLink}}",
+    "overall-feedback": "{{brand}}  {{editor}}  {{designer}}\nOverall feedback note received for {{adGroup}}\n\n[divider]\n\n{{noteSection}}\n\n{{adGroupLink}}"
+  },
+  "external": {
+    "designed": "Ad group: {{adGroup}} is ready for review.\n{{offerTags}}\n\n{{reviewLink}}",
+    "briefed": "",
+    "reviewed": "Review completed for {{adGroup}}\nApproved: {{approvedCount}}\nEdit Requests: {{editRequestedCount}}\nRejections: {{rejectedCount}}\n\n{{reviewLink}}",
+    "blocked": "",
+    "overall-feedback": ""
+  }
+}

@@ -1,0 +1,86 @@
+[
+  {
+    "key": "brand",
+    "description": "Brand code formatted with inline code styling."
+  },
+  {
+    "key": "brandName",
+    "description": "Brand code without additional formatting."
+  },
+  {
+    "key": "adGroup",
+    "description": "Ad group name formatted with inline code styling."
+  },
+  {
+    "key": "adGroupName",
+    "description": "Ad group name without additional formatting."
+  },
+  {
+    "key": "designer",
+    "description": "Designer name formatted with inline code styling."
+  },
+  {
+    "key": "designerName",
+    "description": "Designer name without additional formatting."
+  },
+  {
+    "key": "editor",
+    "description": "Editor name formatted with inline code styling."
+  },
+  {
+    "key": "editorName",
+    "description": "Editor name without additional formatting."
+  },
+  {
+    "key": "approvedCount",
+    "description": "Number of approved creatives formatted with inline code styling."
+  },
+  {
+    "key": "editRequestedCount",
+    "description": "Number of edit requests formatted with inline code styling."
+  },
+  {
+    "key": "rejectedCount",
+    "description": "Number of rejected creatives formatted with inline code styling."
+  },
+  {
+    "key": "reviewLink",
+    "description": "Slack-formatted link to the review or ad group details."
+  },
+  {
+    "key": "reviewUrl",
+    "description": "Direct URL to the review page."
+  },
+  {
+    "key": "adGroupLink",
+    "description": "Slack-formatted link to the ad group details."
+  },
+  {
+    "key": "adGroupUrl",
+    "description": "Direct URL to the ad group details."
+  },
+  {
+    "key": "note",
+    "description": "Note content supplied with the status update."
+  },
+  {
+    "key": "noteBlock",
+    "description": "Bold \"Note\" label followed by the note when one is available."
+  },
+  {
+    "key": "noteSection",
+    "description": "Raw note content (empty when no note is provided)."
+  },
+  {
+    "key": "productTags",
+    "description": "Product hashtags (e.g. #Widget) separated by spaces."
+  },
+  {
+    "key": "offerTags",
+    "description": "Sentence that lists product hashtags when available."
+  },
+  {
+    "key": "productList",
+    "description": "Comma-separated list of product names referenced in the recipes."
+  }
+]
