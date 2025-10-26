@@ -12,7 +12,7 @@ const BrandCard = ({ brand }) => {
         <OptimizedImage
           pngUrl={logo}
           alt={`${brand.code} logo`}
-          className="w-full h-32 object-contain border-b border-gray-200 bg-white p-4 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar)]"
+          className="w-full h-32 object-contain border-b border-gray-200 bg-white p-4 dark:border-[var(--border-color-default)] dark:bg-white"
         />
       )}
       <div className="p-4 text-center">
