@@ -80,7 +80,6 @@ import {
   REPLACEMENT_BADGE_CLASS,
   REPLACEMENT_META_TEXT_CLASS,
   REPLACEMENT_NOTE_CLASS,
-  REPLACEMENT_OVERLAY_CLASS,
   REPLACEMENT_TEXTAREA_CLASS,
 } from './utils/replacementStyles';
 
@@ -5787,53 +5786,55 @@ useEffect(() => {
                     );
                   };
                   const showReplacementOverlay = isRejectedStatus && replacementOpen;
-                  const replacementOverlayContent = showReplacementOverlay ? (
-                    <div className={REPLACEMENT_OVERLAY_CLASS}>
-                      <div className="flex flex-col gap-3">
-                        <div className="flex flex-wrap items-center justify-between gap-2">
-                          <h4 className="text-sm font-semibold text-amber-900 dark:text-amber-100">
+                  const replacementModalContent = showReplacementOverlay ? (
+                    <Modal sizeClass="max-w-xl w-full" className="p-6">
+                      <div className="flex flex-col gap-5">
+                        <div className="flex flex-col gap-1">
+                          <h4 className="text-lg font-semibold text-gray-900 dark:text-[var(--dark-text)]">
                             Replacement direction
                           </h4>
-                          <div className="flex items-center gap-2">
-                            <Button
-                              type="button"
-                              variant="neutral"
-                              size="sm"
-                              onClick={handleCancelReplacementForm}
-                              disabled={replacementSaving}
-                            >
-                              Cancel
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="accent"
-                              size="sm"
-                              onClick={handleSubmitReplacementForm}
-                              disabled={replacementSaving || !replacementDraftNote.trim()}
-                            >
-                              {replacementSaving ? 'Saving...' : 'Submit'}
-                            </Button>
-                          </div>
+                          <p className="text-sm text-gray-600 dark:text-gray-300">
+                            Provide clear guidance so the team can prepare a new creative.
+                          </p>
                         </div>
                         <textarea
                           value={replacementDraftNote}
                           onChange={(event) => handleReplacementDraftChange(event.target.value)}
-                          rows={4}
+                          rows={6}
                           disabled={replacementSaving}
                           className={REPLACEMENT_TEXTAREA_CLASS}
+                          placeholder="Share the direction for the replacement creative..."
                         />
                         {replacementError && (
-                          <p className="text-xs font-medium text-red-600 dark:text-red-300">
+                          <p className="text-sm font-medium text-red-600 dark:text-red-300">
                             {replacementError}
                           </p>
                         )}
                         {replacementSummary && replacementMetaLine && (
-                          <p className={REPLACEMENT_META_TEXT_CLASS}>
-                            {replacementMetaLine}
-                          </p>
+                          <p className={REPLACEMENT_META_TEXT_CLASS}>{replacementMetaLine}</p>
                         )}
+                        <div className="flex items-center justify-end gap-3">
+                          <Button
+                            type="button"
+                            variant="neutral"
+                            size="md"
+                            onClick={handleCancelReplacementForm}
+                            disabled={replacementSaving}
+                          >
+                            Cancel
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="accent"
+                            size="md"
+                            onClick={handleSubmitReplacementForm}
+                            disabled={replacementSaving || !replacementDraftNote.trim()}
+                          >
+                            {replacementSaving ? 'Saving...' : 'Submit'}
+                          </Button>
+                        </div>
                       </div>
-                    </div>
+                    </Modal>
                   ) : null;
                   const handleSelectChange = async (event) => {
                     const value = event.target.value;
@@ -5924,7 +5925,7 @@ useEffect(() => {
                                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                                   <Button
                                     type="button"
-                                    variant="neutral"
+                                    variant="accentPillOutline"
                                     size="md"
                                     fullWidth
                                     onClick={expandRejectedCard}
@@ -5933,7 +5934,7 @@ useEffect(() => {
                                   </Button>
                                   <Button
                                     type="button"
-                                    variant="accent"
+                                    variant="accentPill"
                                     size="md"
                                     fullWidth
                                     onClick={handleOpenReplacementForm}
@@ -5995,7 +5996,7 @@ useEffect(() => {
                           {replacementSummaryContent && !showReplacementOverlay && (
                             <div>{replacementSummaryContent}</div>
                           )}
-                          {replacementOverlayContent}
+                          {replacementModalContent}
                           <div
                             className={combineClasses(
                               `flex w-full gap-3 overflow-x-auto pb-1 ${
@@ -6218,20 +6219,22 @@ useEffect(() => {
                               )}
                             </div>
                             <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                              <button
+                              <Button
                                 type="button"
+                                variant="accentPillOutline"
+                                size="md"
                                 onClick={expandRejectedCard}
-                                className="btn-secondary px-4 py-2"
                               >
                                 Show ad details
-                              </button>
-                              <button
+                              </Button>
+                              <Button
                                 type="button"
+                                variant="accentPill"
+                                size="md"
                                 onClick={handleOpenReplacementForm}
-                                className="btn-primary px-4 py-2"
                               >
                                 Request replacement
-                              </button>
+                              </Button>
                             </div>
                           </div>
                           <p className="text-sm text-gray-600 dark:text-gray-300">
@@ -6277,7 +6280,7 @@ useEffect(() => {
                         {replacementSummaryContent && !showReplacementOverlay && (
                           <div>{replacementSummaryContent}</div>
                         )}
-                        {replacementOverlayContent}
+                        {replacementModalContent}
                         <div
                           className={combineClasses(
                             'space-y-4',
