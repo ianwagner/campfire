@@ -619,6 +619,7 @@ describe("renderPayload", () => {
     const standardAds: IntegrationAdExport[] = [
       {
         id: "ad-1",
+        adId: "ad-1",
         reviewId: "review-1",
         generatedAt,
         integrationId: integration.id,
@@ -644,6 +645,7 @@ describe("renderPayload", () => {
       integrationSlug: integration.slug,
       dryRun: false,
       ads: standardAds,
+      currentAd: standardAds[0],
     };
 
     const context: MappingContext = {
@@ -657,10 +659,11 @@ describe("renderPayload", () => {
       recipeType: null,
       recipeFieldKeys: [],
       standardAds,
+      currentAd: standardAds[0],
       summary,
       defaultExport,
       generatedAt,
-      data: { standardAds },
+      data: { standardAds, currentAd: standardAds[0] },
     };
 
     const payload = await renderPayload(integration, context);

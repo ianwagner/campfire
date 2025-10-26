@@ -127,6 +127,7 @@ export interface IntegrationDefaultExport extends IntegrationExportSummary {
   generatedAt: string;
   dryRun?: boolean;
   ads: IntegrationAdExport[];
+  currentAd?: IntegrationAdExport | null;
 }
 
 export interface MappingContext {
@@ -140,6 +141,7 @@ export interface MappingContext {
   recipeType: FirestoreRecord | null;
   recipeFieldKeys: string[];
   standardAds: IntegrationAdExport[];
+  currentAd: IntegrationAdExport | null;
   summary: IntegrationExportSummary;
   defaultExport: IntegrationDefaultExport;
   generatedAt: string;
@@ -3827,6 +3829,57 @@ async function loadReviewDataFromAdGroup(
   return { review, ads, client };
 }
 
+function extractApprovedAdIds(payload: Record<string, unknown>): string[] {
+  const ids = new Set<string>();
+
+  const normalizeId = (value: unknown): string | null => {
+    if (typeof value === "string") {
+      const trimmed = value.trim();
+      if (trimmed) {
+        return trimmed;
+      }
+    }
+    return null;
+  };
+
+  const tryAdd = (value: unknown) => {
+    const normalized = normalizeId(value);
+    if (normalized) {
+      ids.add(normalized);
+    }
+  };
+
+  const rawAssetIds = payload["approvedAssetIds"];
+  if (Array.isArray(rawAssetIds)) {
+    for (const entry of rawAssetIds) {
+      tryAdd(entry);
+    }
+  }
+
+  tryAdd(payload["approvedAssetId"]);
+  tryAdd(payload["approvedAdId"]);
+
+  const rawApprovedAssets = payload["approvedAssets"];
+  if (Array.isArray(rawApprovedAssets)) {
+    for (const entry of rawApprovedAssets) {
+      if (entry && typeof entry === "object") {
+        tryAdd((entry as Record<string, unknown>).id);
+      }
+    }
+  }
+
+  const rawApprovedAds = payload["approvedAds"];
+  if (Array.isArray(rawApprovedAds)) {
+    for (const entry of rawApprovedAds) {
+      if (entry && typeof entry === "object") {
+        tryAdd((entry as Record<string, unknown>).id);
+      }
+    }
+  }
+
+  return Array.from(ids);
+}
+
 export async function createMappingContext(
   integration: Integration,
   reviewId: string,
@@ -3883,11 +3936,20 @@ export async function createMappingContext(
     dryRun,
   });
 
-  const approvedAds = standardAds.filter((ad) => {
+  let approvedAds = standardAds.filter((ad) => {
     const status =
       typeof ad.status === "string" ? ad.status.trim().toLowerCase() : "";
     return status === "approved";
   });
+
+  const requestedAdIds = extractApprovedAdIds(payload);
+  if (requestedAdIds.length > 0) {
+    const idSet = new Set(requestedAdIds);
+    const filtered = approvedAds.filter((ad) => idSet.has(ad.adId));
+    if (filtered.length > 0) {
+      approvedAds = filtered;
+    }
+  }
 
   const defaultExport: IntegrationDefaultExport = {
     ...summary,
@@ -3897,10 +3959,13 @@ export async function createMappingContext(
     generatedAt,
     dryRun,
     ads: approvedAds,
+    currentAd: approvedAds.length === 1 ? approvedAds[0] : null,
   };
 
   const normalizedRecipeTypeId =
     summary.recipeTypeId ?? recipeType?.id ?? (recipeTypeId || undefined);
+
+  const currentAd = approvedAds.length === 1 ? approvedAds[0] : null;
 
   const data = {
     integration,
@@ -3916,6 +3981,8 @@ export async function createMappingContext(
     generatedAt,
     summary,
     standardAds: approvedAds,
+    currentAd,
+    currentAds: approvedAds,
     exportRows: approvedAds,
     rows: approvedAds,
     defaultExport,
@@ -3933,6 +4000,7 @@ export async function createMappingContext(
     recipeType,
     recipeFieldKeys,
     standardAds: approvedAds,
+    currentAd,
     summary,
     defaultExport,
     generatedAt,
