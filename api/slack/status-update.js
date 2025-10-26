@@ -935,6 +935,13 @@ module.exports = async function handler(req, res) {
       }
     }
 
+    if (!docsById.size) {
+      res
+        .status(200)
+        .json({ ok: true, message: "No Slack channel connected for this brand." });
+      return;
+    }
+
     let adGroupData = null;
     if (adGroupId) {
       try {
@@ -1103,13 +1110,6 @@ module.exports = async function handler(req, res) {
           docsById.set(channelId, channelDoc);
         }
       }
-    }
-
-    if (!docsById.size) {
-      res
-        .status(200)
-        .json({ ok: true, message: "No Slack channel connected for this brand." });
-      return;
     }
 
     const brandSlackMentions =
