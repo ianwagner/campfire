@@ -287,7 +287,7 @@ const AdGroupCard = ({
               <div className="flex items-center gap-2 self-end">
                 {hasIntegration && (
                   <span
-                    className="inline-flex items-center gap-1 rounded-full border border-gray-300 bg-white px-1.5 py-0.5 text-xs text-gray-600"
+                    className="tag-pill inline-flex items-center gap-1 border border-gray-300 bg-white px-2 py-0.5 text-xs text-gray-600"
                     title={integrationTitle}
                   >
                     <span className="flex h-5 w-5 items-center justify-center overflow-hidden rounded-full bg-white">
@@ -307,7 +307,7 @@ const AdGroupCard = ({
                       <span
                         className={`flex h-4 w-4 items-center justify-center rounded-full ${
                           integrationOutcome === 'success'
-                            ? 'bg-emerald-500 text-white'
+                            ? 'bg-gray-200 text-gray-600'
                             : 'bg-rose-500 text-white'
                         }`}
                       >
