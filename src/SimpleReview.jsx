@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import OptimizedImage from './components/OptimizedImage.jsx';
 import VideoPlayer from './components/VideoPlayer.jsx';
 import isVideoUrl from './utils/isVideoUrl';
+import sanitizeSrc from './utils/sanitizeSrc';
 
 const PRELOAD_AHEAD = 5;
 
@@ -22,15 +23,16 @@ const SimpleReview = ({ ads = [] }) => {
   useEffect(() => {
     for (let i = index + 1; i <= index + PRELOAD_AHEAD && i < ads.length; i += 1) {
       const url = getUrl(ads[i]);
-      if (url && !preloaded.current[url] && !isVideoUrl(url)) {
+      const sanitizedUrl = sanitizeSrc(url);
+      if (sanitizedUrl && !preloaded.current[sanitizedUrl] && !isVideoUrl(url)) {
         const img = new Image();
-        img.src = url; // no cache-busting params
-        preloaded.current[url] = img;
+        img.src = sanitizedUrl; // no cache-busting params
+        preloaded.current[sanitizedUrl] = img;
       }
     }
     // Drop images behind the current index to free memory
     Object.keys(preloaded.current).forEach((u) => {
-      const idx = ads.findIndex((a) => getUrl(a) === u);
+      const idx = ads.findIndex((a) => sanitizeSrc(getUrl(a)) === u);
       if (idx < index - 1) {
         delete preloaded.current[u];
       }

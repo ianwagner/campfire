@@ -67,6 +67,7 @@ import computeGroupStatus from './utils/computeGroupStatus';
 import notifySlackStatusChange from './utils/notifySlackStatusChange';
 import parseAdFilename from './utils/parseAdFilename';
 import pickHeroAsset from './utils/pickHeroAsset';
+import sanitizeSrc from './utils/sanitizeSrc';
 
 const fileExt = (name) => {
   const idx = name.lastIndexOf('.');
@@ -753,7 +754,9 @@ const ProjectDetail = () => {
       for (const unit of approvedAssets) {
         const approvedList = unit.assets.filter((x) => x.status === 'approved');
         for (const a of approvedList) {
-          const resp = await fetch(a.firebaseUrl || a.url);
+          const downloadUrl = sanitizeSrc(a.firebaseUrl || a.url);
+          if (!downloadUrl) continue;
+          const resp = await fetch(downloadUrl);
           const buf = await resp.arrayBuffer();
           const fname = sanitize(a.filename || a.name || a.id);
           files.push({ path: fname, data: buf });
@@ -1367,42 +1370,46 @@ const ProjectDetail = () => {
                     )}
                     {briefAssets.length > 0 && (
                       <div className="flex flex-wrap gap-2 mt-2">
-                        {briefAssets.map((a) => (
-                          <div key={a.id} className="asset-card">
-                            {(() => {
-                              const ext = fileExt(a.filename || '');
-                              if (a.firebaseUrl && ext === 'svg') {
-                                return (
-                                  <a href={a.firebaseUrl} download>
-                                    <img
-                                      src={a.firebaseUrl}
-                                      alt={a.filename}
-                                      className="object-contain max-w-[10rem] max-h-32"
-                                    />
-                                  </a>
-                                );
-                              }
-                              if (
-                                a.firebaseUrl &&
-                                !['ai', 'pdf'].includes(ext) &&
-                                !['otf', 'ttf', 'woff', 'woff2'].includes(ext)
-                              ) {
-                                return (
-                                  <a href={a.firebaseUrl} download>
-                                    <OptimizedImage
-                                      pngUrl={a.firebaseUrl}
-                                      alt={a.filename}
-                                      className="object-contain max-w-[10rem] max-h-32"
-                                    />
-                                  </a>
-                                );
-                              }
+                        {briefAssets.map((a) => {
+                          const ext = fileExt(a.filename || '');
+                          const sanitizedUrl = sanitizeSrc(a.firebaseUrl);
+                          const linkHref = sanitizedUrl || a.firebaseUrl || undefined;
+                          const displaySrc = sanitizedUrl || a.firebaseUrl || '';
+                          const preview = (() => {
+                            if (a.firebaseUrl && ext === 'svg') {
                               return (
-                                <a href={a.firebaseUrl} download>
-                                  <PlaceholderIcon ext={ext} />
-                                </a>
+                                <img
+                                  src={displaySrc}
+                                  alt={a.filename}
+                                  className="object-contain max-w-[10rem] max-h-32"
+                                />
                               );
-                            })()}
+                            }
+                            if (
+                              a.firebaseUrl &&
+                              !['ai', 'pdf'].includes(ext) &&
+                              !['otf', 'ttf', 'woff', 'woff2'].includes(ext)
+                            ) {
+                              return (
+                                <OptimizedImage
+                                  pngUrl={a.firebaseUrl}
+                                  alt={a.filename}
+                                  className="object-contain max-w-[10rem] max-h-32"
+                                />
+                              );
+                            }
+                            return <PlaceholderIcon ext={ext} />;
+                          })();
+
+                          return (
+                            <div key={a.id} className="asset-card">
+                              {linkHref ? (
+                                <a href={linkHref} download>
+                                  {preview}
+                                </a>
+                              ) : (
+                                preview
+                              )}
                             <button
                               type="button"
                               className="absolute top-1 right-1 bg-white rounded-full px-1 text-xs"
@@ -1415,8 +1422,9 @@ const ProjectDetail = () => {
                                 <FiFileText size={14} />
                               </div>
                             )}
-                          </div>
-                        ))}
+                            </div>
+                          );
+                        })}
                       </div>
                     )}
                   </div>
@@ -1445,49 +1453,54 @@ const ProjectDetail = () => {
                     <div>
                       <h4 className="font-medium mb-1">Assets:</h4>
                       <div className="flex flex-wrap gap-2">
-                        {briefAssets.map((a) => (
-                          <div key={a.id} className="asset-card">
-                            {(() => {
-                              const ext = fileExt(a.filename || '');
-                              if (a.firebaseUrl && ext === 'svg') {
-                                return (
-                                  <a href={a.firebaseUrl} download>
-                                    <img
-                                      src={a.firebaseUrl}
-                                      alt={a.filename}
-                                      className="object-contain max-w-[10rem] max-h-32"
-                                    />
-                                  </a>
-                                );
-                              }
-                              if (
-                                a.firebaseUrl &&
-                                !['ai', 'pdf'].includes(ext) &&
-                                !['otf', 'ttf', 'woff', 'woff2'].includes(ext)
-                              ) {
-                                return (
-                                  <a href={a.firebaseUrl} download>
-                                    <OptimizedImage
-                                      pngUrl={a.firebaseUrl}
-                                      alt={a.filename}
-                                      className="object-contain max-w-[10rem] max-h-32"
-                                    />
-                                  </a>
-                                );
-                              }
+                        {briefAssets.map((a) => {
+                          const ext = fileExt(a.filename || '');
+                          const sanitizedUrl = sanitizeSrc(a.firebaseUrl);
+                          const linkHref = sanitizedUrl || a.firebaseUrl || undefined;
+                          const displaySrc = sanitizedUrl || a.firebaseUrl || '';
+                          const preview = (() => {
+                            if (a.firebaseUrl && ext === 'svg') {
                               return (
-                                <a href={a.firebaseUrl} download>
-                                  <PlaceholderIcon ext={ext} />
-                                </a>
+                                <img
+                                  src={displaySrc}
+                                  alt={a.filename}
+                                  className="object-contain max-w-[10rem] max-h-32"
+                                />
                               );
-                            })()}
-                            {a.note && (
-                              <div className="absolute bottom-1 right-1 bg-accent text-white rounded-full p-1">
-                                <FiFileText size={14} />
-                              </div>
-                            )}
-                          </div>
-                        ))}
+                            }
+                            if (
+                              a.firebaseUrl &&
+                              !['ai', 'pdf'].includes(ext) &&
+                              !['otf', 'ttf', 'woff', 'woff2'].includes(ext)
+                            ) {
+                              return (
+                                <OptimizedImage
+                                  pngUrl={a.firebaseUrl}
+                                  alt={a.filename}
+                                  className="object-contain max-w-[10rem] max-h-32"
+                                />
+                              );
+                            }
+                            return <PlaceholderIcon ext={ext} />;
+                          })();
+
+                          return (
+                            <div key={a.id} className="asset-card">
+                              {linkHref ? (
+                                <a href={linkHref} download>
+                                  {preview}
+                                </a>
+                              ) : (
+                                preview
+                              )}
+                              {a.note && (
+                                <div className="absolute bottom-1 right-1 bg-accent text-white rounded-full p-1">
+                                  <FiFileText size={14} />
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
                   )}

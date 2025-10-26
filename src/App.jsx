@@ -75,6 +75,7 @@ import useSiteSettings from "./useSiteSettings";
 import useAgencyTheme from "./useAgencyTheme";
 import FullScreenSpinner from "./FullScreenSpinner";
 import { DEFAULT_LOGO_URL } from "./constants";
+import sanitizeSrc from "./utils/sanitizeSrc";
 import useFcmToken from "./useFcmToken";
 import useTaggerJobWatcher from "./useTaggerJobWatcher";
 import AdminClaimDebug from "./AdminClaimDebug";
@@ -127,7 +128,8 @@ const App = () => {
   useTaggerJobWatcher();
 
   React.useEffect(() => {
-    const url = agencyId ? agency.logoUrl || DEFAULT_LOGO_URL : settings.logoUrl || DEFAULT_LOGO_URL;
+    const rawUrl = agencyId ? agency.logoUrl || DEFAULT_LOGO_URL : settings.logoUrl || DEFAULT_LOGO_URL;
+    const url = sanitizeSrc(rawUrl);
     if (!url) {
       setLogoLoaded(true);
       return;

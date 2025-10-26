@@ -78,6 +78,7 @@ import notifySlackStatusChange from './utils/notifySlackStatusChange';
 import determineFinalizeStatus from './utils/determineFinalizeStatus';
 import { toDateSafe, countUnreadHelpdeskTickets } from './utils/helpdesk';
 import { createZip } from './utils/zip';
+import sanitizeSrc from './utils/sanitizeSrc';
 import {
   REPLACEMENT_BADGE_CLASS,
   REPLACEMENT_META_TEXT_CLASS,
@@ -536,11 +537,13 @@ const ensureUniqueFileName = (folder, name, cache) => {
 };
 
 const getAssetDownloadUrl = (asset) =>
-  asset?.firebaseUrl ||
-  asset?.adUrl ||
-  asset?.assetUrl ||
-  asset?.cdnUrl ||
-  '';
+  sanitizeSrc(
+    asset?.firebaseUrl ||
+      asset?.adUrl ||
+      asset?.assetUrl ||
+      asset?.cdnUrl ||
+      '',
+  );
 
 const dedupeByAdUnit = (list = []) => {
   const seen = new Set();
@@ -2424,26 +2427,27 @@ useEffect(() => {
       return;
     }
     const first = reviewAds[0];
-    const url =
+    const rawUrl =
       typeof first === 'object' ? first.adUrl || first.firebaseUrl : first;
-    if (!url) {
+    const sanitizedUrl = sanitizeSrc(rawUrl);
+    if (!sanitizedUrl) {
       setFirstAdLoaded(true);
       firstAdUrlRef.current = null;
       return;
     }
-    if (firstAdUrlRef.current === url) {
+    if (firstAdUrlRef.current === sanitizedUrl) {
       return;
     }
-    firstAdUrlRef.current = url;
+    firstAdUrlRef.current = sanitizedUrl;
     setFirstAdLoaded(false);
     const img = new Image();
     img.onload = () => setFirstAdLoaded(true);
     img.onerror = () => setFirstAdLoaded(true);
-    img.src = url;
+    img.src = sanitizedUrl;
   }, [reviewAds]);
 
   useEffect(() => {
-    const url = reviewLogoUrl;
+    const url = sanitizeSrc(reviewLogoUrl);
     if (!url) {
       setLogoReady(true);
       logoUrlRef.current = null;
@@ -3749,7 +3753,8 @@ useEffect(() => {
       const next = reviewAds[idx];
       if (!next) break;
       if (preloads.current.find((p) => p.index === idx)) continue;
-      const url = next.adUrl || next.firebaseUrl;
+      const url = sanitizeSrc(next.adUrl || next.firebaseUrl);
+      if (!url) continue;
       const img = new Image();
       img.src = url;
       preloads.current.push({ index: idx, img });
