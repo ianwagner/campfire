@@ -5798,7 +5798,7 @@ useEffect(() => {
                             Replacement direction
                           </h4>
                           <p className="text-sm text-gray-600 dark:text-gray-300">
-                            Provide clear guidance so the team can prepare a new creative.
+                            We’ll get started on a new one - just let us know what you have in mind!
                           </p>
                         </div>
                         <textarea
