@@ -105,6 +105,11 @@ import {
   dispatchIntegrationForAssets,
   getAssetDocumentId,
 } from "./utils/integrationDispatch";
+import {
+  REPLACEMENT_BADGE_CLASS,
+  REPLACEMENT_META_TEXT_CLASS,
+  REPLACEMENT_NOTE_CLASS,
+} from "./utils/replacementStyles";
 
 const fileExt = (name) => {
   const idx = name.lastIndexOf(".");
@@ -4643,7 +4648,7 @@ const AdGroupDetail = () => {
           <td className="text-sm">
             {replacementSummary && (
               <div className="mb-3 space-y-2">
-                <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-100">
+                <span className={REPLACEMENT_BADGE_CLASS}>
                   Replacement requested
                   {replacementSummary.assetLabels?.length ? (
                     <span className="ml-1 text-[10px] font-medium normal-case">
@@ -4651,12 +4656,12 @@ const AdGroupDetail = () => {
                     </span>
                   ) : null}
                 </span>
-                <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-100">
+                <div className={REPLACEMENT_NOTE_CLASS}>
                   <p className="whitespace-pre-wrap leading-relaxed">
                     {replacementSummary.note}
                   </p>
                   {replacementMetaLine && (
-                    <p className="mt-2 text-[11px] font-medium uppercase tracking-wide text-amber-700/80 dark:text-amber-200/80">
+                    <p className={`${REPLACEMENT_META_TEXT_CLASS} mt-2`}>
                       {replacementMetaLine}
                     </p>
                   )}

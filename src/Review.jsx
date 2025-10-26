@@ -64,6 +64,7 @@ import diffWords from './utils/diffWords';
 import LoadingOverlay from "./LoadingOverlay";
 import OverflowMenu from './components/OverflowMenu.jsx';
 import NotificationDot from './components/NotificationDot.jsx';
+import Button from './components/Button.jsx';
 import debugLog from './utils/debugLog';
 import useDebugTrace from './utils/useDebugTrace';
 import { DEFAULT_ACCENT_COLOR } from './themeColors';
@@ -75,6 +76,13 @@ import stripVersion from './utils/stripVersion';
 import { isRealtimeReviewerEligible } from './utils/realtimeEligibility';
 import notifySlackStatusChange from './utils/notifySlackStatusChange';
 import { toDateSafe, countUnreadHelpdeskTickets } from './utils/helpdesk';
+import {
+  REPLACEMENT_BADGE_CLASS,
+  REPLACEMENT_META_TEXT_CLASS,
+  REPLACEMENT_NOTE_CLASS,
+  REPLACEMENT_OVERLAY_CLASS,
+  REPLACEMENT_TEXTAREA_CLASS,
+} from './utils/replacementStyles';
 
 const normalizeKeyPart = (value) => {
   if (value === null || value === undefined) return '';
@@ -5302,7 +5310,7 @@ useEffect(() => {
                   })();
                   const replacementSummaryContent = replacementSummary ? (
                     <div className="space-y-2">
-                      <span className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-100">
+                      <span className={REPLACEMENT_BADGE_CLASS}>
                         Replacement requested
                         {replacementSummary.assetLabels?.length ? (
                           <span className="ml-1 text-[10px] font-medium normal-case">
@@ -5310,12 +5318,12 @@ useEffect(() => {
                           </span>
                         ) : null}
                       </span>
-                      <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-100">
+                      <div className={REPLACEMENT_NOTE_CLASS}>
                         <p className="whitespace-pre-wrap leading-relaxed">
                           {replacementSummary.note}
                         </p>
                         {replacementMetaLine && (
-                          <p className="mt-2 text-[11px] font-medium uppercase tracking-wide text-amber-700/80 dark:text-amber-200/80">
+                          <p className={combineClasses('mt-2', REPLACEMENT_META_TEXT_CLASS)}>
                             {replacementMetaLine}
                           </p>
                         )}
@@ -5780,29 +5788,31 @@ useEffect(() => {
                   };
                   const showReplacementOverlay = isRejectedStatus && replacementOpen;
                   const replacementOverlayContent = showReplacementOverlay ? (
-                    <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-100">
+                    <div className={REPLACEMENT_OVERLAY_CLASS}>
                       <div className="flex flex-col gap-3">
                         <div className="flex flex-wrap items-center justify-between gap-2">
                           <h4 className="text-sm font-semibold text-amber-900 dark:text-amber-100">
                             Replacement direction
                           </h4>
                           <div className="flex items-center gap-2">
-                            <button
+                            <Button
                               type="button"
+                              variant="neutral"
+                              size="sm"
                               onClick={handleCancelReplacementForm}
                               disabled={replacementSaving}
-                              className="inline-flex items-center justify-center rounded-full border border-gray-300 px-3 py-1.5 text-xs font-semibold text-gray-600 transition hover:bg-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-300 disabled:cursor-not-allowed disabled:opacity-60 dark:border-[var(--border-color-default)] dark:text-gray-200 dark:hover:bg-[var(--dark-sidebar-hover)]"
                             >
                               Cancel
-                            </button>
-                            <button
+                            </Button>
+                            <Button
                               type="button"
+                              variant="accent"
+                              size="sm"
                               onClick={handleSubmitReplacementForm}
                               disabled={replacementSaving || !replacementDraftNote.trim()}
-                              className="inline-flex items-center justify-center rounded-full border border-accent px-3 py-1.5 text-xs font-semibold text-accent transition hover:bg-[var(--accent-color-10)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-color)] disabled:cursor-not-allowed disabled:opacity-60 dark:border-[var(--accent-color)] dark:text-[var(--accent-color)] dark:hover:bg-[var(--accent-color-10)]"
                             >
                               {replacementSaving ? 'Saving...' : 'Submit'}
-                            </button>
+                            </Button>
                           </div>
                         </div>
                         <textarea
@@ -5810,7 +5820,7 @@ useEffect(() => {
                           onChange={(event) => handleReplacementDraftChange(event.target.value)}
                           rows={4}
                           disabled={replacementSaving}
-                          className="w-full rounded-lg border border-amber-200 bg-white px-3 py-2 text-sm leading-snug text-gray-900 focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500/40 disabled:cursor-not-allowed disabled:opacity-60 dark:border-amber-500/40 dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]"
+                          className={REPLACEMENT_TEXTAREA_CLASS}
                         />
                         {replacementError && (
                           <p className="text-xs font-medium text-red-600 dark:text-red-300">
@@ -5818,7 +5828,7 @@ useEffect(() => {
                           </p>
                         )}
                         {replacementSummary && replacementMetaLine && (
-                          <p className="text-xs text-amber-700/80 dark:text-amber-200/80">
+                          <p className={REPLACEMENT_META_TEXT_CLASS}>
                             {replacementMetaLine}
                           </p>
                         )}
@@ -5912,20 +5922,24 @@ useEffect(() => {
                                   </div>
                                 </div>
                                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                                  <button
+                                  <Button
                                     type="button"
+                                    variant="neutral"
+                                    size="md"
+                                    fullWidth
                                     onClick={expandRejectedCard}
-                                    className="btn-secondary w-full"
                                   >
                                     Show ad details
-                                  </button>
-                                  <button
+                                  </Button>
+                                  <Button
                                     type="button"
+                                    variant="accent"
+                                    size="md"
+                                    fullWidth
                                     onClick={handleOpenReplacementForm}
-                                    className="btn-primary w-full"
                                   >
                                     Request replacement
-                                  </button>
+                                  </Button>
                                 </div>
                               </div>
                               <p className="text-sm text-gray-600 dark:text-gray-300">
@@ -6361,21 +6375,25 @@ useEffect(() => {
                                   ))}
                                 </select>
                                 {isRejectedStatus && (
-                                  <button
+                                  <Button
                                     type="button"
+                                    variant="action"
+                                    size="sm"
+                                    className="text-xs font-medium"
                                     onClick={collapseRejectedCard}
-                                    className="btn-action text-xs font-medium"
                                   >
                                     Hide ad details
-                                  </button>
+                                  </Button>
                                 )}
                               </div>
                             </div>
                           </div>
                           {showEditButton && (
-                            <button
+                            <Button
                               type="button"
-                              className="btn-action text-sm font-medium"
+                              variant="action"
+                              size="sm"
+                              className="text-sm font-medium"
                               onClick={() =>
                                 setExpandedRequests((prev) => ({
                                   ...prev,
@@ -6384,7 +6402,7 @@ useEffect(() => {
                               }
                             >
                               {isExpanded ? 'Hide edit request' : 'View edit request'}
-                            </button>
+                            </Button>
                           )}
                         </div>
                         {showEditButton && isExpanded && (
