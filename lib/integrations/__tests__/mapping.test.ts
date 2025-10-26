@@ -419,8 +419,8 @@ describe("buildAggregatedAdsFromAdGroup", () => {
 
   it("categorizes portrait-labeled Firebase assets as 4x5", () => {
     const review: FirestoreRecord = {
-      id: "review-portrait", 
-      name: "Review With Portrait", 
+      id: "review-portrait",
+      name: "Review With Portrait",
       brandCode: "TEST",
     };
 
@@ -518,6 +518,58 @@ describe("buildAggregatedAdsFromAdGroup", () => {
       "https://cdn.example.com/portrait.png"
     );
     expect(standardAds[0].asset9x16Url).toBeNull();
+  });
+
+  it("fills missing destination URLs from known brand products", () => {
+    const review: FirestoreRecord = {
+      id: "review-product",
+      name: "Review With Products",
+      brandCode: "TEST",
+      brand: {
+        code: "TEST",
+        products: [
+          { name: "Product Name", url: "https://example.com/products/one" },
+          { name: "Second Product", url: "https://example.com/products/two" },
+        ],
+      },
+    };
+
+    const recipes: FirestoreRecord[] = [
+      {
+        id: "recipe-1",
+        recipeNumber: "1",
+        product: { name: "product name" },
+      },
+      {
+        id: "recipe-2",
+        recipeNumber: "2",
+        product: { name: "Second Product" },
+      },
+    ];
+
+    const aggregated = __TESTING__.buildAggregatedAdsFromAdGroup({
+      review,
+      adGroup: null,
+      recipes,
+      assets: [],
+      copyCards: [],
+      brandStoreId: undefined,
+    });
+
+    expect(aggregated).toHaveLength(2);
+
+    const first = aggregated[0];
+    const firstFields = first.recipeFields as Record<string, unknown>;
+    expect(first.destinationUrl).toBe("https://example.com/products/one");
+    expect(firstFields.URL).toBe("https://example.com/products/one");
+    expect(firstFields["product.url"]).toBe("https://example.com/products/one");
+    expect(firstFields.product_url).toBe("https://example.com/products/one");
+
+    const second = aggregated[1];
+    const secondFields = second.recipeFields as Record<string, unknown>;
+    expect(second.destinationUrl).toBe("https://example.com/products/two");
+    expect(secondFields.URL).toBe("https://example.com/products/two");
+    expect(secondFields["product.url"]).toBe("https://example.com/products/two");
   });
 });
 
