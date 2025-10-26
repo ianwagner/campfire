@@ -12,6 +12,7 @@ import { db } from "./firebase/config";
 import Review from "./Review";
 import LoadingOverlay from "./LoadingOverlay";
 import ensurePublicDashboardSlug from "./utils/ensurePublicDashboardSlug.js";
+import normalizeBoolean from "./utils/normalizeBoolean.js";
 
 const ReviewPage = ({
   userRole = null,
@@ -130,13 +131,17 @@ const ReviewPage = ({
           return;
         }
         const data = snap.data();
+        const normalizedRequireAuth = normalizeBoolean(data.requireAuth);
+        const normalizedRequirePassword = normalizeBoolean(
+          data.requirePassword,
+        );
         setGroupPassword(data.password || null);
         setVisibility(data.visibility || "private");
-        setRequireAuth(!!data.requireAuth);
-        setRequirePassword(!!data.requirePassword);
+        setRequireAuth(normalizedRequireAuth);
+        setRequirePassword(normalizedRequirePassword);
         const blocked =
           data.visibility !== "public" ||
-          (data.requireAuth && (!user || user.isAnonymous));
+          (normalizedRequireAuth && (!user || user.isAnonymous));
         setAccessBlocked(blocked);
         setGroupAccessEvaluated(true);
       } catch (err) {

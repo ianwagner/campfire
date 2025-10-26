@@ -20,6 +20,7 @@ import HelpdeskModal from "./components/HelpdeskModal.jsx";
 import NotificationDot from "./components/NotificationDot.jsx";
 import getPrimaryLogoUrl from "./utils/getPrimaryLogoUrl.js";
 import { toDateSafe, countUnreadHelpdeskTickets } from "./utils/helpdesk";
+import normalizeBoolean from "./utils/normalizeBoolean.js";
 
 const statusBadgeLabels = {
   designed: "Ready for Review",
@@ -166,7 +167,6 @@ const PublicBrandDashboard = () => {
       collection(db, "adGroups"),
       where("brandCode", "==", brand.code),
       where("visibility", "==", "public"),
-      where("requireAuth", "==", false)
     );
 
     const unsubscribe = onSnapshot(
@@ -177,6 +177,9 @@ const PublicBrandDashboard = () => {
             const list = await Promise.all(
               snapshot.docs.map(async (docSnap) => {
                 const data = docSnap.data();
+                if (normalizeBoolean(data.requireAuth)) {
+                  return null;
+                }
                 const counts = {
                   approved: data.approvedCount || 0,
                   reviewed: data.reviewedCount || 0,
