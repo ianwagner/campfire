@@ -27,6 +27,51 @@ if (!admin.apps.length) {
 
 const db = admin.firestore();
 
+const DONE_ELIGIBLE_STATUSES = new Set(['approved', 'rejected', 'archived']);
+
+async function maybeAutoCompleteGroupStatus(groupRef, groupData = {}) {
+  if (!groupRef) return;
+  const statusRaw = typeof groupData.status === 'string' ? groupData.status : '';
+  const normalizedStatus = statusRaw.trim().toLowerCase();
+  if (['done', 'archived', 'blocked'].includes(normalizedStatus)) return;
+
+  let assetsSnap;
+  try {
+    assetsSnap = await groupRef.collection('assets').get();
+  } catch (err) {
+    console.error('Failed to load assets while checking group completion', {
+      adGroupId: groupRef.id,
+      error: err,
+    });
+    return;
+  }
+
+  if (assetsSnap.empty) return;
+
+  let qualifies = true;
+  assetsSnap.forEach((docSnap) => {
+    const rawStatus = docSnap.data()?.status;
+    const status = typeof rawStatus === 'string' ? rawStatus.trim().toLowerCase() : '';
+    if (!DONE_ELIGIBLE_STATUSES.has(status)) {
+      qualifies = false;
+    }
+  });
+
+  if (!qualifies) return;
+
+  try {
+    await groupRef.update({ status: 'done' });
+    console.log('Automatically marked ad group done based on asset statuses', {
+      adGroupId: groupRef.id,
+    });
+  } catch (err) {
+    console.error('Failed to update ad group status to done', {
+      adGroupId: groupRef.id,
+      error: err,
+    });
+  }
+}
+
 
 function parseAdFilename(filename) {
   if (!filename) return {};
@@ -278,20 +323,47 @@ export const updateBrandStatsOnAssetChange = onDocumentWritten(
   'adGroups/{groupId}/assets/{assetId}',
   async (event) => {
     const groupId = event.params.groupId;
+    const groupRef = db.collection('adGroups').doc(groupId);
+    let groupData = {};
+
     try {
-      const groupSnap = await db.collection('adGroups').doc(groupId).get();
-      const brandCode = groupSnap.data()?.brandCode;
-      if (!brandCode) return null;
-      const brandSnap = await db
-        .collection('brands')
-        .where('code', '==', brandCode)
-        .limit(1)
-        .get();
-      if (brandSnap.empty) return null;
-      const brandId = brandSnap.docs[0].id;
-      await recomputeBrandStats(brandId);
+      const groupSnap = await groupRef.get();
+      if (!groupSnap.exists) return null;
+      groupData = groupSnap.data() || {};
     } catch (err) {
-      console.error('Failed to update brand stats on asset change', err);
+      console.error('Failed to load ad group for asset change handling', {
+        adGroupId: groupId,
+        error: err,
+      });
+      return null;
+    }
+
+    const brandCodeRaw =
+      typeof groupData.brandCode === 'string' ? groupData.brandCode : '';
+    const brandCode = brandCodeRaw.trim();
+    if (brandCode) {
+      try {
+        const brandSnap = await db
+          .collection('brands')
+          .where('code', '==', brandCode)
+          .limit(1)
+          .get();
+        if (!brandSnap.empty) {
+          const brandId = brandSnap.docs[0].id;
+          await recomputeBrandStats(brandId);
+        }
+      } catch (err) {
+        console.error('Failed to update brand stats on asset change', err);
+      }
+    }
+
+    try {
+      await maybeAutoCompleteGroupStatus(groupRef, groupData);
+    } catch (err) {
+      console.error('Failed to auto-complete ad group status', {
+        adGroupId: groupId,
+        error: err,
+      });
     }
     return null;
   }
