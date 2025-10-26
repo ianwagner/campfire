@@ -75,6 +75,7 @@ import getVersion from './utils/getVersion';
 import stripVersion from './utils/stripVersion';
 import { isRealtimeReviewerEligible } from './utils/realtimeEligibility';
 import notifySlackStatusChange from './utils/notifySlackStatusChange';
+import determineFinalizeStatus from './utils/determineFinalizeStatus';
 import { toDateSafe, countUnreadHelpdeskTickets } from './utils/helpdesk';
 import { createZip } from './utils/zip';
 import {
@@ -4792,11 +4793,13 @@ useEffect(() => {
           ? ads.filter((asset) => asset.status === 'approved')
           : [];
 
+      const finalizeStatus = determineFinalizeStatus(ads);
       const updateData = {
-        status: 'reviewed',
+        status: finalizeStatus,
         reviewProgress: null,
         lastUpdated: serverTimestamp(),
-        completedAt: serverTimestamp(),
+        completedAt:
+          finalizeStatus === 'designed' ? null : serverTimestamp(),
       };
 
       await updateDoc(doc(db, 'adGroups', groupId), updateData);
@@ -4807,7 +4810,7 @@ useEffect(() => {
         brandCode: groupBrandCode || brandCode || '',
         adGroupId: groupId,
         adGroupName: adGroupDisplayName,
-        status: 'reviewed',
+        status: finalizeStatus,
         url: detailUrl,
         adGroupUrl,
       });
@@ -4817,10 +4820,13 @@ useEffect(() => {
           await addDoc(collection(db, 'adGroups', groupId, 'publicUpdates'), {
             type: 'status',
             update: {
-              status: 'reviewed',
+              status: finalizeStatus,
               reviewProgress: null,
               lastUpdated: new Date().toISOString(),
-              completedAt: new Date().toISOString(),
+              completedAt:
+                finalizeStatus === 'designed'
+                  ? null
+                  : new Date().toISOString(),
             },
             createdAt: serverTimestamp(),
             reviewer: reviewerIdentifier,
@@ -4831,8 +4837,8 @@ useEffect(() => {
         }
       }
 
-      setGroupStatus('reviewed');
-      setInitialStatus('done');
+      setGroupStatus(finalizeStatus);
+      setInitialStatus(finalizeStatus === 'designed' ? 'designed' : 'done');
       setStarted(false);
       setShowFinalizeModal(null);
 
