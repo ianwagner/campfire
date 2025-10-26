@@ -56,6 +56,7 @@ import { getCopyLetter } from './utils/copyLetter';
 import sortCopyCards from './utils/sortCopyCards';
 import RecipePreview from './RecipePreview.jsx';
 import HelpdeskModal from './components/HelpdeskModal.jsx';
+import Modal from './components/Modal.jsx';
 import InfoTooltip from './components/InfoTooltip.jsx';
 import isVideoUrl from './utils/isVideoUrl';
 import parseAdFilename from './utils/parseAdFilename';
