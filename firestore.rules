@@ -85,6 +85,7 @@ match /assets/{assetId} {
         'editCount',
         'archivedCount',
         'lastUpdated',
+        'completedAt',
         'thumbnailUrl',
         'clientNote',
         'clientNoteTimestamp',
