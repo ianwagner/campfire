@@ -22,8 +22,8 @@ import getPrimaryLogoUrl from "./utils/getPrimaryLogoUrl.js";
 import { toDateSafe, countUnreadHelpdeskTickets } from "./utils/helpdesk";
 
 const statusBadgeLabels = {
-  designed: "Ready for review",
-  reviewed: "Reviewed",
+  designed: "Ready for Review",
+  reviewed: "Revisions in Progress",
 };
 
 const toDate = (value) => {

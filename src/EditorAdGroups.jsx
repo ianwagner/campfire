@@ -182,8 +182,8 @@ const EditorAdGroups = () => {
                   { label: 'New', status: 'new' },
                   { label: 'Blocked', status: 'blocked' },
                   { label: 'Briefed', status: 'briefed' },
-                  { label: 'Designed', status: 'designed' },
-                  { label: 'Reviewed', status: 'reviewed' },
+                  { label: 'Ready for Review', status: 'designed' },
+                  { label: 'Revisions in Progress', status: 'reviewed' },
                   { label: 'Done', status: 'done' },
                 ].map((col) => (
                   <div key={col.status} className="flex-shrink-0 w-[240px] sm:w-[320px]">
