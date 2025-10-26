@@ -56,7 +56,6 @@ import { getCopyLetter } from './utils/copyLetter';
 import sortCopyCards from './utils/sortCopyCards';
 import RecipePreview from './RecipePreview.jsx';
 import HelpdeskModal from './components/HelpdeskModal.jsx';
-import Modal from './components/Modal.jsx';
 import InfoTooltip from './components/InfoTooltip.jsx';
 import isVideoUrl from './utils/isVideoUrl';
 import parseAdFilename from './utils/parseAdFilename';
@@ -64,6 +63,7 @@ import diffWords from './utils/diffWords';
 import LoadingOverlay from "./LoadingOverlay";
 import OverflowMenu from './components/OverflowMenu.jsx';
 import NotificationDot from './components/NotificationDot.jsx';
+import Button from './components/Button.jsx';
 import debugLog from './utils/debugLog';
 import useDebugTrace from './utils/useDebugTrace';
 import { DEFAULT_ACCENT_COLOR } from './themeColors';
@@ -75,6 +75,12 @@ import stripVersion from './utils/stripVersion';
 import { isRealtimeReviewerEligible } from './utils/realtimeEligibility';
 import notifySlackStatusChange from './utils/notifySlackStatusChange';
 import { toDateSafe, countUnreadHelpdeskTickets } from './utils/helpdesk';
+import {
+  REPLACEMENT_BADGE_CLASS,
+  REPLACEMENT_META_TEXT_CLASS,
+  REPLACEMENT_NOTE_CLASS,
+  REPLACEMENT_TEXTAREA_CLASS,
+} from './utils/replacementStyles';
 
 const normalizeKeyPart = (value) => {
   if (value === null || value === undefined) return '';
@@ -778,6 +784,8 @@ const Review = forwardRef(
   const [dragging, setDragging] = useState(false);
   const [fadeIn, setFadeIn] = useState(false);
   const [expandedRequests, setExpandedRequests] = useState({});
+  const [collapsedRejects, setCollapsedRejects] = useState({});
+  const [replacementForms, setReplacementForms] = useState({});
   const [pendingResponseContext, setPendingResponseContext] = useState(null);
   const [manualStatus, setManualStatus] = useState({});
   const statusBarSentinelRef = useRef(null);
@@ -3275,6 +3283,139 @@ useEffect(() => {
     [versionGroupsByAd, responses, manualStatus],
   );
 
+  useEffect(() => {
+    if (!reviewAds || reviewAds.length === 0) {
+      if (Object.keys(collapsedRejects).length > 0) {
+        setCollapsedRejects({});
+      }
+      if (Object.keys(replacementForms).length > 0) {
+        setReplacementForms({});
+      }
+      return;
+    }
+    const metas = reviewAds.map((ad, index) => buildStatusMeta(ad, index));
+    setCollapsedRejects((prev) => {
+      let changed = false;
+      const next = { ...prev };
+      Object.keys(prev).forEach((key) => {
+        const meta = metas.find((entry) => entry.cardKey === key);
+        if (!meta || meta.statusValue !== 'reject') {
+          delete next[key];
+          changed = true;
+        }
+      });
+      return changed ? next : prev;
+    });
+    setReplacementForms((prev) => {
+      let changed = false;
+      const next = { ...prev };
+      Object.keys(prev).forEach((key) => {
+        const meta = metas.find((entry) => entry.cardKey === key);
+        if (!meta || meta.statusValue !== 'reject') {
+          delete next[key];
+          changed = true;
+        }
+      });
+      return changed ? next : prev;
+    });
+  }, [reviewAds, buildStatusMeta, collapsedRejects, replacementForms]);
+
+  const setReplacementFormState = useCallback((key, updater) => {
+    setReplacementForms((prev) => {
+      const current = prev[key] || {};
+      const nextState =
+        typeof updater === 'function' ? updater(current) : updater;
+      if (nextState === null || nextState === undefined) {
+        if (!(key in prev)) {
+          return prev;
+        }
+        const clone = { ...prev };
+        delete clone[key];
+        return clone;
+      }
+      return { ...prev, [key]: nextState };
+    });
+  }, []);
+
+  const saveReplacementRequest = useCallback(
+    async (cardKey, targetAssets, note) => {
+      const trimmed = (note || '').trim();
+      if (!trimmed) {
+        setReplacementFormState(cardKey, (prev) => ({
+          ...prev,
+          open: true,
+          error: 'Replacement direction is required.',
+        }));
+        return false;
+      }
+
+      setReplacementFormState(cardKey, (prev) => ({
+        ...prev,
+        open: true,
+        saving: true,
+        error: '',
+      }));
+
+      const requestedByName =
+        reviewerName || user?.displayName || user?.email || user?.uid || 'Reviewer';
+
+      const payload = {
+        note: trimmed,
+        requestedBy: requestedByName,
+        requestedById: user?.uid || '',
+        requestedByEmail: user?.email || '',
+        requestedAt: serverTimestamp(),
+      };
+
+      try {
+        const updates = [];
+        targetAssets.forEach((asset) => {
+          const docId = getAssetDocumentId(asset);
+          if (!docId || !asset.adGroupId) return;
+          updates.push(
+            updateDoc(
+              doc(db, 'adGroups', asset.adGroupId, 'assets', docId),
+              { replacementRequest: payload },
+            ),
+          );
+        });
+        await Promise.all(updates);
+
+        const applyLocalReplacement = (list) =>
+          list.map((item) =>
+            targetAssets.some((asset) => assetsReferToSameDoc(asset, item))
+              ? { ...item, replacementRequest: payload }
+              : item,
+          );
+
+        setAds((prev) => applyLocalReplacement(prev));
+        setReviewAds((prev) => applyLocalReplacement(prev));
+        setAllAds((prev) => applyLocalReplacement(prev));
+
+        setReplacementFormState(cardKey, {
+          open: false,
+          saving: false,
+          note: trimmed,
+          originalNote: trimmed,
+          error: '',
+        });
+        setCollapsedRejects((prev) => ({ ...prev, [cardKey]: true }));
+        return true;
+      } catch (err) {
+        console.error('Failed to save replacement request', err);
+        setReplacementFormState(cardKey, (prev) => ({
+          ...prev,
+          saving: false,
+          error:
+            err?.message ||
+            'Failed to save replacement direction. Please try again.',
+        }));
+        return false;
+      }
+    },
+    [reviewerName, user, setReplacementFormState, setAds, setReviewAds, setAllAds],
+  );
+
   const reviewStatusCounts = useMemo(() => {
     const counts = { pending: 0, approve: 0, edit: 0, reject: 0 };
     if (!reviewAds || reviewAds.length === 0) {
@@ -5076,6 +5217,117 @@ useEffect(() => {
                     });
                   };
                   const isExpanded = !!expandedRequests[cardKey];
+                  const replacementAssets = statusAssets.filter((asset) => {
+                    const request = asset?.replacementRequest;
+                    return request && typeof request.note === 'string' && request.note.trim();
+                  });
+                  const replacementSummary = (() => {
+                    if (!replacementAssets.length) return null;
+                    const entries = replacementAssets
+                      .map((asset) => {
+                        const request = asset.replacementRequest || {};
+                        const note = (request.note || '').trim();
+                        if (!note) return null;
+                        const requestedAt = toDateSafe(request.requestedAt);
+                        const info = parseAdFilename(asset.filename || '');
+                        const aspect = info.aspectRatio || asset.aspectRatio || '';
+                        const assetLabel = aspect
+                          ? aspect.toUpperCase()
+                          : asset.filename || '';
+                        return {
+                          note,
+                          requestedBy:
+                            request.requestedBy ||
+                            request.requestedByEmail ||
+                            request.requestedById ||
+                            '',
+                          requestedAt: requestedAt || null,
+                          assetLabel,
+                        };
+                      })
+                      .filter(Boolean);
+                    if (!entries.length) return null;
+                    entries.sort(
+                      (a, b) =>
+                        (b.requestedAt?.getTime?.() || 0) -
+                        (a.requestedAt?.getTime?.() || 0),
+                    );
+                    const labels = Array.from(
+                      new Set(entries.map((entry) => entry.assetLabel).filter(Boolean)),
+                    );
+                    return {
+                      note: entries[0].note,
+                      requestedBy: entries[0].requestedBy,
+                      requestedAt: entries[0].requestedAt,
+                      assetLabels: labels,
+                      total: entries.length,
+                    };
+                  })();
+                  const replacementState = replacementForms[cardKey] || {};
+                  const replacementDraftNote =
+                    replacementState.note !== undefined
+                      ? replacementState.note
+                      : replacementSummary?.note || '';
+                  const replacementOriginalNote =
+                    replacementState.originalNote !== undefined
+                      ? replacementState.originalNote
+                      : replacementSummary?.note || '';
+                  const replacementOpen = !!replacementState.open;
+                  const replacementSaving = !!replacementState.saving;
+                  const replacementError = replacementState.error || '';
+                  const replacementHasChanges =
+                    replacementDraftNote.trim() !== (replacementOriginalNote || '').trim();
+                  const isRejectedStatus = statusValue === 'reject';
+                  const isRejectCollapsed =
+                    isRejectedStatus && !replacementOpen && collapsedRejects[cardKey] !== false;
+                  const replacementMetaLine = (() => {
+                    if (!replacementSummary) return '';
+                    const parts = [];
+                    if (replacementSummary.requestedBy) {
+                      parts.push(`Logged by ${replacementSummary.requestedBy}`);
+                    }
+                    if (replacementSummary.requestedAt instanceof Date) {
+                      parts.push(
+                        replacementSummary.requestedAt.toLocaleString(undefined, {
+                          month: 'short',
+                          day: 'numeric',
+                          year: 'numeric',
+                          hour: 'numeric',
+                          minute: '2-digit',
+                        }),
+                      );
+                    }
+                    if (replacementSummary.assetLabels?.length) {
+                      parts.push(
+                        `Affects ${replacementSummary.assetLabels
+                          .map((label) => label.toUpperCase())
+                          .join(', ')}`,
+                      );
+                    }
+                    return parts.join(' • ');
+                  })();
+                  const replacementSummaryContent = replacementSummary ? (
+                    <div className="space-y-2">
+                      <span className={REPLACEMENT_BADGE_CLASS}>
+                        Replacement requested
+                        {replacementSummary.assetLabels?.length ? (
+                          <span className="ml-1 text-[10px] font-medium normal-case">
+                            {replacementSummary.assetLabels.join(', ')}
+                          </span>
+                        ) : null}
+                      </span>
+                      <div className={REPLACEMENT_NOTE_CLASS}>
+                        <p className="whitespace-pre-wrap leading-relaxed">
+                          {replacementSummary.note}
+                        </p>
+                        {replacementMetaLine && (
+                          <p className={combineClasses('mt-2', REPLACEMENT_META_TEXT_CLASS)}>
+                            {replacementMetaLine}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  ) : null;
                   const recipeLabel =
                     ad.recipeCode ||
                     parseAdFilename(ad.filename || '').recipeCode ||
@@ -5338,6 +5590,11 @@ useEffect(() => {
 
                   const editActionButtonClass = `${baseEditButtonClasses} ${editButtonStateClass}`;
 
+                  const showDetailsButtonClass = baseEditButtonClasses;
+                  const requestReplacementButtonClass = isMobile
+                    ? 'inline-flex w-full items-center justify-center gap-2 rounded-lg border border-transparent bg-[var(--accent-color)] px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:brightness-105 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-color)] focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:text-white dark:focus-visible:ring-offset-[var(--dark-sidebar-bg)] disabled:cursor-not-allowed disabled:opacity-60'
+                    : 'inline-flex items-center justify-center gap-2 rounded-md border border-transparent bg-[var(--accent-color)] px-2.5 py-1 text-xs font-semibold text-white shadow-sm transition hover:brightness-105 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-color)] focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:text-white dark:focus-visible:ring-offset-[var(--dark-sidebar-bg)] disabled:cursor-not-allowed disabled:opacity-60';
+
                   const renderInlineCopyBlock = (assetElement) => {
                     if (!shouldShowInlineCopySection) {
                       return assetElement;
@@ -5455,6 +5712,134 @@ useEffect(() => {
                       </div>
                     );
                   };
+                  const handleReplacementDraftChange = (value) => {
+                    setReplacementFormState(cardKey, (prev) => ({
+                      ...prev,
+                      open: true,
+                      note: value,
+                      originalNote:
+                        prev?.originalNote !== undefined
+                          ? prev.originalNote
+                          : replacementSummary?.note || '',
+                      error: '',
+                      saving: false,
+                    }));
+                  };
+                  const handleOpenReplacementForm = () => {
+                    setCollapsedRejects((prev) => ({ ...prev, [cardKey]: false }));
+                    setReplacementFormState(cardKey, (prev) => ({
+                      ...prev,
+                      open: true,
+                      note:
+                        prev?.note !== undefined
+                          ? prev.note
+                          : replacementSummary?.note || '',
+                      originalNote:
+                        prev?.originalNote !== undefined
+                          ? prev.originalNote
+                          : replacementSummary?.note || '',
+                      error: '',
+                      saving: false,
+                    }));
+                  };
+                  const handleCancelReplacementForm = () => {
+                    setReplacementFormState(cardKey, (prev) => ({
+                      ...prev,
+                      open: false,
+                      note:
+                        prev?.originalNote !== undefined
+                          ? prev.originalNote
+                          : replacementSummary?.note || '',
+                      originalNote:
+                        prev?.originalNote !== undefined
+                          ? prev.originalNote
+                          : replacementSummary?.note || '',
+                      error: '',
+                      saving: false,
+                    }));
+                  };
+                  const handleSubmitReplacementForm = async () => {
+                    await saveReplacementRequest(
+                      cardKey,
+                      statusAssets,
+                      replacementDraftNote,
+                    );
+                  };
+                  const expandRejectedCard = () => {
+                    setCollapsedRejects((prev) => ({ ...prev, [cardKey]: false }));
+                  };
+                  const collapseRejectedCard = () => {
+                    setCollapsedRejects((prev) => ({ ...prev, [cardKey]: true }));
+                    setReplacementFormState(cardKey, (prev) =>
+                      prev
+                        ? {
+                            ...prev,
+                            open: false,
+                            note:
+                              prev?.originalNote !== undefined
+                                ? prev.originalNote
+                                : replacementSummary?.note || '',
+                            originalNote:
+                              prev?.originalNote !== undefined
+                                ? prev.originalNote
+                                : replacementSummary?.note || '',
+                            error: '',
+                            saving: false,
+                          }
+                        : prev,
+                    );
+                  };
+                  const showReplacementOverlay = isRejectedStatus && replacementOpen;
+                  const replacementFormContent = showReplacementOverlay ? (
+                    <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)]">
+                      <div className="flex flex-col gap-5">
+                        <div className="flex flex-col gap-1">
+                          <h4 className="text-lg font-semibold text-gray-900 dark:text-[var(--dark-text)]">
+                            Replacement direction
+                          </h4>
+                          <p className="text-sm text-gray-600 dark:text-gray-300">
+                            We’ll get started on a new one - just let us know what you have in mind!
+                          </p>
+                        </div>
+                        <textarea
+                          value={replacementDraftNote}
+                          onChange={(event) => handleReplacementDraftChange(event.target.value)}
+                          rows={6}
+                          disabled={replacementSaving}
+                          className={REPLACEMENT_TEXTAREA_CLASS}
+                          placeholder="Share the direction for the replacement creative..."
+                        />
+                        {replacementError && (
+                          <p className="text-sm font-medium text-red-600 dark:text-red-300">
+                            {replacementError}
+                          </p>
+                        )}
+                        {replacementSummary && replacementMetaLine && (
+                          <p className={REPLACEMENT_META_TEXT_CLASS}>{replacementMetaLine}</p>
+                        )}
+                        <div className="flex items-center justify-end gap-3">
+                          <Button
+                            type="button"
+                            variant="neutral"
+                            size="sm"
+                            onClick={handleCancelReplacementForm}
+                            disabled={replacementSaving}
+                          >
+                            Cancel
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="accent"
+                            size="sm"
+                            onClick={handleSubmitReplacementForm}
+                            disabled={replacementSaving || !replacementDraftNote.trim()}
+                          >
+                            {replacementSaving ? 'Saving...' : 'Submit'}
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  ) : null;
                   const handleSelectChange = async (event) => {
                     const value = event.target.value;
                     if (value === 'pending') {
@@ -5520,6 +5905,53 @@ useEffect(() => {
                   };
 
                   if (isMobile) {
+                    if (isRejectedStatus && isRejectCollapsed) {
+                      return (
+                        <div
+                          key={cardKey}
+                          className="w-full overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)]"
+                        >
+                          <div className="flex flex-col gap-4 p-4">
+                            <div className="flex flex-col gap-3">
+                              <div className="flex flex-col gap-3">
+                                <div className="flex flex-col gap-2">
+                                  <h3 className="text-lg font-semibold leading-tight text-gray-900 dark:text-[var(--dark-text)]">
+                                    {recipeLabel}
+                                  </h3>
+                                  <div className="flex items-center gap-2 text-sm font-semibold text-[var(--reject-color)]">
+                                    <span
+                                      className="inline-block h-2.5 w-2.5 rounded-full"
+                                      style={statusDotStyles.reject}
+                                    />
+                                    <span>Rejected</span>
+                                  </div>
+                                </div>
+                                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                                  <button
+                                    type="button"
+                                    onClick={expandRejectedCard}
+                                    className={showDetailsButtonClass}
+                                  >
+                                    Show ad details
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={handleOpenReplacementForm}
+                                    className={requestReplacementButtonClass}
+                                  >
+                                    Request replacement
+                                  </button>
+                                </div>
+                              </div>
+                              <p className="text-sm text-gray-600 dark:text-gray-300">
+                                Provide updated direction for a new creative or reopen the ad to review the assets again.
+                              </p>
+                              {replacementSummaryContent}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    }
                     const assetCount = sortedAssets.length;
                     const statusLabel = statusLabelMap[statusValue] || statusValue;
 
@@ -5561,12 +5993,20 @@ useEffect(() => {
                               <span className="font-medium">{statusLabel}</span>
                             </div>
                           </div>
-                          <div
-                            className={`flex w-full gap-3 overflow-x-auto pb-1 ${
-                              assetCount > 1 ? 'snap-x snap-mandatory' : ''
-                            }`}
-                          >
-                            {sortedAssets.map((asset, assetIdx) => {
+                          {replacementSummaryContent && !showReplacementOverlay && (
+                            <div>{replacementSummaryContent}</div>
+                          )}
+                          {showReplacementOverlay ? (
+                            replacementFormContent
+                          ) : (
+                            <div
+                              className={combineClasses(
+                                `flex w-full gap-3 overflow-x-auto pb-1 ${
+                                  assetCount > 1 ? 'snap-x snap-mandatory' : ''
+                                }`,
+                              )}
+                            >
+                              {sortedAssets.map((asset, assetIdx) => {
                               const assetUrl = asset.firebaseUrl || asset.adUrl || '';
                               const assetAspect = getAssetAspectRatio(asset);
                               const assetCssAspect = getCssAspectRatioValue(assetAspect);
@@ -5629,8 +6069,9 @@ useEffect(() => {
                                   {assetNode}
                                 </div>
                               );
-                            })}
-                          </div>
+                              })}
+                            </div>
+                          )}
                           <div className="space-y-3">
                             <div className="rounded-xl border border-gray-200 bg-gray-50 p-3 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-hover)]">
                               <label
@@ -5752,12 +6193,63 @@ useEffect(() => {
                     );
                   }
 
+                  if (isRejectedStatus && isRejectCollapsed) {
+                    return (
+                      <div
+                        key={cardKey}
+                        className="mx-auto w-full max-w-[712px] rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)]"
+                      >
+                        <div className="flex flex-col gap-4 p-5">
+                          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                            <div className="space-y-2">
+                              <h3 className="text-lg font-semibold leading-tight text-gray-900 dark:text-[var(--dark-text)]">
+                                {recipeLabel}
+                              </h3>
+                              <div className="flex items-center gap-2 text-sm font-semibold text-[var(--reject-color)]">
+                                <span
+                                  className="inline-block h-2.5 w-2.5 rounded-full"
+                                  style={statusDotStyles.reject}
+                                />
+                                <span>Rejected</span>
+                              </div>
+                              {latestVersionNumber > 1 && (
+                                <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600 dark:bg-[var(--dark-sidebar-hover)] dark:text-gray-200">
+                                  V{displayVersionNumber || latestVersionNumber}
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                              <button
+                                type="button"
+                                onClick={expandRejectedCard}
+                                className={showDetailsButtonClass}
+                              >
+                                Show ad details
+                              </button>
+                              <button
+                                type="button"
+                                onClick={handleOpenReplacementForm}
+                                className={requestReplacementButtonClass}
+                              >
+                                Request replacement
+                              </button>
+                            </div>
+                          </div>
+                          <p className="text-sm text-gray-600 dark:text-gray-300">
+                            Provide replacement direction so the team can deliver a new creative.
+                          </p>
+                          {replacementSummaryContent}
+                        </div>
+                      </div>
+                    );
+                  }
+
                   return (
                     <div
                       key={cardKey}
                       className="mx-auto w-full max-w-[712px] rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)]"
                     >
-                      <div className="flex flex-col gap-4 p-4">
+                      <div className="flex flex-col gap-4 p-5">
                         <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
                           <div className="flex flex-wrap items-center gap-2">
                             <h3 className="mb-0 text-lg font-semibold leading-tight text-gray-900 dark:text-[var(--dark-text)]">
@@ -5783,13 +6275,19 @@ useEffect(() => {
                             ) : null}
                           </div>
                         </div>
-                        <div className="space-y-4">
-                          <div
-                            className={`grid items-start gap-3 ${
-                              sortedAssets.length > 1 ? 'sm:grid-cols-2' : ''
-                            }`}
-                          >
-                            {sortedAssets.map((asset, assetIdx) => {
+                        {replacementSummaryContent && !showReplacementOverlay && (
+                          <div>{replacementSummaryContent}</div>
+                        )}
+                        {showReplacementOverlay ? (
+                          <div className="space-y-4">{replacementFormContent}</div>
+                        ) : (
+                          <div className="space-y-4">
+                            <div
+                              className={`grid items-start gap-3 ${
+                                sortedAssets.length > 1 ? 'sm:grid-cols-2' : ''
+                              }`}
+                            >
+                              {sortedAssets.map((asset, assetIdx) => {
                               const assetUrl = asset.firebaseUrl || asset.adUrl || '';
                               const assetAspect = getAssetAspectRatio(asset);
                               const assetCssAspect = getCssAspectRatioValue(assetAspect);
@@ -5842,41 +6340,57 @@ useEffect(() => {
                                   {assetNode}
                                 </div>
                               );
-                            })}
+                              })}
+                            </div>
                           </div>
-                        </div>
+                        )}
                         <div className="mt-2 flex flex-col gap-3 border-t border-gray-200 pt-3 dark:border-[var(--border-color-default)] sm:flex-row sm:items-center sm:justify-between">
-                          <div className="flex items-center gap-3">
-                            <span
-                              className="inline-block h-2.5 w-2.5 rounded-full"
-                              style={statusDotStyles[statusValue] || statusDotStyles.pending}
-                            />
-                            <div
-                              className="flex items-center"
-                              title={isGroupReviewed ? reviewedLockMessage : undefined}
-                            >
-                              <select
-                                id={selectId}
-                                aria-label="Status"
-                                className={`min-w-[160px] ${
-                                  isGroupReviewed ? 'cursor-not-allowed opacity-60' : ''
-                                }`}
-                                value={statusValue}
-                                onChange={handleSelectChange}
-                                disabled={submitting || isGroupReviewed}
+                          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+                            <div className="flex items-center gap-3">
+                              <span
+                                className="inline-block h-2.5 w-2.5 rounded-full"
+                                style={statusDotStyles[statusValue] || statusDotStyles.pending}
+                              />
+                              <div
+                                className="flex items-center gap-2"
+                                title={isGroupReviewed ? reviewedLockMessage : undefined}
                               >
-                                {statusOptions.map((option) => (
-                                  <option key={option.value} value={option.value}>
-                                    {option.label}
-                                  </option>
-                                ))}
-                              </select>
+                                <select
+                                  id={selectId}
+                                  aria-label="Status"
+                                  className={`min-w-[160px] ${
+                                    isGroupReviewed ? 'cursor-not-allowed opacity-60' : ''
+                                  }`}
+                                  value={statusValue}
+                                  onChange={handleSelectChange}
+                                  disabled={submitting || isGroupReviewed}
+                                >
+                                  {statusOptions.map((option) => (
+                                    <option key={option.value} value={option.value}>
+                                      {option.label}
+                                    </option>
+                                  ))}
+                                </select>
+                                {isRejectedStatus && (
+                                  <Button
+                                    type="button"
+                                    variant="action"
+                                    size="sm"
+                                    className="text-xs font-medium"
+                                    onClick={collapseRejectedCard}
+                                  >
+                                    Hide ad details
+                                  </Button>
+                                )}
+                              </div>
                             </div>
                           </div>
                           {showEditButton && (
-                            <button
+                            <Button
                               type="button"
-                              className="btn-action text-sm font-medium"
+                              variant="action"
+                              size="sm"
+                              className="text-sm font-medium"
                               onClick={() =>
                                 setExpandedRequests((prev) => ({
                                   ...prev,
@@ -5885,7 +6399,7 @@ useEffect(() => {
                               }
                             >
                               {isExpanded ? 'Hide edit request' : 'View edit request'}
-                            </button>
+                            </Button>
                           )}
                         </div>
                         {showEditButton && isExpanded && (
