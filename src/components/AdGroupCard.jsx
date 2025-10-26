@@ -86,10 +86,12 @@ const AdGroupCard = ({
     typeof group?.assignedIntegrationId === 'string'
       ? group.assignedIntegrationId
       : '';
-  const hasIntegration = Boolean(assignedIntegrationId);
+  const hasIntegrationAssigned = Boolean(assignedIntegrationId);
   const resolvedIntegration = integration || null;
   const integrationSummary = integrationStatus || group?.integrationStatusSummary || null;
   const integrationOutcome = integrationSummary?.outcome || null;
+  const wasIntegrationTriggered = Boolean(integrationSummary?.wasTriggered);
+  const shouldShowIntegrationPill = hasIntegrationAssigned && wasIntegrationTriggered;
   const integrationLabel =
     (resolvedIntegration && (resolvedIntegration.name || resolvedIntegration.id)) ||
     (typeof group?.assignedIntegrationName === 'string'
@@ -283,9 +285,9 @@ const AdGroupCard = ({
                 <span>{due.value}</span>
               </p>
             ))}
-            {(group.brandCode || group.month || hasIntegration) && (
+            {(group.brandCode || group.month || shouldShowIntegrationPill) && (
               <div className="flex items-center gap-2 self-end">
-                {hasIntegration && (
+                {shouldShowIntegrationPill && (
                   <span
                     className="tag-pill inline-flex items-center gap-1 border border-gray-300 bg-white px-2 py-0.5 text-xs text-gray-600 max-h-[22px]"
                     title={integrationTitle}
