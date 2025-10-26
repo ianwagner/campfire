@@ -10,6 +10,8 @@
     "designed": "Ad group: {{adGroup}} is ready for review.\n{{offerTags}}\n\n{{reviewLink}}",
     "briefed": "",
     "reviewed": "Review completed for {{adGroup}}\nApproved: {{approvedCount}}\nEdit Requests: {{editRequestedCount}}\nRejections: {{rejectedCount}}\n\n{{reviewLink}}",
+    "review-reminder": "Reminder: {{adGroup}} has been waiting for review for 72 hours.\n{{offerTags}}\n\n{{reviewLink}}",
+    "approved-ready": "Approved ads for {{adGroup}} are ready for build.\n{{reviewLink}}",
     "blocked": "",
     "overall-feedback": ""
   }

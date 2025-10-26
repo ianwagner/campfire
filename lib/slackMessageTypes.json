@@ -18,6 +18,18 @@
     "audiences": ["internal", "external"]
   },
   {
+    "key": "review-reminder",
+    "label": "Reminder: Ads pending review",
+    "description": "Sent when an ad group has been in Designed status for 72 hours.",
+    "audiences": ["external"]
+  },
+  {
+    "key": "approved-ready",
+    "label": "Approved ads ready for build",
+    "description": "Sent when approved ads have been received by an integration.",
+    "audiences": ["external"]
+  },
+  {
     "key": "blocked",
     "label": "Ad group blocked",
     "description": "Sent when an ad group is blocked and needs attention.",

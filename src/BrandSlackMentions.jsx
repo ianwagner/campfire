@@ -12,9 +12,12 @@ import { db } from './firebase/config';
 import slackMessageTypes from '../lib/slackMessageTypes.json';
 
 const MESSAGE_TYPES = Array.isArray(slackMessageTypes) ? slackMessageTypes : [];
+const EXTERNAL_MESSAGE_TYPES = MESSAGE_TYPES.filter((type) =>
+  Array.isArray(type.audiences) ? type.audiences.includes('external') : false,
+);
 
 const createEmptyState = () =>
-  MESSAGE_TYPES.reduce((acc, type) => {
+  EXTERNAL_MESSAGE_TYPES.reduce((acc, type) => {
     acc[type.key] = '';
     return acc;
   }, {});
@@ -62,6 +65,7 @@ const BrandSlackMentions = ({ brandId: propId = null, brandCode: propCode = '' }
   const [resolvedBrandCode, setResolvedBrandCode] = useState(propCode);
   const [formValues, setFormValues] = useState(createEmptyState);
   const [initialValues, setInitialValues] = useState(createEmptyState);
+  const [existingMentions, setExistingMentions] = useState({});
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
@@ -76,6 +80,7 @@ const BrandSlackMentions = ({ brandId: propId = null, brandCode: propCode = '' }
         setResolvedBrandCode('');
         setFormValues(createEmptyState());
         setInitialValues(createEmptyState());
+        setExistingMentions({});
         return;
       }
 
@@ -110,21 +115,23 @@ const BrandSlackMentions = ({ brandId: propId = null, brandCode: propCode = '' }
           const data = brandDoc.data() || {};
           setResolvedBrandId(brandDoc.id);
           setResolvedBrandCode(data.code || propCode || '');
-          const config = data.slackMentions || {};
+          const config = data.slackMentions ? { ...data.slackMentions } : {};
           const nextValues = createEmptyState();
-          MESSAGE_TYPES.forEach((type) => {
+          EXTERNAL_MESSAGE_TYPES.forEach((type) => {
             if (Object.prototype.hasOwnProperty.call(config, type.key)) {
               nextValues[type.key] = formatEmailsForInput(config[type.key]);
             }
           });
           setFormValues(nextValues);
           setInitialValues(nextValues);
+          setExistingMentions(config);
         } else {
           setResolvedBrandId(propId || null);
           setResolvedBrandCode(propCode || '');
           const empty = createEmptyState();
           setFormValues(empty);
           setInitialValues(empty);
+          setExistingMentions({});
         }
       } catch (err) {
         console.error('Failed to load Slack mention settings', err);
@@ -133,6 +140,7 @@ const BrandSlackMentions = ({ brandId: propId = null, brandCode: propCode = '' }
           const empty = createEmptyState();
           setFormValues(empty);
           setInitialValues(empty);
+          setExistingMentions({});
         }
       } finally {
         if (!cancelled) {
@@ -149,7 +157,7 @@ const BrandSlackMentions = ({ brandId: propId = null, brandCode: propCode = '' }
   }, [propId, propCode]);
 
   const hasChanges = useMemo(() => {
-    return MESSAGE_TYPES.some((type) => {
+    return EXTERNAL_MESSAGE_TYPES.some((type) => {
       return (
         normalizeForComparison(formValues[type.key]) !==
         normalizeForComparison(initialValues[type.key])
@@ -184,8 +192,8 @@ const BrandSlackMentions = ({ brandId: propId = null, brandCode: propCode = '' }
     setError('');
 
     try {
-      const payload = {};
-      MESSAGE_TYPES.forEach((type) => {
+      const payload = { ...existingMentions };
+      EXTERNAL_MESSAGE_TYPES.forEach((type) => {
         const emails = parseEmails(formValues[type.key]);
         payload[type.key] = emails;
       });
@@ -197,12 +205,13 @@ const BrandSlackMentions = ({ brandId: propId = null, brandCode: propCode = '' }
       );
 
       const normalized = createEmptyState();
-      MESSAGE_TYPES.forEach((type) => {
+      EXTERNAL_MESSAGE_TYPES.forEach((type) => {
         normalized[type.key] = formatEmailsForInput(payload[type.key]);
       });
 
       setInitialValues(normalized);
       setFormValues(normalized);
+      setExistingMentions(payload);
       setMessage('Slack mention settings saved');
     } catch (err) {
       console.error('Failed to save Slack mention settings', err);
@@ -262,7 +271,7 @@ const BrandSlackMentions = ({ brandId: propId = null, brandCode: propCode = '' }
         </div>
       )}
       <div className="grid gap-6 md:grid-cols-2">
-        {MESSAGE_TYPES.map((type) => (
+        {EXTERNAL_MESSAGE_TYPES.map((type) => (
           <div key={type.key} className="space-y-2">
             <label className="block text-sm font-medium text-gray-900 dark:text-gray-100">
               {type.label}
@@ -281,7 +290,7 @@ const BrandSlackMentions = ({ brandId: propId = null, brandCode: propCode = '' }
           </div>
         ))}
       </div>
-      {MESSAGE_TYPES.length === 0 && (
+      {EXTERNAL_MESSAGE_TYPES.length === 0 && (
         <p className="text-sm text-gray-600 dark:text-gray-300">
           No Slack message types are configured.
         </p>
