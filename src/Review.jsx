@@ -56,7 +56,6 @@ import { getCopyLetter } from './utils/copyLetter';
 import sortCopyCards from './utils/sortCopyCards';
 import RecipePreview from './RecipePreview.jsx';
 import HelpdeskModal from './components/HelpdeskModal.jsx';
-import Modal from './components/Modal.jsx';
 import InfoTooltip from './components/InfoTooltip.jsx';
 import isVideoUrl from './utils/isVideoUrl';
 import parseAdFilename from './utils/parseAdFilename';
@@ -5591,6 +5590,11 @@ useEffect(() => {
 
                   const editActionButtonClass = `${baseEditButtonClasses} ${editButtonStateClass}`;
 
+                  const showDetailsButtonClass = baseEditButtonClasses;
+                  const requestReplacementButtonClass = isMobile
+                    ? 'inline-flex w-full items-center justify-center gap-2 rounded-lg border border-transparent bg-[var(--accent-color)] px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:brightness-105 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-color)] focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:text-white dark:focus-visible:ring-offset-[var(--dark-sidebar-bg)] disabled:cursor-not-allowed disabled:opacity-60'
+                    : 'inline-flex items-center justify-center gap-2 rounded-md border border-transparent bg-[var(--accent-color)] px-2.5 py-1 text-xs font-semibold text-white shadow-sm transition hover:brightness-105 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-color)] focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:text-white dark:focus-visible:ring-offset-[var(--dark-sidebar-bg)] disabled:cursor-not-allowed disabled:opacity-60';
+
                   const renderInlineCopyBlock = (assetElement) => {
                     if (!shouldShowInlineCopySection) {
                       return assetElement;
@@ -5786,8 +5790,8 @@ useEffect(() => {
                     );
                   };
                   const showReplacementOverlay = isRejectedStatus && replacementOpen;
-                  const replacementModalContent = showReplacementOverlay ? (
-                    <Modal sizeClass="max-w-xl w-full" className="p-6">
+                  const replacementFormContent = showReplacementOverlay ? (
+                    <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)]">
                       <div className="flex flex-col gap-5">
                         <div className="flex flex-col gap-1">
                           <h4 className="text-lg font-semibold text-gray-900 dark:text-[var(--dark-text)]">
@@ -5817,7 +5821,7 @@ useEffect(() => {
                           <Button
                             type="button"
                             variant="neutral"
-                            size="md"
+                            size="sm"
                             onClick={handleCancelReplacementForm}
                             disabled={replacementSaving}
                           >
@@ -5826,7 +5830,7 @@ useEffect(() => {
                           <Button
                             type="button"
                             variant="accent"
-                            size="md"
+                            size="sm"
                             onClick={handleSubmitReplacementForm}
                             disabled={replacementSaving || !replacementDraftNote.trim()}
                           >
@@ -5834,7 +5838,7 @@ useEffect(() => {
                           </Button>
                         </div>
                       </div>
-                    </Modal>
+                    </div>
                   ) : null;
                   const handleSelectChange = async (event) => {
                     const value = event.target.value;
@@ -5923,24 +5927,20 @@ useEffect(() => {
                                   </div>
                                 </div>
                                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                                  <Button
+                                  <button
                                     type="button"
-                                    variant="accentPillOutline"
-                                    size="md"
-                                    fullWidth
                                     onClick={expandRejectedCard}
+                                    className={showDetailsButtonClass}
                                   >
                                     Show ad details
-                                  </Button>
-                                  <Button
+                                  </button>
+                                  <button
                                     type="button"
-                                    variant="accentPill"
-                                    size="md"
-                                    fullWidth
                                     onClick={handleOpenReplacementForm}
+                                    className={requestReplacementButtonClass}
                                   >
                                     Request replacement
-                                  </Button>
+                                  </button>
                                 </div>
                               </div>
                               <p className="text-sm text-gray-600 dark:text-gray-300">
@@ -5996,18 +5996,17 @@ useEffect(() => {
                           {replacementSummaryContent && !showReplacementOverlay && (
                             <div>{replacementSummaryContent}</div>
                           )}
-                          {replacementModalContent}
-                          <div
-                            className={combineClasses(
-                              `flex w-full gap-3 overflow-x-auto pb-1 ${
-                                assetCount > 1 ? 'snap-x snap-mandatory' : ''
-                              }`,
-                              showReplacementOverlay
-                                ? 'pointer-events-none opacity-40 transition-opacity'
-                                : '',
-                            )}
-                          >
-                            {sortedAssets.map((asset, assetIdx) => {
+                          {showReplacementOverlay ? (
+                            replacementFormContent
+                          ) : (
+                            <div
+                              className={combineClasses(
+                                `flex w-full gap-3 overflow-x-auto pb-1 ${
+                                  assetCount > 1 ? 'snap-x snap-mandatory' : ''
+                                }`,
+                              )}
+                            >
+                              {sortedAssets.map((asset, assetIdx) => {
                               const assetUrl = asset.firebaseUrl || asset.adUrl || '';
                               const assetAspect = getAssetAspectRatio(asset);
                               const assetCssAspect = getCssAspectRatioValue(assetAspect);
@@ -6070,8 +6069,9 @@ useEffect(() => {
                                   {assetNode}
                                 </div>
                               );
-                            })}
-                          </div>
+                              })}
+                            </div>
+                          )}
                           <div className="space-y-3">
                             <div className="rounded-xl border border-gray-200 bg-gray-50 p-3 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-hover)]">
                               <label
@@ -6219,22 +6219,20 @@ useEffect(() => {
                               )}
                             </div>
                             <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                              <Button
+                              <button
                                 type="button"
-                                variant="accentPillOutline"
-                                size="md"
                                 onClick={expandRejectedCard}
+                                className={showDetailsButtonClass}
                               >
                                 Show ad details
-                              </Button>
-                              <Button
+                              </button>
+                              <button
                                 type="button"
-                                variant="accentPill"
-                                size="md"
                                 onClick={handleOpenReplacementForm}
+                                className={requestReplacementButtonClass}
                               >
                                 Request replacement
-                              </Button>
+                              </button>
                             </div>
                           </div>
                           <p className="text-sm text-gray-600 dark:text-gray-300">
@@ -6280,21 +6278,16 @@ useEffect(() => {
                         {replacementSummaryContent && !showReplacementOverlay && (
                           <div>{replacementSummaryContent}</div>
                         )}
-                        {replacementModalContent}
-                        <div
-                          className={combineClasses(
-                            'space-y-4',
-                            showReplacementOverlay
-                              ? 'pointer-events-none opacity-40 transition-opacity'
-                              : '',
-                          )}
-                        >
-                          <div
-                            className={`grid items-start gap-3 ${
-                              sortedAssets.length > 1 ? 'sm:grid-cols-2' : ''
-                            }`}
-                          >
-                            {sortedAssets.map((asset, assetIdx) => {
+                        {showReplacementOverlay ? (
+                          <div className="space-y-4">{replacementFormContent}</div>
+                        ) : (
+                          <div className="space-y-4">
+                            <div
+                              className={`grid items-start gap-3 ${
+                                sortedAssets.length > 1 ? 'sm:grid-cols-2' : ''
+                              }`}
+                            >
+                              {sortedAssets.map((asset, assetIdx) => {
                               const assetUrl = asset.firebaseUrl || asset.adUrl || '';
                               const assetAspect = getAssetAspectRatio(asset);
                               const assetCssAspect = getCssAspectRatioValue(assetAspect);
@@ -6347,9 +6340,10 @@ useEffect(() => {
                                   {assetNode}
                                 </div>
                               );
-                            })}
+                              })}
+                            </div>
                           </div>
-                        </div>
+                        )}
                         <div className="mt-2 flex flex-col gap-3 border-t border-gray-200 pt-3 dark:border-[var(--border-color-default)] sm:flex-row sm:items-center sm:justify-between">
                           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
                             <div className="flex items-center gap-3">
