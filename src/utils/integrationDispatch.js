@@ -6,7 +6,10 @@ import parseAdFilename from './parseAdFilename';
 const normalizeKeyPart = (value) => {
   if (value === null || value === undefined) return '';
   if (typeof value === 'string') return value.trim();
-  return String(value);
+  if (typeof value === 'number' || typeof value === 'boolean') {
+    return String(value);
+  }
+  return '';
 };
 
 const normalizeRecipeIdentifier = (value) => {
@@ -16,8 +19,102 @@ const normalizeRecipeIdentifier = (value) => {
   return withoutLeadingZeros || normalized;
 };
 
+const RECIPE_FIELD_NAME_KEYS = [
+  'key',
+  'name',
+  'label',
+  'field',
+  'title',
+  'question',
+  'prompt',
+];
+
+const RECIPE_FIELD_VALUE_KEYS = [
+  'value',
+  'answer',
+  'text',
+  'content',
+  'response',
+  'data',
+  'val',
+  'number',
+  'code',
+  'id',
+];
+
+const normalizedKeyMatch = (key, keys) => {
+  const normalizedKey = normalizeKeyPart(key).toLowerCase();
+  if (!normalizedKey) {
+    return false;
+  }
+  return keys.some(
+    (candidate) => normalizeKeyPart(candidate).toLowerCase() === normalizedKey,
+  );
+};
+
+const extractRecipeValueFromEntry = (entry, keys) => {
+  if (!entry || typeof entry !== 'object') {
+    return '';
+  }
+
+  for (const nameKey of RECIPE_FIELD_NAME_KEYS) {
+    if (!Object.prototype.hasOwnProperty.call(entry, nameKey)) {
+      continue;
+    }
+    const rawName = entry[nameKey];
+    if (!normalizedKeyMatch(rawName, keys)) {
+      continue;
+    }
+
+    for (const valueKey of RECIPE_FIELD_VALUE_KEYS) {
+      if (!Object.prototype.hasOwnProperty.call(entry, valueKey)) {
+        continue;
+      }
+      const candidate = normalizeRecipeIdentifier(entry[valueKey]);
+      if (candidate) {
+        return candidate;
+      }
+
+      const nestedValue = entry[valueKey];
+      if (nestedValue && typeof nestedValue === 'object') {
+        const nestedCandidate = getRecipeFieldCandidate(nestedValue, keys);
+        if (nestedCandidate) {
+          return nestedCandidate;
+        }
+      }
+    }
+  }
+
+  return '';
+};
+
 const getRecipeFieldCandidate = (source, keys) => {
-  if (!source || typeof source !== 'object') return '';
+  if (!source) {
+    return '';
+  }
+
+  if (Array.isArray(source)) {
+    for (const entry of source) {
+      if (!entry) {
+        continue;
+      }
+      const candidate = getRecipeFieldCandidate(entry, keys);
+      if (candidate) {
+        return candidate;
+      }
+
+      const extracted = extractRecipeValueFromEntry(entry, keys);
+      if (extracted) {
+        return extracted;
+      }
+    }
+    return '';
+  }
+
+  if (typeof source !== 'object') {
+    return '';
+  }
+
   for (const key of keys) {
     if (!Object.prototype.hasOwnProperty.call(source, key)) continue;
     const candidate = normalizeRecipeIdentifier(source[key]);
@@ -25,6 +122,33 @@ const getRecipeFieldCandidate = (source, keys) => {
       return candidate;
     }
   }
+
+  for (const [entryKey, value] of Object.entries(source)) {
+    if (!normalizedKeyMatch(entryKey, keys)) {
+      continue;
+    }
+    const candidate = normalizeRecipeIdentifier(value);
+    if (candidate) {
+      return candidate;
+    }
+    if (value && typeof value === 'object') {
+      const nestedCandidate = getRecipeFieldCandidate(value, keys);
+      if (nestedCandidate) {
+        return nestedCandidate;
+      }
+    }
+  }
+
+  for (const value of Object.values(source)) {
+    if (!value || typeof value !== 'object') {
+      continue;
+    }
+    const candidate = getRecipeFieldCandidate(value, keys);
+    if (candidate) {
+      return candidate;
+    }
+  }
+
   return '';
 };
 
@@ -188,11 +312,15 @@ const groupAssetsByRecipe = (assets) => {
     if (entry) {
       entry.assets.push(asset);
       entry.docIds.push(docId);
+      if (!entry.identifier && identifier) {
+        entry.identifier = identifier;
+      }
       return;
     }
 
     groups.set(key, {
       key,
+      identifier: identifier || '',
       assets: [asset],
       docIds: [docId],
     });
@@ -328,11 +456,36 @@ export const dispatchIntegrationForAssets = async ({
     const group = groupedAssets[index];
     const attempt = index + 1;
     const assetEntries = group.assets.map((asset) => buildApprovedAssetPayload(asset));
-    const approvedAssets = assetEntries
+    const approvedAssetsRaw = assetEntries
       .map((entry) => entry.payload)
       .filter((entry) => entry && entry.id);
+    const normalizedRecipeIdentifier =
+      normalizeRecipeIdentifier(group.identifier) ||
+      approvedAssetsRaw
+        .map((entry) => normalizeRecipeIdentifier(entry.recipeCode))
+        .find((candidate) => candidate) ||
+      '';
+    const approvedAssets = approvedAssetsRaw.map((entry) => {
+      if (!normalizedRecipeIdentifier) {
+        return entry;
+      }
+      const normalizedEntryRecipe = normalizeRecipeIdentifier(entry.recipeCode);
+      if (normalizedEntryRecipe === normalizedRecipeIdentifier) {
+        return entry;
+      }
+      return {
+        ...entry,
+        recipeCode: normalizedRecipeIdentifier,
+      };
+    });
     const primaryAsset = selectPrimaryAssetPayload(assetEntries);
     const approvedAssetIds = approvedAssets.map((entry) => entry.id).filter(Boolean);
+    const primaryAssetId = normalizeKeyPart(primaryAsset?.id);
+    const normalizedPrimaryAsset =
+      (primaryAssetId &&
+        approvedAssets.find((entry) => normalizeKeyPart(entry.id) === primaryAssetId)) ||
+      approvedAssets[0] ||
+      null;
 
     if (approvedAssets.length === 0) {
       const message = 'No assets available for integration dispatch.';
@@ -359,11 +512,13 @@ export const dispatchIntegrationForAssets = async ({
       adGroupId: groupId,
       integrationId,
       integrationName: integrationName || '',
-      approvedAssetId: primaryAsset?.id || approvedAssetIds[0] || '',
-      approvedAdId: primaryAsset?.id || approvedAssetIds[0] || '',
+      recipeIdentifier: normalizedRecipeIdentifier,
+      recipeCode: normalizedRecipeIdentifier,
+      approvedAssetId: normalizedPrimaryAsset?.id || approvedAssetIds[0] || '',
+      approvedAdId: normalizedPrimaryAsset?.id || approvedAssetIds[0] || '',
       approvedAssetIds,
       approvedAssets,
-      approvedAsset: primaryAsset || null,
+      approvedAsset: normalizedPrimaryAsset || null,
     };
 
     let responsePayloadSnapshot = null;
