@@ -10,8 +10,13 @@ test('keeps briefed when current status is briefed', () => {
   expect(status).toBe('briefed');
 });
 
-test('returns new when no current status is provided', () => {
+test('returns briefed when recipes exist but no status is provided', () => {
   const status = computeGroupStatus([], true, false);
+  expect(status).toBe('briefed');
+});
+
+test('returns new when nothing else is available', () => {
+  const status = computeGroupStatus([], false, false);
   expect(status).toBe('new');
 });
 
@@ -38,6 +43,31 @@ test('keeps reviewed status when already finalized', () => {
     'reviewed',
   );
   expect(status).toBe('reviewed');
+});
+
+test('returns done when all assets are complete but status missing', () => {
+  const status = computeGroupStatus([
+    { status: 'approved' },
+    { status: 'rejected' },
+    { status: 'archived' },
+  ]);
+  expect(status).toBe('done');
+});
+
+test('returns reviewed when edit requests are present without status', () => {
+  const status = computeGroupStatus([
+    { status: 'edit requested' },
+    { status: 'approved' },
+  ]);
+  expect(status).toBe('reviewed');
+});
+
+test('returns designed when there are pending assets without status', () => {
+  const status = computeGroupStatus([
+    { status: 'pending' },
+    { status: 'approved' },
+  ]);
+  expect(status).toBe('designed');
 });
 
 test('keeps designed status when already set manually', () => {
