@@ -21,6 +21,7 @@ import MonthTag from './MonthTag.jsx';
 import AdGroupGantt from './AdGroupGantt.jsx';
 import { db } from '../firebase/config';
 import { normalizeReviewVersion } from '../utils/reviewVersion';
+import useIntegrations from '../useIntegrations';
 
 const statusOrder = {
   blocked: 0,
@@ -66,6 +67,16 @@ const AdGroupListView = ({
   const [sortField, setSortField] = useState('title');
   const [reviewVersions, setReviewVersions] = useState({});
   const [updatingReview, setUpdatingReview] = useState(null);
+  const { integrations } = useIntegrations();
+  const integrationMap = useMemo(() => {
+    const map = {};
+    integrations.forEach((integration) => {
+      if (integration?.id) {
+        map[integration.id] = integration;
+      }
+    });
+    return map;
+  }, [integrations]);
 
   const handleReviewTypeChange = async (groupId, newValue, previousValue, hadOverride) => {
     const normalizedValue = normalizeReviewVersion(newValue);
@@ -288,6 +299,8 @@ const AdGroupListView = ({
               <AdGroupCard
                 key={g.id}
                 group={g}
+                integration={integrationMap[g.assignedIntegrationId]}
+                integrationStatus={g.integrationStatusSummary}
                 onGallery={onGallery ? () => onGallery(g.id) : undefined}
                 onCopy={onCopy ? () => onCopy(g.id) : undefined}
                 onDownload={onDownload ? () => onDownload(g.id) : undefined}
@@ -406,6 +419,8 @@ const AdGroupListView = ({
                           <AdGroupCard
                             key={g.id}
                             group={g}
+                            integration={integrationMap[g.assignedIntegrationId]}
+                            integrationStatus={g.integrationStatusSummary}
                             onGallery={onGallery ? () => onGallery(g.id) : undefined}
                             onCopy={onCopy ? () => onCopy(g.id) : undefined}
                             onDownload={onDownload ? () => onDownload(g.id) : undefined}

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import Editor from "@monaco-editor/react";
 import {
   collection,
@@ -15,6 +15,7 @@ import {
   FiSearch,
 } from "react-icons/fi";
 import { db } from "./firebase/config";
+import uploadIntegrationLogo from "./uploadIntegrationLogo";
 
 const HTTP_METHODS = ["POST", "PUT", "PATCH", "DELETE", "GET"];
 const AUTH_STRATEGIES = ["none", "api_key", "basic", "oauth2", "signed_payload"];
@@ -79,6 +80,7 @@ function normalizeIntegration(docId, raw) {
     slug: raw?.slug || docId,
     description: raw?.description || "",
     active: Boolean(raw?.active ?? true),
+    logoUrl: typeof raw?.logoUrl === "string" ? raw.logoUrl : "",
     baseUrl: raw?.baseUrl || "",
     endpointPath: raw?.endpointPath || "",
     method: raw?.method || "POST",
@@ -135,6 +137,7 @@ function createNewIntegration() {
     slug: "",
     description: "",
     active: true,
+    logoUrl: "",
     baseUrl: "",
     endpointPath: "",
     method: "POST",
@@ -215,6 +218,7 @@ function buildIntegrationPayload(form, headerRows) {
     slug: form.slug?.trim() || form.id.trim(),
     description: form.description?.trim() || "",
     active: Boolean(form.active),
+    logoUrl: form.logoUrl?.trim() ? form.logoUrl.trim() : null,
     baseUrl: form.baseUrl.trim(),
     endpointPath: form.endpointPath.trim(),
     method: form.method || "POST",
@@ -323,6 +327,9 @@ const AdminIntegrations = () => {
   const [testError, setTestError] = useState(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [liveLoading, setLiveLoading] = useState(false);
+  const [logoUploading, setLogoUploading] = useState(false);
+  const [logoError, setLogoError] = useState(null);
+  const fileInputRef = useRef(null);
 
   useEffect(() => {
     let active = true;
@@ -424,6 +431,8 @@ const AdminIntegrations = () => {
     setTestResult(null);
     setTestError(null);
     setValidationError(null);
+    setLogoError(null);
+    setLogoUploading(false);
   };
 
   const handleCreateNew = () => {
@@ -440,6 +449,39 @@ const AdminIntegrations = () => {
     setTestResult(null);
     setTestError(null);
     setValidationError(null);
+    setLogoError(null);
+    setLogoUploading(false);
+  };
+
+  const handleTriggerLogoUpload = () => {
+    if (!form) return;
+    fileInputRef.current?.click();
+  };
+
+  const handleLogoSelect = async (event) => {
+    if (!form) return;
+    const file = event.target.files?.[0];
+    if (!file) {
+      return;
+    }
+    setLogoError(null);
+    setLogoUploading(true);
+    try {
+      const url = await uploadIntegrationLogo(file, form.id || form.slug || "integration");
+      setForm((current) => (current ? { ...current, logoUrl: url } : current));
+    } catch (error) {
+      setLogoError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setLogoUploading(false);
+      if (event.target) {
+        event.target.value = "";
+      }
+    }
+  };
+
+  const handleLogoRemove = () => {
+    setLogoError(null);
+    setForm((current) => (current ? { ...current, logoUrl: "" } : current));
   };
 
   const ensureTrailingBlankRow = (rows) => {
@@ -973,6 +1015,51 @@ const AdminIntegrations = () => {
                       className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring"
                       rows={3}
                     />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700">Logo</label>
+                    <div className="mt-1 flex items-center gap-3">
+                      {form.logoUrl ? (
+                        <img
+                          src={form.logoUrl}
+                          alt={`${form.name || form.id || "Integration"} logo`}
+                          className="h-12 w-12 rounded-md border border-slate-200 bg-white object-contain"
+                        />
+                      ) : (
+                        <span className="flex h-12 w-12 items-center justify-center rounded-md border border-dashed border-slate-300 text-xs text-slate-400">
+                          No logo
+                        </span>
+                      )}
+                      <div className="flex flex-wrap items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={handleTriggerLogoUpload}
+                          disabled={logoUploading}
+                          className={`inline-flex items-center rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 ${
+                            logoUploading ? "cursor-not-allowed bg-slate-100" : "bg-white hover:bg-slate-50"
+                          }`}
+                        >
+                          {logoUploading ? "Uploading..." : form.logoUrl ? "Replace logo" : "Upload logo"}
+                        </button>
+                        {form.logoUrl && (
+                          <button
+                            type="button"
+                            onClick={handleLogoRemove}
+                            className="inline-flex items-center rounded-md border border-transparent px-3 py-1.5 text-sm font-medium text-rose-600 hover:bg-rose-50 focus:outline-none focus:ring-2 focus:ring-rose-500 focus:ring-offset-1"
+                          >
+                            Remove
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={handleLogoSelect}
+                      className="hidden"
+                    />
+                    {logoError && <p className="mt-1 text-xs text-red-600">{logoError}</p>}
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-700">Recipe Type</label>
