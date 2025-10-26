@@ -3883,6 +3883,12 @@ export async function createMappingContext(
     dryRun,
   });
 
+  const approvedAds = standardAds.filter((ad) => {
+    const status =
+      typeof ad.status === "string" ? ad.status.trim().toLowerCase() : "";
+    return status === "approved";
+  });
+
   const defaultExport: IntegrationDefaultExport = {
     ...summary,
     integrationId: integration.id,
@@ -3890,7 +3896,7 @@ export async function createMappingContext(
     integrationSlug: integration.slug,
     generatedAt,
     dryRun,
-    ads: standardAds,
+    ads: approvedAds,
   };
 
   const normalizedRecipeTypeId =
@@ -3909,9 +3915,9 @@ export async function createMappingContext(
     dryRun,
     generatedAt,
     summary,
-    standardAds,
-    exportRows: standardAds,
-    rows: standardAds,
+    standardAds: approvedAds,
+    exportRows: approvedAds,
+    rows: approvedAds,
     defaultExport,
     standardExport: defaultExport,
   } satisfies Record<string, unknown>;
@@ -3926,7 +3932,7 @@ export async function createMappingContext(
     client: reviewData.client,
     recipeType,
     recipeFieldKeys,
-    standardAds,
+    standardAds: approvedAds,
     summary,
     defaultExport,
     generatedAt,
