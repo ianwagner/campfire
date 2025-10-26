@@ -1,7 +1,11 @@
 import {
   __TESTING__,
+  renderPayload,
   type FirestoreRecord,
+  type IntegrationAdExport,
+  type IntegrationDefaultExport,
   type IntegrationExportSummary,
+  type MappingContext,
 } from "../mapping";
 import type { Integration } from "../types";
 
@@ -125,5 +129,109 @@ describe("groupAdsByRecipeIdentifier", () => {
     );
     expect(exports[0].asset1x1Url).toBe("https://cdn.example.com/square.png");
     expect(exports[0].asset9x16Url).toBe("https://cdn.example.com/vertical.png");
+  });
+});
+
+describe("renderPayload", () => {
+  it("escapes JSON-sensitive characters in Handlebars templates", async () => {
+    const generatedAt = "2024-01-01T00:00:00.000Z";
+
+    const integration: Integration = {
+      id: "integration-1",
+      version: "1",
+      name: "Test Integration",
+      slug: "test-integration",
+      description: "",
+      active: true,
+      baseUrl: "https://example.com",
+      endpointPath: "/hook",
+      method: "POST",
+      auth: { strategy: "none" },
+      mapping: {
+        type: "handlebars",
+        version: "1",
+        template: `{
+  "ads": [
+    {{#each standardAds}}
+    {
+      "headline": "{{ headline }}",
+      "primary_text": "{{ primaryCopy }}",
+      "persona": "{{ persona }}"
+    }{{#unless @last}},{{/unless}}
+    {{/each}}
+  ]
+}`,
+      },
+      schemaRef: null,
+      recipeTypeId: null,
+      retryPolicy: {
+        maxAttempts: 1,
+        initialIntervalMs: 1000,
+        maxIntervalMs: 1000,
+        backoffMultiplier: 1,
+      },
+      headers: {},
+      createdAt: generatedAt,
+      updatedAt: generatedAt,
+    };
+
+    const standardAds: IntegrationAdExport[] = [
+      {
+        id: "ad-1",
+        reviewId: "review-1",
+        generatedAt,
+        integrationId: integration.id,
+        integrationName: integration.name,
+        integrationSlug: integration.slug,
+        dryRun: false,
+        assets: {},
+        headline: 'Boost your "ROI"',
+        primaryCopy: "Line 1\nLine 2",
+        persona: "Moms & Dads",
+      },
+    ];
+
+    const summary: IntegrationExportSummary = {
+      reviewId: "review-1",
+    };
+
+    const defaultExport: IntegrationDefaultExport = {
+      reviewId: "review-1",
+      generatedAt,
+      integrationId: integration.id,
+      integrationName: integration.name,
+      integrationSlug: integration.slug,
+      dryRun: false,
+      ads: standardAds,
+    };
+
+    const context: MappingContext = {
+      integration,
+      reviewId: "review-1",
+      payload: {},
+      dryRun: false,
+      review: { id: "review-1" },
+      ads: [],
+      client: null,
+      recipeType: null,
+      recipeFieldKeys: [],
+      standardAds,
+      summary,
+      defaultExport,
+      generatedAt,
+      data: { standardAds },
+    };
+
+    const payload = await renderPayload(integration, context);
+
+    expect(payload).toEqual({
+      ads: [
+        {
+          headline: 'Boost your "ROI"',
+          primary_text: "Line 1\nLine 2",
+          persona: "Moms & Dads",
+        },
+      ],
+    });
   });
 });

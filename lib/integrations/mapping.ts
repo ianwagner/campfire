@@ -3737,12 +3737,50 @@ async function renderJsonata(
   }
 }
 
+function escapeJsonExpression(value: unknown, runtime: typeof Handlebars): string {
+  if (value == null || value === false) {
+    return "";
+  }
+
+  if (value instanceof runtime.SafeString) {
+    return value.toString();
+  }
+
+  if (typeof value === "string") {
+    return JSON.stringify(value).slice(1, -1);
+  }
+
+  if (typeof value === "number" || typeof value === "boolean") {
+    return String(value);
+  }
+
+  if (typeof value === "bigint") {
+    return value.toString();
+  }
+
+  try {
+    const json = JSON.stringify(value);
+    if (json === undefined) {
+      return "";
+    }
+    if (json.startsWith("\"") && json.endsWith("\"")) {
+      return json.slice(1, -1);
+    }
+    return json;
+  } catch (error) {
+    return String(value);
+  }
+}
+
 function registerHandlebarsArtifacts(
   engine: HandlebarsMappingEngine,
   context: MappingContext,
   runtime: typeof Handlebars
 ): void {
-  runtime.registerHelper("json", (value) => JSON.stringify(value));
+  runtime.registerHelper(
+    "json",
+    (value) => new runtime.SafeString(JSON.stringify(value))
+  );
 
   if (engine.partials) {
     for (const [name, template] of Object.entries(engine.partials)) {
@@ -3764,11 +3802,13 @@ function renderHandlebars(
   context: MappingContext
 ): Record<string, unknown> {
   const runtime = Handlebars.create();
+  runtime.escapeExpression = (value) => escapeJsonExpression(value, runtime);
+  runtime.Utils.escapeExpression = runtime.escapeExpression;
   registerHandlebarsArtifacts(engine, context, runtime);
 
   let template: Handlebars.TemplateDelegate;
   try {
-    template = runtime.compile(engine.template, { noEscape: true });
+    template = runtime.compile(engine.template);
   } catch (error) {
     const err = error as { message?: string; lineNumber?: number; column?: number };
     throw new IntegrationMappingError(
