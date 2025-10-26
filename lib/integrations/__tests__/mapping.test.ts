@@ -592,15 +592,9 @@ describe("renderPayload", () => {
         type: "handlebars",
         version: "1",
         template: `{
-  "ads": [
-    {{#each standardAds}}
-    {
-      "headline": "{{ headline }}",
-      "primary_text": "{{ primaryCopy }}",
-      "persona": "{{ persona }}"
-    }{{#unless @last}},{{/unless}}
-    {{/each}}
-  ]
+  "headline": "{{ currentAd.headline }}",
+  "primary_text": "{{ currentAd.primaryCopy }}",
+  "persona": "{{ currentAd.persona }}"
 }`,
       },
       schemaRef: null,
@@ -619,6 +613,7 @@ describe("renderPayload", () => {
     const standardAds: IntegrationAdExport[] = [
       {
         id: "ad-1",
+        adId: "ad-1",
         reviewId: "review-1",
         generatedAt,
         integrationId: integration.id,
@@ -644,6 +639,7 @@ describe("renderPayload", () => {
       integrationSlug: integration.slug,
       dryRun: false,
       ads: standardAds,
+      currentAd: standardAds[0],
     };
 
     const context: MappingContext = {
@@ -657,22 +653,19 @@ describe("renderPayload", () => {
       recipeType: null,
       recipeFieldKeys: [],
       standardAds,
+      currentAd: standardAds[0],
       summary,
       defaultExport,
       generatedAt,
-      data: { standardAds },
+      data: { standardAds, currentAd: standardAds[0] },
     };
 
     const payload = await renderPayload(integration, context);
 
     expect(payload).toEqual({
-      ads: [
-        {
-          headline: 'Boost your "ROI"',
-          primary_text: "Line 1\nLine 2",
-          persona: "Moms & Dads",
-        },
-      ],
+      headline: 'Boost your "ROI"',
+      primary_text: "Line 1\nLine 2",
+      persona: "Moms & Dads",
     });
   });
 });
