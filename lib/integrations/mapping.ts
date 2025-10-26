@@ -78,8 +78,10 @@ export interface IntegrationAdExport extends Record<string, unknown> {
   recipeTypeName?: string;
   recipeNumber?: string;
   productName?: string;
+  format?: string;
   moment?: string;
   funnel?: string;
+  market?: string;
   persona?: string;
   audience?: string;
   angle?: string;
@@ -653,8 +655,10 @@ const BASE_FIELD_KEYS = new Set(
     "groupName",
     "recipeNo",
     "product",
+    "format",
     "moment",
     "funnel",
+    "market",
     "goLive",
     "url",
     "angle",
@@ -1174,8 +1178,10 @@ const STANDARD_FIELD_ALIASES = {
     "productName",
     "product_title",
   ],
+  format: ["Format", "format", "adFormat", "creativeFormat"],
   moment: ["Moment", "moment"],
   funnel: ["Funnel", "funnel", "funnelStage", "funnel.stage"],
+  market: ["Market", "market", "markets", "market.name"],
   goLive: [
     "Go Live",
     "goLive",
@@ -1464,11 +1470,21 @@ const STANDARD_FIELD_EXTRACTORS: Record<StandardFieldKey, StandardFieldExtractor
       ["product", "product.name", "productName", "product_title"],
       [context.ad, context.ad.recipe, context.review]
     ),
+  format: (context) =>
+    extractFromSources(
+      ["format", "adFormat", "creativeFormat"],
+      [context.ad, context.ad.recipe, context.review]
+    ),
   moment: (context) =>
     extractFromSources(["moment"], [context.ad, context.ad.recipe, context.review]),
   funnel: (context) =>
     extractFromSources(
       ["funnel", "funnelStage", "funnel.stage"],
+      [context.ad, context.ad.recipe, context.review]
+    ),
+  market: (context) =>
+    extractFromSources(
+      ["market", "markets", "market.name"],
       [context.ad, context.ad.recipe, context.review]
     ),
   goLive: (context) =>
@@ -2037,8 +2053,12 @@ function buildStandardAdExports(
     const productName = formatRowValue(
       extractStandardFieldValue("product", fieldContext)
     );
+    const format = formatRowValue(
+      extractStandardFieldValue("format", fieldContext)
+    );
     const moment = formatRowValue(extractStandardFieldValue("moment", fieldContext));
     const funnel = formatRowValue(extractStandardFieldValue("funnel", fieldContext));
+    const market = formatRowValue(extractStandardFieldValue("market", fieldContext));
     const persona = formatRowValue(extractStandardFieldValue("persona", fieldContext));
     const audience = formatRowValue(extractStandardFieldValue("audience", fieldContext));
     const angle = formatRowValue(extractStandardFieldValue("angle", fieldContext));
@@ -2187,8 +2207,10 @@ function buildStandardAdExports(
       recipeTypeName: context.summary.recipeTypeName,
       recipeNumber,
       productName,
+      format,
       moment,
       funnel,
+      market,
       persona,
       audience,
       angle,
@@ -3196,6 +3218,14 @@ function buildAggregatedAdsFromAdGroup({
       recipeData,
       recipeComponents
     );
+    const format = pickMetaField(
+      "format",
+      recipeMetadata,
+      recipeData,
+      recipeComponents,
+      adGroupRecord?.metadata,
+      adGroupRecord
+    );
     const moment = pickMetaField(
       "moment",
       recipeMetadata,
@@ -3206,6 +3236,14 @@ function buildAggregatedAdsFromAdGroup({
     );
     const funnel = pickMetaField(
       "funnel",
+      recipeMetadata,
+      recipeData,
+      recipeComponents,
+      adGroupRecord?.metadata,
+      adGroupRecord
+    );
+    const market = pickMetaField(
+      "market",
       recipeMetadata,
       recipeData,
       recipeComponents,
@@ -3261,8 +3299,10 @@ function buildAggregatedAdsFromAdGroup({
       "Recipe Id": recipeRecord.id,
       Recipe: recipeNumber,
       Product: productName,
+      Format: format,
       Moment: moment,
       Funnel: funnel,
+      Market: market,
       Audience: audience,
       Angle: angle,
       "Go Live": goLive,
@@ -3294,8 +3334,10 @@ function buildAggregatedAdsFromAdGroup({
       ),
       product: productName,
       productName,
+      format,
       moment,
       funnel,
+      market,
       goLiveDate: goLive,
       goLive,
       destinationUrl,
