@@ -53,6 +53,38 @@ const InstancesView = () => {
     setBrandCode('');
   };
 
+  const normalizeValues = (comp, rawValues) => {
+    const normalized = {};
+    Object.entries(rawValues || {}).forEach(([key, value]) => {
+      if (value !== undefined) {
+        normalized[key] = value;
+      }
+    });
+
+    (comp.attributes || []).forEach((attr) => {
+      const current = normalized[attr.key];
+      if (attr.inputType === 'list') {
+        if (Array.isArray(current)) {
+          normalized[attr.key] = current
+            .map((item) => (item == null ? '' : item))
+            .map((item) => (typeof item === 'string' ? item.trim() : item))
+            .filter((item) => item !== '' && item !== undefined && item !== null);
+        } else if (typeof current === 'string' && current.trim()) {
+          normalized[attr.key] = current
+            .split(/[;,\n]+/)
+            .map((part) => part.trim())
+            .filter(Boolean);
+        } else {
+          normalized[attr.key] = [];
+        }
+      } else if (current === undefined || current === null) {
+        normalized[attr.key] = '';
+      }
+    });
+
+    return normalized;
+  };
+
   const handleSave = async (e) => {
     e.preventDefault();
     const comp = components.find((c) => c.id === component);
@@ -73,17 +105,25 @@ const InstancesView = () => {
         }
       }
 
+      const sanitizedValues = normalizeValues(comp, vals);
+
       if (editId) {
         await updateDoc(doc(db, 'componentInstances', editId), {
           componentKey: comp.key,
           name: name.trim(),
-          values: vals,
+          values: sanitizedValues,
           relationships: brandCode ? { brandCode } : {},
         });
         setInstances((i) =>
           i.map((ins) =>
             ins.id === editId
-              ? { ...ins, componentKey: comp.key, name: name.trim(), values: vals, relationships: brandCode ? { brandCode } : {} }
+              ? {
+                  ...ins,
+                  componentKey: comp.key,
+                  name: name.trim(),
+                  values: sanitizedValues,
+                  relationships: brandCode ? { brandCode } : {},
+                }
               : ins
           )
         );
@@ -91,12 +131,18 @@ const InstancesView = () => {
         const docRef = await addDoc(collection(db, 'componentInstances'), {
           componentKey: comp.key,
           name: name.trim(),
-          values: vals,
+          values: sanitizedValues,
           relationships: brandCode ? { brandCode } : {},
         });
         setInstances((i) => [
           ...i,
-          { id: docRef.id, componentKey: comp.key, name: name.trim(), values: vals, relationships: brandCode ? { brandCode } : {} },
+          {
+            id: docRef.id,
+            componentKey: comp.key,
+            name: name.trim(),
+            values: sanitizedValues,
+            relationships: brandCode ? { brandCode } : {},
+          },
         ]);
       }
       resetForm();
@@ -171,15 +217,22 @@ const InstancesView = () => {
         }
       });
       try {
+        const sanitizedValues = normalizeValues(comp, vals);
         const docRef = await addDoc(collection(db, 'componentInstances'), {
           componentKey: comp.key,
           name: instName,
-          values: vals,
+          values: sanitizedValues,
           relationships: brandCode ? { brandCode } : {},
         });
         setInstances((i) => [
           ...i,
-          { id: docRef.id, componentKey: comp.key, name: instName, values: vals, relationships: brandCode ? { brandCode } : {} },
+          {
+            id: docRef.id,
+            componentKey: comp.key,
+            name: instName,
+            values: sanitizedValues,
+            relationships: brandCode ? { brandCode } : {},
+          },
         ]);
       } catch (err) {
         console.error('Failed to save instance from CSV', err);
