@@ -9,6 +9,19 @@ match /assets/{assetId} {
 }
 
     // ✅ Helper functions
+    function isTruthy(value) {
+      return value == true ||
+        value == 1 ||
+        value == "1" ||
+        value == "true" ||
+        value == "TRUE" ||
+        value == "True";
+    }
+
+    function allowsPublicAccess(data) {
+      return data != null && data.visibility == "public" && !isTruthy(data.requireAuth);
+    }
+
     function isAdmin() {
       return request.auth != null && (
         request.auth.token.admin == true ||
@@ -200,7 +213,7 @@ match /assets/{assetId} {
     // ✅ Ad Groups and Subcollections
     match /adGroups/{groupId} {
       allow read: if (
-        resource.data.visibility == "public" && !resource.data.requireAuth
+        allowsPublicAccess(resource.data)
       ) || isAdmin() || userData().role != 'designer' || isDesigner();
 
       allow create: if request.auth != null;
@@ -228,17 +241,15 @@ match /assets/{assetId} {
       allow delete: if isAdmin();
 
       match /assets/{assetId} {
-        allow read, list, count: if request.auth != null || (
-          get(/databases/$(database)/documents/adGroups/$(groupId)).data.visibility == "public" &&
-          !get(/databases/$(database)/documents/adGroups/$(groupId)).data.requireAuth
+        allow read, list, count: if request.auth != null || allowsPublicAccess(
+          get(/databases/$(database)/documents/adGroups/$(groupId)).data
         );
         allow write: if request.auth != null;
       }
 
       match /{document=**} {
         allow read: if (
-          get(/databases/$(database)/documents/adGroups/$(groupId)).data.visibility == "public" &&
-          !get(/databases/$(database)/documents/adGroups/$(groupId)).data.requireAuth
+          allowsPublicAccess(get(/databases/$(database)/documents/adGroups/$(groupId)).data)
         ) || isAdmin() || userData().role != 'designer' || isDesigner();
         allow write: if request.auth != null || (
           isPublicReviewer() &&

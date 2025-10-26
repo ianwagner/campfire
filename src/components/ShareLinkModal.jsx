@@ -1,7 +1,8 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { doc, updateDoc } from "firebase/firestore";
 import { db } from "../firebase/config";
 import generatePassword from "../utils/generatePassword";
+import normalizeBoolean from "../utils/normalizeBoolean.js";
 import Button from "./Button.jsx";
 
 const ShareLinkModal = ({
@@ -14,9 +15,20 @@ const ShareLinkModal = ({
   onClose,
   onUpdate,
 }) => {
+  const normalizedRequireAuth = useMemo(
+    () => normalizeBoolean(requireAuth),
+    [requireAuth],
+  );
+  const normalizedRequirePassword = useMemo(
+    () => normalizeBoolean(requirePassword),
+    [requirePassword],
+  );
+
   const [currentVisibility, setCurrentVisibility] = useState(visibility);
-  const [access, setAccess] = useState(requireAuth ? "auth" : "any");
-  const [needPw, setNeedPw] = useState(requirePassword);
+  const [access, setAccess] = useState(normalizedRequireAuth ? "auth" : "any");
+  const [needPw, setNeedPw] = useState(
+    normalizedRequireAuth ? false : normalizedRequirePassword,
+  );
   const [pw, setPw] = useState(password);
 
   const url =
@@ -69,6 +81,9 @@ const ShareLinkModal = ({
   const handleAccessChange = async (e) => {
     const val = e.target.value;
     setAccess(val);
+    if (val === "auth" && needPw) {
+      setNeedPw(false);
+    }
     if (currentVisibility === "public") {
       await saveSettings(
         currentVisibility,
