@@ -380,27 +380,114 @@ function normalizeProductKey(value: unknown): string {
   return normalizeKeyPart(value).toLowerCase();
 }
 
+const CANONICAL_ASPECTS = [
+  { label: "1x1", ratio: 1 },
+  { label: "4x5", ratio: 4 / 5 },
+  { label: "9x16", ratio: 9 / 16 },
+] as const;
+
+const CANONICAL_ASPECT_LABELS = new Set(
+  CANONICAL_ASPECTS.map((aspect) => aspect.label)
+);
+
+function greatestCommonDivisor(a: number, b: number): number {
+  let x = Math.trunc(Math.abs(a));
+  let y = Math.trunc(Math.abs(b));
+
+  while (y !== 0) {
+    const remainder = x % y;
+    x = y;
+    y = remainder;
+  }
+
+  return x || 1;
+}
+
+function canonicalizeNumericAspect(width: number, height: number): string {
+  if (!Number.isFinite(width) || !Number.isFinite(height)) {
+    return "";
+  }
+
+  const absWidth = Math.abs(width);
+  const absHeight = Math.abs(height);
+  if (absWidth === 0 || absHeight === 0) {
+    return "";
+  }
+
+  const [minSide, maxSide] =
+    absWidth <= absHeight ? [absWidth, absHeight] : [absHeight, absWidth];
+
+  const gcdValue = greatestCommonDivisor(minSide, maxSide);
+  const simplified = `${minSide / gcdValue}x${maxSide / gcdValue}`;
+  if (CANONICAL_ASPECT_LABELS.has(simplified)) {
+    return simplified;
+  }
+
+  const ratio = minSide / maxSide;
+  let closestLabel = "";
+  let smallestDelta = Number.POSITIVE_INFINITY;
+
+  for (const candidate of CANONICAL_ASPECTS) {
+    const delta = Math.abs(ratio - candidate.ratio);
+    if (delta < smallestDelta) {
+      smallestDelta = delta;
+      closestLabel = candidate.label;
+    }
+  }
+
+  return smallestDelta <= 0.05 ? closestLabel : "";
+}
+
 function normalizeAspectRatio(value: unknown): string {
   if (value == null) {
     return "";
   }
 
-  const input = String(value).trim().toLowerCase();
-  if (!input) {
+  const raw = String(value).trim();
+  if (!raw) {
     return "";
   }
 
-  if (input === "square") {
-    return "1x1";
+  const lowered = raw.toLowerCase();
+
+  const aliasMap: Record<string, string> = {
+    square: "1x1",
+    "1x1": "1x1",
+    "1:1": "1x1",
+    portrait: "4x5",
+    "4x5": "4x5",
+    "4:5": "4x5",
+    "3x5": "4x5",
+    "3:5": "4x5",
+    "9x16": "9x16",
+    "9:16": "9x16",
+  };
+
+  if (aliasMap[lowered]) {
+    return aliasMap[lowered];
   }
 
-  if (["vertical", "portrait", "story", "stories", "reel", "reels"].includes(input)) {
+  if (["vertical", "story", "stories", "reel", "reels"].includes(lowered)) {
     return "9x16";
   }
 
-  const match = input.match(/(\d+)\s*(?:x|×|:|-|by|_)\s*(\d+)/);
+  const sanitized = lowered
+    .replace(/by/g, "x")
+    .replace(/[×:]/g, "x")
+    .replace(/\s+/g, "");
+
+  if (aliasMap[sanitized]) {
+    return aliasMap[sanitized];
+  }
+
+  const match = sanitized.match(/(\d+)x(\d+)/);
   if (match) {
-    return `${match[1]}x${match[2]}`;
+    const width = Number(match[1]);
+    const height = Number(match[2]);
+    const canonical = canonicalizeNumericAspect(width, height);
+    if (canonical) {
+      return canonical;
+    }
   }
 
   return "";
@@ -780,14 +867,22 @@ function buildAssetBuckets(assets: FirestoreRecord[]): Record<string, AssetEntry
       continue;
     }
 
+    const assetRecord = asset as Record<string, unknown>;
+
     let aspect =
       normalizeAspectRatio(asset.aspectRatio) ||
-      normalizeAspectRatio((asset as Record<string, unknown>).ratio) ||
+      normalizeAspectRatio(assetRecord.aspect_ratio) ||
+      normalizeAspectRatio(assetRecord.aspect) ||
+      normalizeAspectRatio(assetRecord.ratio) ||
+      normalizeAspectRatio(assetRecord.layout) ||
+      normalizeAspectRatio(assetRecord.orientation) ||
+      normalizeAspectRatio(assetRecord.format) ||
+      normalizeAspectRatio(assetRecord.shape) ||
       normalizeAspectRatio(info.aspectRatio) ||
       findAspectInFilename(asset.filename);
 
     if (!aspect) {
-      aspect = "9x16";
+      aspect = "1x1";
     }
 
     if (!aspect || !["1x1", "4x5", "9x16"].includes(aspect)) {
@@ -1170,16 +1265,15 @@ function normalizeAssetLabel(value: unknown): string {
   }
 
   const lowered = trimmed.toLowerCase();
-  if (lowered === "square") {
-    return "1x1";
-  }
-  if (["vertical", "portrait", "story", "stories", "reel", "reels"].includes(lowered)) {
-    return "9x16";
+  const canonical = normalizeAspectRatio(lowered);
+  if (canonical) {
+    return canonical;
   }
 
-  const normalized = lowered.replace(/[×:]/g, "x").replace(/\s+/g, "");
-  if (/^\d+x\d+$/.test(normalized)) {
-    return normalized;
+  const sanitized = lowered.replace(/[×:]/g, "x").replace(/\s+/g, "");
+  const canonicalFromSanitized = normalizeAspectRatio(sanitized);
+  if (canonicalFromSanitized) {
+    return canonicalFromSanitized;
   }
 
   return lowered.replace(/[^a-z0-9]+/g, "");
@@ -1192,6 +1286,8 @@ function extractUrlFromAssetRecord(record: Record<string, unknown>): string | un
     record.link,
     record.downloadUrl,
     record.assetUrl,
+    record.firebaseUrl,
+    record.firebase_url,
     record.path,
     record.source,
     record.value,
@@ -4014,6 +4110,7 @@ export const __TESTING__ = {
   collectRecipeFieldValues,
   groupAdsByRecipeIdentifier,
   buildStandardAdExports,
+  buildAggregatedAdsFromAdGroup,
 };
 
 export async function executeMapping(
