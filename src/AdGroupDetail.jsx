@@ -106,7 +106,6 @@ import {
   getAssetDocumentId,
 } from "./utils/integrationDispatch";
 import {
-  REPLACEMENT_BADGE_CLASS,
   REPLACEMENT_META_TEXT_CLASS,
   REPLACEMENT_NOTE_CLASS,
 } from "./utils/replacementStyles";
@@ -4647,15 +4646,7 @@ const AdGroupDetail = () => {
           </td>
           <td className="text-sm">
             {replacementSummary && (
-              <div className="mb-3 space-y-2">
-                <span className={REPLACEMENT_BADGE_CLASS}>
-                  Replacement requested
-                  {replacementSummary.assetLabels?.length ? (
-                    <span className="ml-1 text-[10px] font-medium normal-case">
-                      {replacementSummary.assetLabels.join(', ')}
-                    </span>
-                  ) : null}
-                </span>
+              <div className="mb-3">
                 <div className={REPLACEMENT_NOTE_CLASS}>
                   <p className="whitespace-pre-wrap leading-relaxed">
                     {replacementSummary.note}
