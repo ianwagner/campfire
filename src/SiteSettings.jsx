@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import useSiteSettings from './useSiteSettings';
-import useAdminClaim from './useAdminClaim';
+import { auth } from './firebase/config';
+import useUserRole from './useUserRole';
 import SubscriptionPlansTab from './SubscriptionPlansTab';
 import CreditSettingsTab from './CreditSettingsTab.jsx';
 import { uploadLogo } from './uploadLogo';
@@ -73,7 +74,9 @@ const normalizeTemplateForSave = (value) => {
 };
 
 const SiteSettings = () => {
-  const { isAdmin } = useAdminClaim();
+  const user = auth.currentUser;
+  const { role } = useUserRole(user?.uid);
+  const isAdmin = role === 'admin';
   const [activeTab, setActiveTab] = useState('general');
   const { settings, saveSettings } = useSiteSettings();
   const baselineTemplates = useMemo(
