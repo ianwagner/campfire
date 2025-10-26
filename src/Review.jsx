@@ -4487,15 +4487,6 @@ useEffect(() => {
       setStarted(false);
       setShowFinalizeModal(null);
 
-      if (assignedIntegrationId && approvedAssets.length > 0) {
-        try {
-          await dispatchIntegrationForApprovedAds(approvedAssets);
-        } catch (err) {
-          const message =
-            err instanceof Error ? err.message : 'Integration dispatch failed.';
-          window.alert(`Integration dispatch failed: ${message}`);
-        }
-      }
     } catch (err) {
       console.error('Failed to finalize review', err);
     } finally {
