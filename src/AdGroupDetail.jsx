@@ -4259,6 +4259,76 @@ const AdGroupDetail = () => {
         return badge ? { asset, badge } : null;
       })
       .filter(Boolean);
+    const replacementSummaries = activeAds
+      .map((asset) => {
+        const request = asset.replacementRequest || {};
+        const requestNote =
+          typeof request.note === "string" ? request.note.trim() : "";
+        if (asset.status === "rejected" && requestNote) {
+          return {
+            asset,
+            request: {
+              ...request,
+              note: requestNote,
+            },
+          };
+        }
+        if (asset.status === "rejected") {
+          const rawComment =
+            typeof asset.comment === "string" ? asset.comment.trim() : "";
+          if (rawComment) {
+            const [body] = rawComment.split(/\n\s*\n—\s*/);
+            const normalized = (body || "").trim();
+            if (normalized) {
+              return {
+                asset,
+                request: {
+                  note: normalized,
+                  requestedBy:
+                    typeof request.requestedBy === "string"
+                      ? request.requestedBy
+                      : "",
+                  requestedAt: request.requestedAt || null,
+                },
+              };
+            }
+          }
+        }
+        return null;
+      })
+      .filter(Boolean);
+
+    const firstReplacementSummary = replacementSummaries[0] || null;
+    let replacementRequestDisplay = null;
+    if (firstReplacementSummary) {
+      const { request } = firstReplacementSummary;
+      const metaParts = [];
+      if (request.requestedBy) {
+        metaParts.push(`by ${request.requestedBy}`);
+      }
+      const formattedRequestedAt = formatIntegrationDate(request.requestedAt);
+      if (formattedRequestedAt) {
+        metaParts.push(formattedRequestedAt);
+      }
+      replacementRequestDisplay = (
+        <div className="w-full rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-left shadow-sm dark:border-amber-500/40 dark:bg-amber-500/10">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-amber-700 dark:bg-amber-400/20 dark:text-amber-100">
+              <FiRefreshCw className="h-3 w-3" aria-hidden="true" />
+              Replacement Requested
+            </span>
+          </div>
+          <p className="mt-2 whitespace-pre-wrap text-sm text-amber-900 dark:text-amber-50">
+            {request.note}
+          </p>
+          {metaParts.length > 0 && (
+            <p className="mt-1 text-xs text-amber-700 dark:text-amber-200/80">
+              Requested {metaParts.join(" · ")}
+            </p>
+          )}
+        </div>
+      );
+    }
 
     const normalizedRecipe = normalizeRecipeCode(g.recipeCode);
     const storedAssignmentId = normalizedRecipe
@@ -4405,58 +4475,65 @@ const AdGroupDetail = () => {
             <StatusBadge status={getRecipeStatus(g.assets)} />
           </td>
           <td className="text-sm">
-            {integrationSummaries.length > 0 ? (
-              <div className="flex flex-col items-start gap-2">
-                {integrationSummaries.map(({ asset, badge }) => {
-                  const toneKey =
-                    badge?.tone && INTEGRATION_TONE_STYLES[badge.tone]
-                      ? badge.tone
-                      : "info";
-                  const toneStyles =
-                    INTEGRATION_TONE_STYLES[toneKey] ||
-                    INTEGRATION_TONE_STYLES.info;
-                  const assetLabel = asset.filename || "Unnamed asset";
-                  return (
-                    <button
-                      type="button"
-                      key={asset.id || `${asset.filename || "asset"}-${badge.state}`}
-                      onClick={() => setIntegrationDetail({ asset, badge })}
-                      className={`group inline-flex w-full max-w-[260px] items-start gap-2 rounded-lg border px-3 py-2 text-left text-xs font-semibold shadow-sm transition focus:outline-none focus:ring-2 ${toneStyles.container}`}
-                      title={`View integration delivery details for ${assetLabel}`}
-                    >
-                      <span
-                        className={`mt-1 h-2 w-2 rounded-full ${toneStyles.dot}`}
-                        aria-hidden="true"
-                      />
-                      <span className="flex min-w-0 flex-col">
-                        <span className="truncate text-xs font-semibold leading-tight">
-                          {badge.text}
-                        </span>
-                        <span className="mt-0.5 truncate text-[11px] font-medium leading-tight opacity-80">
-                          {assetLabel}
-                        </span>
+            <div className="flex flex-col items-start gap-3">
+              {integrationSummaries.length > 0 ? (
+                <div className="flex flex-col items-start gap-2">
+                  {integrationSummaries.map(({ asset, badge }) => {
+                    const toneKey =
+                      badge?.tone && INTEGRATION_TONE_STYLES[badge.tone]
+                        ? badge.tone
+                        : "info";
+                    const toneStyles =
+                      INTEGRATION_TONE_STYLES[toneKey] ||
+                      INTEGRATION_TONE_STYLES.info;
+                    const assetLabel = asset.filename || "Unnamed asset";
+                    return (
+                      <button
+                        type="button"
+                        key={asset.id || `${asset.filename || "asset"}-${badge.state}`}
+                        onClick={() => setIntegrationDetail({ asset, badge })}
+                        className={`group inline-flex w-full max-w-[260px] items-start gap-2 rounded-lg border px-3 py-2 text-left text-xs font-semibold shadow-sm transition focus:outline-none focus:ring-2 ${toneStyles.container}`}
+                        title={`View integration delivery details for ${assetLabel}`}
+                      >
                         <span
-                          className={`mt-1 inline-flex items-center gap-1 text-[11px] font-medium leading-tight opacity-90 ${toneStyles.accent}`}
-                        >
-                          View payload & response
-                          <FiExternalLink className="h-3 w-3" aria-hidden="true" />
+                          className={`mt-1 h-2 w-2 rounded-full ${toneStyles.dot}`}
+                          aria-hidden="true"
+                        />
+                        <span className="flex min-w-0 flex-col">
+                          <span className="truncate text-xs font-semibold leading-tight">
+                            {badge.text}
+                          </span>
+                          <span className="mt-0.5 truncate text-[11px] font-medium leading-tight opacity-80">
+                            {assetLabel}
+                          </span>
+                          <span
+                            className={`mt-1 inline-flex items-center gap-1 text-[11px] font-medium leading-tight opacity-90 ${toneStyles.accent}`}
+                          >
+                            View payload & response
+                            <FiExternalLink className="h-3 w-3" aria-hidden="true" />
+                          </span>
                         </span>
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            ) : (
-              editAsset && (
-                <>
-                  {editAsset.comment && (
-                    <span className="block italic">{editAsset.comment}</span>
-                  )}
-                  {editAsset.copyEdit &&
-                    renderCopyEditDiff(g.recipeCode, editAsset.copyEdit)}
-                </>
-              )
-            )}
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : (
+                editAsset && (
+                  <>
+                    {editAsset.comment && (
+                      <span className="block italic">{editAsset.comment}</span>
+                    )}
+                    {editAsset.copyEdit &&
+                      renderCopyEditDiff(g.recipeCode, editAsset.copyEdit)}
+                  </>
+                )
+              )}
+              {replacementRequestDisplay && (
+                <div className="flex w-full flex-col gap-2">
+                  {replacementRequestDisplay}
+                </div>
+              )}
+            </div>
           </td>
           <td className="relative text-right">
             <IconButton
