@@ -75,6 +75,7 @@ import stripVersion from './utils/stripVersion';
 import { isRealtimeReviewerEligible } from './utils/realtimeEligibility';
 import notifySlackStatusChange from './utils/notifySlackStatusChange';
 import { toDateSafe, countUnreadHelpdeskTickets } from './utils/helpdesk';
+import { createZip } from './utils/zip';
 import {
   REPLACEMENT_BADGE_CLASS,
   REPLACEMENT_META_TEXT_CLASS,
@@ -219,6 +220,31 @@ const normalizeRecipeCode = (value) => {
   if (!normalized) return '';
   const trimmed = normalized.replace(/^0+/, '');
   return trimmed || (normalized.includes('0') ? '0' : normalized);
+};
+
+const sanitizePathSegment = (value, fallback = 'item') => {
+  const normalized = (value || '')
+    .toString()
+    .replace(/[\\/:*?"<>|]+/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return normalized || fallback;
+};
+
+const sanitizeFileBase = (value, fallback = 'asset') =>
+  sanitizePathSegment(value, fallback).replace(/\s+/g, '_');
+
+const extractFileExtension = (input = '') => {
+  if (!input) return '';
+  const clean = (input.split('?')[0] || '').trim();
+  const dot = clean.lastIndexOf('.');
+  if (dot === -1 || dot === clean.length - 1) {
+    return '';
+  }
+  return clean
+    .slice(dot + 1)
+    .replace(/[^a-z0-9]+/gi, '')
+    .toLowerCase();
 };
 
 const getAssetDocumentId = (asset) =>
@@ -436,6 +462,78 @@ const getAdUnitCandidateKey = (asset) => {
     ''
   );
 };
+
+const removeAspectSuffix = (value, aspect) => {
+  if (!value) return value;
+  const normalizedAspect = normalizeKeyPart(aspect);
+  if (!normalizedAspect) return value;
+  const escaped = normalizedAspect.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
+  const pattern = new RegExp(`_${escaped}$`, 'i');
+  return value.replace(pattern, '');
+};
+
+const buildFolderNameForAsset = (asset, fallbackIndex) => {
+  if (!asset) return `Ad_${fallbackIndex}`;
+  const info = parseAdFilename(asset.filename || '');
+  const aspect = asset.aspectRatio || info.aspectRatio || '';
+  const unitKey = getAdUnitKey(asset);
+  if (unitKey) {
+    return unitKey;
+  }
+  const stripped = stripVersion(asset.filename || '');
+  if (stripped) {
+    const withoutAspect = removeAspectSuffix(stripped, aspect);
+    if (withoutAspect) return withoutAspect;
+    return stripped;
+  }
+  const recipe = normalizeKeyPart(asset.recipeCode || info.recipeCode || '');
+  const adGroup = normalizeKeyPart(asset.adGroupCode || info.adGroupCode || '');
+  if (recipe && adGroup) {
+    return `${adGroup}_${recipe}`;
+  }
+  if (recipe) return recipe;
+  if (adGroup) return adGroup;
+  return `Ad_${fallbackIndex}`;
+};
+
+const buildFileNameForAsset = (asset, fallbackBase) => {
+  if (!asset) return sanitizeFileBase(fallbackBase);
+  const name = asset.filename || '';
+  const extFromName = extractFileExtension(name);
+  const base = extFromName
+    ? name.slice(0, name.length - (extFromName.length + 1))
+    : name.replace(/\.[^/.]+$/, '');
+  const url = asset.firebaseUrl || asset.adUrl || asset.assetUrl || '';
+  const extension = extFromName || extractFileExtension(url);
+  const safeBase = sanitizeFileBase(base || fallbackBase, fallbackBase);
+  return extension ? `${safeBase}.${extension}` : safeBase;
+};
+
+const ensureUniqueFileName = (folder, name, cache) => {
+  const map = cache;
+  if (!map.has(folder)) {
+    map.set(folder, new Set());
+  }
+  const used = map.get(folder);
+  if (!used.has(name)) {
+    used.add(name);
+    return name;
+  }
+  const dot = name.lastIndexOf('.');
+  const base = dot === -1 ? name : name.slice(0, dot);
+  const ext = dot === -1 ? '' : name.slice(dot);
+  let counter = 2;
+  let candidate = `${base}-${counter}${ext}`;
+  while (used.has(candidate)) {
+    counter += 1;
+    candidate = `${base}-${counter}${ext}`;
+  }
+  used.add(candidate);
+  return candidate;
+};
+
+const getAssetDownloadUrl = (asset) =>
+  asset?.firebaseUrl || asset?.adUrl || asset?.assetUrl || '';
 
 const dedupeByAdUnit = (list = []) => {
   const seen = new Set();
@@ -747,6 +845,7 @@ const Review = forwardRef(
   const [finalGallery, setFinalGallery] = useState(false);
   const [showSizes, setShowSizes] = useState(false);
   const [showGallery, setShowGallery] = useState(false);
+  const [downloadingApprovedAds, setDownloadingApprovedAds] = useState(false);
   const [copyCards, setCopyCards] = useState([]);
   const [showCopyModal, setShowCopyModal] = useState(false);
   const actionsMenuRef = useRef(null);
@@ -3450,6 +3549,125 @@ useEffect(() => {
     recipePreviewRef.current.downloadVisibleCsv(filename);
   }, [adGroupDisplayName, groupId]);
 
+  const handleDownloadApprovedAds = useCallback(async () => {
+    if (downloadingApprovedAds) return;
+
+    const folderNameMap = new Map();
+    const usedFolderNames = new Set();
+    const approvedCollections = [];
+
+    reviewAds.forEach((ad, index) => {
+      const meta = buildStatusMeta(ad, index);
+      if (!meta || meta.statusValue !== 'approve') return;
+      const latestAssets = Array.isArray(meta.latestAssets)
+        ? meta.latestAssets
+        : [];
+      const approvedAssets = latestAssets.filter(
+        (asset) => asset && asset.status === 'approved',
+      );
+      if (approvedAssets.length === 0) return;
+
+      const folderBase = buildFolderNameForAsset(
+        approvedAssets[0],
+        index + 1,
+      );
+      const sanitizedBase = sanitizeFileBase(
+        folderBase || `Ad_${index + 1}`,
+        `Ad_${index + 1}`,
+      );
+      let folderName = folderNameMap.get(sanitizedBase);
+      if (!folderName) {
+        folderName = sanitizedBase;
+        let counter = 2;
+        while (usedFolderNames.has(folderName)) {
+          folderName = `${sanitizedBase}-${counter}`;
+          counter += 1;
+        }
+        usedFolderNames.add(folderName);
+        folderNameMap.set(sanitizedBase, folderName);
+      }
+
+      approvedCollections.push({ folderName, assets: approvedAssets });
+    });
+
+    if (approvedCollections.length === 0) {
+      window.alert('There are no approved ads to download yet.');
+      return;
+    }
+
+    setDownloadingApprovedAds(true);
+
+    try {
+      const files = [];
+      const usedNamesByFolder = new Map();
+      const processedUrls = new Set();
+
+      for (const { folderName, assets } of approvedCollections) {
+        let assetCounter = 0;
+        for (const asset of assets) {
+          const url = getAssetDownloadUrl(asset);
+          if (!url || processedUrls.has(url)) {
+            continue;
+          }
+          processedUrls.add(url);
+          assetCounter += 1;
+          try {
+            const response = await fetch(url);
+            if (!response.ok) {
+              console.error('Failed to download approved ad asset', {
+                url,
+                status: response.status,
+              });
+              continue;
+            }
+            const buffer = await response.arrayBuffer();
+            const fallbackBase = `${folderName}_${assetCounter}`;
+            const fileName = buildFileNameForAsset(asset, fallbackBase);
+            const uniqueName = ensureUniqueFileName(
+              folderName,
+              fileName,
+              usedNamesByFolder,
+            );
+            files.push({ path: `${folderName}/${uniqueName}`, data: buffer });
+          } catch (err) {
+            console.error('Failed to download approved ad asset', err);
+          }
+        }
+      }
+
+      if (files.length === 0) {
+        window.alert('We could not prepare the download. Please try again.');
+        return;
+      }
+
+      const zipBlob = await createZip(files);
+      const baseName = sanitizeFileBase(
+        adGroupDisplayName || groupId || 'ad-group',
+        'ad-group',
+      );
+      const zipName = `${baseName}_approved_ads.zip`;
+      const url = URL.createObjectURL(zipBlob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = zipName;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Failed to download approved ads', err);
+      window.alert('Failed to download approved ads. Please try again.');
+    } finally {
+      setDownloadingApprovedAds(false);
+    }
+  }, [
+    downloadingApprovedAds,
+    reviewAds,
+    buildStatusMeta,
+    adGroupDisplayName,
+    groupId,
+  ]);
+
   const showCopyAction = copyCards.length > 0;
   const showGalleryAction = reviewVersion !== 3 && ads.length > 0;
   const canDownloadBrief = reviewVersion === 3 && recipes.length > 0;
@@ -3473,6 +3691,19 @@ useEffect(() => {
           handleDownloadBrief();
         },
         Icon: FiDownload,
+      });
+    }
+    if (reviewVersion === 2) {
+      actions.push({
+        key: 'download-approved-ads',
+        label: downloadingApprovedAds
+          ? 'Preparing download…'
+          : 'Download ads',
+        onSelect: () => {
+          handleDownloadApprovedAds();
+        },
+        Icon: FiDownload,
+        disabled: downloadingApprovedAds,
       });
     }
     if (reviewVersion !== 3 && showGalleryAction) {
@@ -3508,9 +3739,11 @@ useEffect(() => {
     showGalleryAction,
     setShowCopyModal,
     handleDownloadBrief,
+    handleDownloadApprovedAds,
     setShowGallery,
     setShowHelpdeskModal,
     hasUnreadHelpdesk,
+    downloadingApprovedAds,
   ]);
 
   const reviewMenuButtonIcon = useMemo(
