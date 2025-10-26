@@ -138,8 +138,10 @@ const baseColumnDefs = [
     cellClass: 'text-center',
   },
   { key: 'product', label: 'Product', width: 'auto' },
+  { key: 'format', label: 'Format', width: 'auto' },
   { key: 'moment', label: 'Moment', width: 'auto' },
   { key: 'funnel', label: 'Funnel', width: 'auto' },
+  { key: 'market', label: 'Market', width: 'auto' },
   { key: 'goLive', label: 'Go Live', width: 'auto' },
   { key: 'url', label: 'Url', width: 'auto' },
   { key: 'angle', label: 'Angle', width: 'auto' },
@@ -612,6 +614,14 @@ const ClientData = ({ brandCodes = [] }) => {
               rData.audience ||
               rData.components?.audience ||
               '';
+            const format = pickMetaField(
+              'format',
+              rData.metadata,
+              rData,
+              rData.components,
+              gData.metadata,
+              gData,
+            );
             const moment = pickMetaField(
               'moment',
               rData.metadata,
@@ -622,6 +632,14 @@ const ClientData = ({ brandCodes = [] }) => {
             );
             const funnel = pickMetaField(
               'funnel',
+              rData.metadata,
+              rData,
+              rData.components,
+              gData.metadata,
+              gData,
+            );
+            const market = pickMetaField(
+              'market',
               rData.metadata,
               rData,
               rData.components,
@@ -657,8 +675,10 @@ const ClientData = ({ brandCodes = [] }) => {
               primary,
               headline,
               description,
+              format,
               moment,
               funnel,
+              market,
               goLive,
               ...groupMeta,
               ...recipeMeta,
