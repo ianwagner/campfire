@@ -287,7 +287,7 @@ const AdGroupCard = ({
               <div className="flex items-center gap-2 self-end">
                 {hasIntegration && (
                   <span
-                    className="tag-pill inline-flex items-center gap-1 border border-gray-300 bg-white px-2 py-0.5 text-xs text-gray-600"
+                    className="tag-pill inline-flex items-center gap-1 border border-gray-300 bg-white px-2 py-0.5 text-xs text-gray-600 max-h-[22px]"
                     title={integrationTitle}
                   >
                     <span className="flex h-5 w-5 items-center justify-center overflow-hidden rounded-full bg-white">
