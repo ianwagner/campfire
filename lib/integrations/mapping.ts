@@ -90,6 +90,7 @@ export interface IntegrationAdExport extends Record<string, unknown> {
   goLiveDate?: string;
   status?: string;
   asset1x1Url?: string | null;
+  asset4x5Url?: string | null;
   asset9x16Url?: string | null;
   assets: Record<string, string | null>;
   createdAt?: string;
@@ -789,7 +790,7 @@ function buildAssetBuckets(assets: FirestoreRecord[]): Record<string, AssetEntry
       aspect = "9x16";
     }
 
-    if (!aspect || !["1x1", "9x16"].includes(aspect)) {
+    if (!aspect || !["1x1", "4x5", "9x16"].includes(aspect)) {
       continue;
     }
 
@@ -1136,7 +1137,7 @@ const STANDARD_FIELD_ALIASES = {
     "audiencePersona",
     "customerPersona",
   ],
-  assetSquare: ["1x1", "Square", "1:1", "squareAsset"],
+  assetSquare: ["1x1", "Square", "1:1", "4x5", "squareAsset"],
   assetVertical: ["9x16", "Vertical", "Story", "9:16", "verticalAsset"],
 } as const;
 
@@ -1431,7 +1432,8 @@ const STANDARD_FIELD_EXTRACTORS: Record<StandardFieldKey, StandardFieldExtractor
       ],
       [context.ad, context.ad.recipe, context.review]
     ),
-  assetSquare: (context) => resolveAssetUrl(context, ["1x1", "1:1", "square"]),
+  assetSquare: (context) =>
+    resolveAssetUrl(context, ["1x1", "1:1", "4x5", "square"]),
   assetVertical: (context) => resolveAssetUrl(context, ["9x16", "9:16", "vertical", "story"]),
 };
 
@@ -1759,6 +1761,10 @@ function collectAssetMap(
     inspect(source);
   }
 
+  if (result["4x5"] && !result["1x1"]) {
+    result["1x1"] = result["4x5"];
+  }
+
   return result;
 }
 
@@ -1956,7 +1962,11 @@ function buildStandardAdExports(
     const status = formatRowValue(extractStandardFieldValue("status", fieldContext));
 
     const assetCandidates = collectAssetMap(ad, fieldContext);
-    const assetMap: Record<string, string | null> = { "1x1": null, "9x16": null };
+    const assetMap: Record<string, string | null> = {
+      "1x1": null,
+      "4x5": null,
+      "9x16": null,
+    };
     for (const [label, url] of Object.entries(assetCandidates)) {
       if (!(label in assetMap)) {
         assetMap[label] = url;
@@ -1979,6 +1989,11 @@ function buildStandardAdExports(
       assetMap["9x16"] = verticalCandidate;
     }
 
+    if (!assetMap["1x1"] && assetMap["4x5"]) {
+      assetMap["1x1"] = assetMap["4x5"];
+    }
+
+    const asset4x5Url = assetMap["4x5"] ?? null;
     const asset1x1Url = assetMap["1x1"] ?? null;
     const asset9x16Url = assetMap["9x16"] ?? null;
 
@@ -2088,6 +2103,7 @@ function buildStandardAdExports(
       goLiveDate,
       status,
       asset1x1Url,
+      asset4x5Url,
       asset9x16Url,
       assets,
       createdAt,
@@ -2270,7 +2286,7 @@ function enrichAdsWithRecipeFields(
   });
 }
 
-const RECIPE_ASSET_KEYS = ["1x1", "9x16"] as const;
+const RECIPE_ASSET_KEYS = ["1x1", "4x5", "9x16"] as const;
 
 function isEmptyValue(value: unknown): boolean {
   if (value === undefined || value === null) {
@@ -2386,6 +2402,11 @@ function applyAssetMapToRecipeFields(
       result[label] = candidate;
       mutated = true;
     }
+  }
+
+  if (isEmptyValue(result["1x1"]) && !isEmptyValue(result["4x5"])) {
+    result["1x1"] = result["4x5"];
+    mutated = true;
   }
 
   if (!mutated && !Object.keys(result).length) {
@@ -3119,11 +3140,15 @@ function buildAggregatedAdsFromAdGroup({
     });
 
     const assetFields = filteredAssets.reduce<Record<string, string>>((acc, entry) => {
-      if (entry.url && ["1x1", "9x16"].includes(entry.label)) {
+      if (entry.url && ["1x1", "4x5", "9x16"].includes(entry.label)) {
         acc[entry.label] = entry.url;
       }
       return acc;
     }, {});
+
+    if (!assetFields["1x1"] && assetFields["4x5"]) {
+      assetFields["1x1"] = assetFields["4x5"];
+    }
 
     const storeId = getFirstString(
       brandStoreId,
