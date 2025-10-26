@@ -89,6 +89,7 @@ const computeIntegrationStatusSummary = (
       return {
         integrationId,
         integrationName,
+        wasTriggered: false,
         outcome: null,
         latestState: '',
         updatedAt: null,
@@ -99,6 +100,7 @@ const computeIntegrationStatusSummary = (
     return {
       integrationId,
       integrationName,
+      wasTriggered: true,
       outcome: null,
       latestState: '',
       updatedAt: null,
@@ -110,6 +112,7 @@ const computeIntegrationStatusSummary = (
     return {
       integrationId,
       integrationName,
+      wasTriggered: true,
       outcome: 'success',
       latestState: latestSuccess.state,
       updatedAt: latestSuccess.updatedAt,
@@ -120,6 +123,7 @@ const computeIntegrationStatusSummary = (
   return {
     integrationId,
     integrationName,
+    wasTriggered: true,
     outcome: 'error',
     latestState: latestError ? latestError.state : '',
     updatedAt: latestError ? latestError.updatedAt : null,
