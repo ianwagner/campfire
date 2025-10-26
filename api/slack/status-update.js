@@ -12,9 +12,7 @@ const defaultSlackMessageTemplates = require("../../lib/slackMessageTemplates.js
 const SLACK_BOT_TOKEN = process.env.SLACK_BOT_TOKEN;
 
 const workspaceAccessTokenCache = new Map();
-const siteSettingsCache = { data: null, expiresAt: 0 };
-const agencyNotificationCache = new Map();
-const channelDocCache = new Map();
+const siteTemplateCache = { templates: null, expiresAt: 0 };
 const mentionLookupCache = new Map();
 
 async function getWorkspaceAccessToken(workspaceId) {
@@ -507,115 +505,29 @@ function buildExternalMessage(status, context, templates) {
   return null;
 }
 
-function normalizeChannelIdList(value) {
-  if (!Array.isArray(value)) {
-    return [];
-  }
-
-  return Array.from(
-    new Set(
-      value
-        .map((entry) => (typeof entry === "string" ? entry.trim() : ""))
-        .filter(Boolean),
-    ),
-  );
-}
-
-async function getSiteSettingsData() {
+async function getSiteSlackTemplates() {
   const now = Date.now();
-  if (siteSettingsCache.data && siteSettingsCache.expiresAt > now) {
-    return siteSettingsCache.data;
+  if (siteTemplateCache.templates && siteTemplateCache.expiresAt > now) {
+    return siteTemplateCache.templates;
   }
 
   try {
     const snap = await db.collection("settings").doc("site").get();
     if (!snap.exists) {
-      siteSettingsCache.data = null;
-      siteSettingsCache.expiresAt = now + 30000;
+      siteTemplateCache.templates = null;
+      siteTemplateCache.expiresAt = now + 30000;
       return null;
     }
 
     const data = snap.data() || {};
-    siteSettingsCache.data = data;
-    siteSettingsCache.expiresAt = now + 60000;
-    return data;
+    const templates = data.slackMessageTemplates || null;
+    siteTemplateCache.templates = templates;
+    siteTemplateCache.expiresAt = now + 60000;
+    return templates;
   } catch (error) {
-    console.error("Failed to load site settings", error);
-    siteSettingsCache.data = null;
-    siteSettingsCache.expiresAt = now + 15000;
-    return null;
-  }
-}
-
-async function getSiteSlackTemplates() {
-  const data = await getSiteSettingsData();
-  return data?.slackMessageTemplates || null;
-}
-
-async function getSiteSlackNotificationDefaults() {
-  const data = await getSiteSettingsData();
-  if (!data) {
-    return [];
-  }
-  return normalizeChannelIdList(data.defaultSlackNotificationChannelIds || []);
-}
-
-async function getAgencySlackNotifications(agencyId) {
-  const trimmedId = typeof agencyId === "string" ? agencyId.trim() : "";
-  if (!trimmedId) {
-    return null;
-  }
-
-  const now = Date.now();
-  const cached = agencyNotificationCache.get(trimmedId);
-  if (cached && cached.expiresAt > now) {
-    return cached.value;
-  }
-
-  try {
-    const snap = await db.collection("agencies").doc(trimmedId).get();
-    if (!snap.exists) {
-      agencyNotificationCache.set(trimmedId, { value: null, expiresAt: now + 60000 });
-      return null;
-    }
-
-    const data = snap.data() || {};
-    const mode = data.slackNotificationMode === "custom" ? "custom" : "default";
-    const channelIds = normalizeChannelIdList(data.slackNotificationChannelIds || []);
-    const value = { mode, channelIds };
-    agencyNotificationCache.set(trimmedId, { value, expiresAt: now + 60000 });
-    return value;
-  } catch (error) {
-    console.error("Failed to load agency Slack notifications", trimmedId, error);
-    agencyNotificationCache.set(trimmedId, { value: null, expiresAt: now + 15000 });
-    return null;
-  }
-}
-
-async function loadSlackChannelMapping(channelId) {
-  const trimmed = typeof channelId === "string" ? channelId.trim() : "";
-  if (!trimmed) {
-    return null;
-  }
-
-  const now = Date.now();
-  const cached = channelDocCache.get(trimmed);
-  if (cached && cached.expiresAt > now) {
-    return cached.doc;
-  }
-
-  try {
-    const snap = await db.collection("slackChannelMappings").doc(trimmed).get();
-    if (!snap.exists) {
-      channelDocCache.set(trimmed, { doc: null, expiresAt: now + 60000 });
-      return null;
-    }
-
-    channelDocCache.set(trimmed, { doc: snap, expiresAt: now + 60000 });
-    return snap;
-  } catch (error) {
-    console.error("Failed to load Slack channel mapping", trimmed, error);
-    channelDocCache.set(trimmed, { doc: null, expiresAt: now + 15000 });
+    console.error("Failed to load Slack message templates", error);
+    siteTemplateCache.templates = null;
+    siteTemplateCache.expiresAt = now + 15000;
     return null;
   }
 }
@@ -1078,36 +990,6 @@ module.exports = async function handler(req, res) {
           }
         } catch (error) {
           console.error("Failed to load brand by code", candidateCode, error);
-        }
-      }
-    }
-
-    const siteDefaultChannelIds = await getSiteSlackNotificationDefaults();
-    let fallbackChannelIds = siteDefaultChannelIds;
-    const agencyIdRaw =
-      brandDocData && typeof brandDocData.agencyId === "string"
-        ? brandDocData.agencyId.trim()
-        : "";
-    if (agencyIdRaw) {
-      const agencyNotification = await getAgencySlackNotifications(agencyIdRaw);
-      if (agencyNotification) {
-        if (agencyNotification.mode === "custom") {
-          fallbackChannelIds = agencyNotification.channelIds;
-        } else if (agencyNotification.mode === "default") {
-          fallbackChannelIds = siteDefaultChannelIds;
-        }
-      }
-    }
-
-    const additionalChannelIds = normalizeChannelIdList(fallbackChannelIds || []);
-    if (additionalChannelIds.length) {
-      for (const channelId of additionalChannelIds) {
-        if (docsById.has(channelId)) {
-          continue;
-        }
-        const channelDoc = await loadSlackChannelMapping(channelId);
-        if (channelDoc) {
-          docsById.set(channelId, channelDoc);
         }
       }
     }

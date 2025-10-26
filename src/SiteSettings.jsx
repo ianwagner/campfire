@@ -15,7 +15,6 @@ import { hexToRgba } from './utils/theme.js';
 import slackMessageTypes from '../lib/slackMessageTypes.json';
 import slackMessagePlaceholders from '../lib/slackMessagePlaceholders.json';
 import defaultSlackMessageTemplates from '../lib/slackMessageTemplates.json';
-import useSlackChannels, { normalizeSlackChannelIds } from './useSlackChannels';
 
 const TEMPLATE_AUDIENCES = ['internal', 'external'];
 
@@ -86,20 +85,6 @@ const SiteSettings = () => {
   );
   const [messageTemplates, setMessageTemplates] = useState(baselineTemplates);
   const [savingTemplates, setSavingTemplates] = useState(false);
-  const { channels: slackChannels, loading: slackChannelsLoading } = useSlackChannels();
-  const baselineDefaultSlackChannels = useMemo(
-    () => normalizeSlackChannelIds(settings?.defaultSlackNotificationChannelIds || []),
-    [settings?.defaultSlackNotificationChannelIds],
-  );
-  const [defaultSlackChannelIds, setDefaultSlackChannelIds] = useState(
-    baselineDefaultSlackChannels,
-  );
-  const selectedDefaultSlackChannelIds = useMemo(
-    () => normalizeSlackChannelIds(defaultSlackChannelIds),
-    [defaultSlackChannelIds],
-  );
-  const [savingDefaultSlackChannels, setSavingDefaultSlackChannels] = useState(false);
-  const [defaultSlackMessage, setDefaultSlackMessage] = useState('');
   const [logoUrl, setLogoUrl] = useState('');
   const [logoFile, setLogoFile] = useState(null);
   const [campfireLogoUrl, setCampfireLogoUrl] = useState('');
@@ -127,24 +112,12 @@ const SiteSettings = () => {
     });
   }, [baselineTemplates]);
 
-  useEffect(() => {
-    setDefaultSlackChannelIds((prev) => {
-      const prevJson = JSON.stringify(normalizeSlackChannelIds(prev));
-      const baselineJson = JSON.stringify(baselineDefaultSlackChannels);
-      if (prevJson === baselineJson) {
-        return prev;
-      }
-      return baselineDefaultSlackChannels;
-    });
-  }, [baselineDefaultSlackChannels]);
-
   const hasTemplateChanges = useMemo(() => {
     return JSON.stringify(messageTemplates) !== JSON.stringify(baselineTemplates);
   }, [messageTemplates, baselineTemplates]);
 
   useEffect(() => {
     setMessage('');
-    setDefaultSlackMessage('');
   }, [activeTab]);
 
   const handleTemplateChange = (audience, key, value) => {
@@ -161,45 +134,6 @@ const SiteSettings = () => {
     setMessageTemplates(buildTemplateState({}));
     setMessage('');
   };
-
-  const toggleDefaultSlackChannel = (channelId, checked) => {
-    setDefaultSlackChannelIds((prev) => {
-      const normalized = normalizeSlackChannelIds(prev);
-      if (checked) {
-        if (normalized.includes(channelId)) {
-          return normalized;
-        }
-        return [...normalized, channelId];
-      }
-      return normalized.filter((id) => id !== channelId);
-    });
-    setDefaultSlackMessage('');
-  };
-
-  const handleSaveDefaultSlackChannels = async (event) => {
-    event.preventDefault();
-    if (!isAdmin) return;
-
-    setSavingDefaultSlackChannels(true);
-    setDefaultSlackMessage('');
-    try {
-      const normalized = normalizeSlackChannelIds(defaultSlackChannelIds);
-      await saveSettings({ defaultSlackNotificationChannelIds: normalized });
-      setDefaultSlackMessage('Default Slack notifications updated');
-    } catch (err) {
-      console.error('Failed to save default Slack notifications', err);
-      setDefaultSlackMessage('Failed to save default Slack notifications');
-    } finally {
-      setSavingDefaultSlackChannels(false);
-    }
-  };
-
-  const hasDefaultSlackChannelChanges = useMemo(() => {
-    return (
-      JSON.stringify(selectedDefaultSlackChannelIds) !==
-      JSON.stringify(baselineDefaultSlackChannels)
-    );
-  }, [selectedDefaultSlackChannelIds, baselineDefaultSlackChannels]);
 
   const handleSaveTemplates = async (event) => {
     event.preventDefault();
@@ -569,88 +503,11 @@ const SiteSettings = () => {
         </form>
         )}
         {activeTab === 'messages' && isAdmin && (
-          <div className="space-y-6 max-w-3xl">
-            <form
-              onSubmit={handleSaveDefaultSlackChannels}
-              className="space-y-4 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar)]"
-              noValidate
-            >
-              <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-                <div>
-                  <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
-                    Default Slack notifications
-                  </h2>
-                  <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">
-                    Select which Slack channels should receive status updates when an agency uses the default notification settings.
-                  </p>
-                </div>
-                <button
-                  type="submit"
-                  className="btn-primary self-start"
-                  disabled={savingDefaultSlackChannels || loading || !hasDefaultSlackChannelChanges}
-                >
-                  {savingDefaultSlackChannels ? 'Saving...' : 'Save defaults'}
-                </button>
-              </div>
-              {defaultSlackMessage && (
-                <div
-                  className={`rounded-lg border px-3 py-2 text-sm ${
-                    defaultSlackMessage.toLowerCase().includes('failed')
-                      ? 'border-red-300 bg-red-50 text-red-700 dark:border-red-900/40 dark:bg-red-900/20 dark:text-red-200'
-                      : 'border-[var(--accent-color)]/40 bg-[var(--accent-color)]/10 text-[var(--accent-color)] dark:border-[var(--accent-color)]/40 dark:bg-[var(--accent-color)]/10 dark:text-[var(--accent-color)]'
-                  }`}
-                >
-                  {defaultSlackMessage}
-                </div>
-              )}
-              <div className="space-y-3">
-                {slackChannelsLoading ? (
-                  <p className="text-sm text-gray-600 dark:text-gray-300">Loading Slack channels...</p>
-                ) : slackChannels.length ? (
-                  slackChannels.map((channel) => {
-                    const label = channel.channelName || `#${channel.id}`;
-                    const normalizedId = channel.id;
-                    const checked = selectedDefaultSlackChannelIds.includes(normalizedId);
-                    const disabled = savingDefaultSlackChannels || loading;
-                    return (
-                      <label
-                        key={channel.id}
-                        className="flex cursor-pointer items-start gap-3 rounded-xl border border-gray-200 bg-gray-50 p-4 text-sm shadow-sm transition-colors hover:border-[var(--accent-color)] dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar)]"
-                      >
-                        <input
-                          type="checkbox"
-                          className="mt-1 h-4 w-4 rounded border-gray-300 text-[var(--accent-color)] focus:ring-[var(--accent-color)]"
-                          checked={checked}
-                          onChange={(event) =>
-                            toggleDefaultSlackChannel(normalizedId, event.target.checked)
-                          }
-                          disabled={disabled}
-                        />
-                        <div>
-                          <p className="font-medium text-gray-900 dark:text-gray-100">{label}</p>
-                          <p className="text-xs text-gray-600 dark:text-gray-400">
-                            Audience: {channel.audience === 'internal' ? 'Internal workspace' : 'Client workspace'}
-                          </p>
-                          {channel.workspaceId && (
-                            <p className="text-xs text-gray-500 dark:text-gray-500">
-                              Workspace ID: {channel.workspaceId}
-                            </p>
-                          )}
-                        </div>
-                      </label>
-                    );
-                  })
-                ) : (
-                  <p className="text-sm text-gray-600 dark:text-gray-300">
-                    No Slack channels have been connected yet.
-                  </p>
-                )}
-              </div>
-            </form>
-            <form
-              onSubmit={handleSaveTemplates}
-              className="space-y-6 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar)]"
-            >
+          <form
+            onSubmit={handleSaveTemplates}
+            className="space-y-6 max-w-3xl"
+          >
+            <div className="space-y-6 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar)]">
               <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                 <div>
                   <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
@@ -731,11 +588,11 @@ const SiteSettings = () => {
                   </section>
                 );
               })}
-              </div>
-              <div className="space-y-4 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar)]">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                  Available placeholders
-                </h3>
+            </div>
+            <div className="space-y-4 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar)]">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                Available placeholders
+              </h3>
               <p className="text-sm text-gray-600 dark:text-gray-300">
                 Use these tokens to insert dynamic values into your templates.
               </p>
@@ -754,9 +611,8 @@ const SiteSettings = () => {
                   </div>
                 ))}
               </div>
-              </div>
-            </form>
-          </div>
+            </div>
+          </form>
         )}
         {isAdmin && activeTab === 'credits' && (
           <CreditSettingsTab settings={settings} saveSettings={saveSettings} />
