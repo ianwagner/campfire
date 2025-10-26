@@ -504,7 +504,8 @@ const buildFileNameForAsset = (asset, fallbackBase) => {
   const base = extFromName
     ? name.slice(0, name.length - (extFromName.length + 1))
     : name.replace(/\.[^/.]+$/, '');
-  const url = asset.firebaseUrl || asset.adUrl || asset.assetUrl || '';
+  const url =
+    asset.firebaseUrl || asset.adUrl || asset.assetUrl || asset.cdnUrl || '';
   const extension = extFromName || extractFileExtension(url);
   const safeBase = sanitizeFileBase(base || fallbackBase, fallbackBase);
   return extension ? `${safeBase}.${extension}` : safeBase;
@@ -534,7 +535,11 @@ const ensureUniqueFileName = (folder, name, cache) => {
 };
 
 const getAssetDownloadUrl = (asset) =>
-  asset?.firebaseUrl || asset?.adUrl || asset?.assetUrl || '';
+  asset?.firebaseUrl ||
+  asset?.adUrl ||
+  asset?.assetUrl ||
+  asset?.cdnUrl ||
+  '';
 
 const dedupeByAdUnit = (list = []) => {
   const seen = new Set();
