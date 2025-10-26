@@ -100,6 +100,10 @@ import { getCopyLetter } from "./utils/copyLetter";
 import buildFeedbackEntries, {
   buildFeedbackEntriesForGroup,
 } from "./utils/buildFeedbackEntries";
+import {
+  dispatchIntegrationForAssets,
+  getAssetDocumentId,
+} from "./utils/integrationDispatch";
 
 const fileExt = (name) => {
   const idx = name.lastIndexOf(".");
@@ -884,6 +888,7 @@ const AdGroupDetail = () => {
   const menuRef = useRef(null);
   const allFeedbackLoadedRef = useRef(false);
   const autoSummaryTriggeredRef = useRef(false);
+  const autoDispatchedIntegrationAssetIdsRef = useRef(new Set());
   const [feedbackSummary, setFeedbackSummary] = useState("");
   const [feedbackSummaryUpdatedAt, setFeedbackSummaryUpdatedAt] = useState(null);
   const [updatingFeedbackSummary, setUpdatingFeedbackSummary] = useState(false);
@@ -1041,6 +1046,98 @@ const AdGroupDetail = () => {
   const integrationDetailHeaders = formatJsonValue(
     integrationDetailStatus?.responseHeaders,
   );
+
+  useEffect(() => {
+    autoDispatchedIntegrationAssetIdsRef.current = new Set();
+  }, [assignedIntegrationId, id]);
+
+  useEffect(() => {
+    const normalizedStatus =
+      typeof group?.status === "string" ? group.status.trim().toLowerCase() : "";
+
+    if (!id || !assignedIntegrationId || normalizedStatus !== "done") {
+      autoDispatchedIntegrationAssetIdsRef.current = new Set();
+      return;
+    }
+
+    const eligibleAssets = assets.filter((asset) => {
+      if (!asset || typeof asset !== "object") {
+        return false;
+      }
+      const assetStatus =
+        typeof asset.status === "string" ? asset.status.trim().toLowerCase() : "";
+      if (assetStatus !== "approved") {
+        return false;
+      }
+      const statuses =
+        asset.integrationStatuses && typeof asset.integrationStatuses === "object"
+          ? asset.integrationStatuses
+          : null;
+      const fallbackStatuses =
+        asset.integrationStatus && typeof asset.integrationStatus === "object"
+          ? asset.integrationStatus
+          : null;
+      const statusEntry = (statuses || fallbackStatuses)?.[assignedIntegrationId];
+      const state =
+        typeof statusEntry?.state === "string"
+          ? statusEntry.state.trim().toLowerCase()
+          : "";
+      if (state === "received" || state === "sending") {
+        return false;
+      }
+      return true;
+    });
+
+    if (eligibleAssets.length === 0) {
+      return;
+    }
+
+    const assetsToDispatch = [];
+    const dispatchedIds = [];
+
+    for (const asset of eligibleAssets) {
+      const docId = getAssetDocumentId(asset);
+      if (!docId) {
+        continue;
+      }
+      if (autoDispatchedIntegrationAssetIdsRef.current.has(docId)) {
+        continue;
+      }
+      autoDispatchedIntegrationAssetIdsRef.current.add(docId);
+      dispatchedIds.push(docId);
+      assetsToDispatch.push(asset);
+    }
+
+    if (assetsToDispatch.length === 0) {
+      return;
+    }
+
+    let cancelled = false;
+
+    dispatchIntegrationForAssets({
+      groupId: id,
+      integrationId: assignedIntegrationId,
+      integrationName: assignedIntegrationName,
+      assets: assetsToDispatch,
+    }).catch((error) => {
+      console.error("Failed to dispatch integration when group marked done", error);
+      if (!cancelled) {
+        dispatchedIds.forEach((docId) =>
+          autoDispatchedIntegrationAssetIdsRef.current.delete(docId),
+        );
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    assets,
+    assignedIntegrationId,
+    assignedIntegrationName,
+    group?.status,
+    id,
+  ]);
   const integrationDetailUpdatedAt = formatIntegrationDate(
     integrationDetailStatus?.updatedAt,
   );
