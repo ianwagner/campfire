@@ -3951,6 +3951,8 @@ export async function createMappingContext(
     }
   }
 
+  const firstApprovedAd = approvedAds[0] ?? null;
+
   const defaultExport: IntegrationDefaultExport = {
     ...summary,
     integrationId: integration.id,
@@ -3959,13 +3961,13 @@ export async function createMappingContext(
     generatedAt,
     dryRun,
     ads: approvedAds,
-    currentAd: approvedAds.length === 1 ? approvedAds[0] : null,
+    currentAd: firstApprovedAd,
   };
 
   const normalizedRecipeTypeId =
     summary.recipeTypeId ?? recipeType?.id ?? (recipeTypeId || undefined);
 
-  const currentAd = approvedAds.length === 1 ? approvedAds[0] : null;
+  const currentAd = firstApprovedAd;
 
   const data = {
     integration,
