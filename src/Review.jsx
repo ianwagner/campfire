@@ -1797,39 +1797,6 @@ useEffect(() => {
 ]);
 
   useEffect(() => {
-    if (!groupId) return;
-    const allReviewed =
-      ads.length > 0 &&
-      ads.every((a) =>
-        ['approved', 'rejected', 'archived'].includes(a.status),
-      );
-    if (
-      allReviewed &&
-      (currentIndex >= reviewAds.length || reviewAds.length === 0)
-    ) {
-      performGroupUpdate(
-        groupId,
-        {
-          reviewProgress: null,
-        },
-        {
-          type: 'progress',
-          publicUpdate: {
-            reviewProgress: null,
-            completedAt: new Date().toISOString(),
-          },
-        },
-      ).catch((err) => console.error('Failed to update review progress', err));
-    }
-  }, [
-    currentIndex,
-    reviewAds.length,
-    groupId,
-    ads,
-    performGroupUpdate,
-  ]);
-
-  useEffect(() => {
     if (currentIndex >= reviewAds.length) {
       setStarted(false);
     }
@@ -4829,6 +4796,7 @@ useEffect(() => {
         status: 'reviewed',
         reviewProgress: null,
         lastUpdated: serverTimestamp(),
+        completedAt: serverTimestamp(),
       };
 
       await updateDoc(doc(db, 'adGroups', groupId), updateData);
@@ -4852,6 +4820,7 @@ useEffect(() => {
               status: 'reviewed',
               reviewProgress: null,
               lastUpdated: new Date().toISOString(),
+              completedAt: new Date().toISOString(),
             },
             createdAt: serverTimestamp(),
             reviewer: reviewerIdentifier,
