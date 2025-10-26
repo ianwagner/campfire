@@ -5,6 +5,7 @@ import parseAdFilename from './utils/parseAdFilename';
 import getUserName from './utils/getUserName';
 import aggregateRecipeStatusCounts from './utils/aggregateRecipeStatusCounts';
 import fetchBrandNamesByCode from './utils/fetchBrandNamesByCode';
+import computeIntegrationStatusSummary from './utils/computeIntegrationStatusSummary';
 
 const useAdGroups = (brandCodes = [], showArchived = false) => {
   const [groups, setGroups] = useState([]);
@@ -87,6 +88,12 @@ const useAdGroups = (brandCodes = [], showArchived = false) => {
                 recipeIds,
               );
 
+              const integrationStatusSummary = computeIntegrationStatusSummary(
+                data.assignedIntegrationId,
+                data.assignedIntegrationName,
+                assets,
+              );
+
               const [designerName, editorName] = await Promise.all([
                 data.designerId ? getUserName(data.designerId) : '',
                 data.editorId ? getUserName(data.editorId) : '',
@@ -107,6 +114,7 @@ const useAdGroups = (brandCodes = [], showArchived = false) => {
                 },
                 designerName,
                 editorName,
+                integrationStatusSummary,
               };
             })
         );

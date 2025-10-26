@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
   FiEye,
@@ -32,6 +32,8 @@ import parseAdFilename from './utils/parseAdFilename';
 import getUserName from './utils/getUserName';
 import aggregateRecipeStatusCounts from './utils/aggregateRecipeStatusCounts';
 import fetchBrandNamesByCode from './utils/fetchBrandNamesByCode';
+import computeIntegrationStatusSummary from './utils/computeIntegrationStatusSummary';
+import useIntegrations from './useIntegrations';
 import computeKanbanStatus from './utils/computeKanbanStatus';
 import generatePassword from './utils/generatePassword';
 import ShareLinkModal from './components/ShareLinkModal.jsx';
@@ -56,6 +58,17 @@ const AdminAdGroups = () => {
   const { role, brandCodes } = useUserRole(user?.uid);
   const isAdmin = role === 'admin';
   const isManager = role === 'manager' || role === 'editor';
+
+  const { integrations } = useIntegrations();
+  const integrationMap = useMemo(() => {
+    const map = {};
+    integrations.forEach((integration) => {
+      if (integration?.id) {
+        map[integration.id] = integration;
+      }
+    });
+    return map;
+  }, [integrations]);
 
   const [shareInfo, setShareInfo] = useState(null);
   const [renameId, setRenameId] = useState(null);
@@ -152,10 +165,16 @@ const AdminAdGroups = () => {
               recipeCount = recipeCodes.size;
             }
 
-            const { unitCount, statusCounts } = aggregateRecipeStatusCounts(
-              assets,
-              recipeIds,
-            );
+              const { unitCount, statusCounts } = aggregateRecipeStatusCounts(
+                assets,
+                recipeIds,
+              );
+
+              const integrationStatusSummary = computeIntegrationStatusSummary(
+                data.assignedIntegrationId,
+                data.assignedIntegrationName,
+                assets,
+              );
 
             const designerName = data.designerId ? await getUserName(data.designerId) : '';
             const editorName = data.editorId ? await getUserName(data.editorId) : '';
@@ -167,16 +186,17 @@ const AdminAdGroups = () => {
               assetCount,
               unitCount,
               pendingCount: statusCounts.pending,
-              counts: {
-                approved: statusCounts.approved,
-                archived: statusCounts.archived,
-                rejected: statusCounts.rejected,
-                edit: statusCounts.edit_requested,
-              },
-              designerName,
-              editorName,
-            };
-          })
+                counts: {
+                  approved: statusCounts.approved,
+                  archived: statusCounts.archived,
+                  rejected: statusCounts.rejected,
+                  edit: statusCounts.edit_requested,
+                },
+                designerName,
+                editorName,
+                integrationStatusSummary,
+              };
+            })
         );
         const brandNameMap = await fetchBrandNamesByCode(
           list.map((item) => item.brandCode)
@@ -596,6 +616,8 @@ const AdminAdGroups = () => {
               <AdGroupCard
                 key={g.id}
                 group={g}
+                integration={integrationMap[g.assignedIntegrationId]}
+                integrationStatus={g.integrationStatusSummary}
                 onReview={() => (window.location.href = `/review/${g.id}`)}
                 onShare={() => handleShare(g.id)}
                 onRename={() => promptRename(g)}
@@ -779,6 +801,8 @@ const AdminAdGroups = () => {
                           <AdGroupCard
                             key={g.id}
                             group={g}
+                            integration={integrationMap[g.assignedIntegrationId]}
+                            integrationStatus={g.integrationStatusSummary}
                             onReview={() => (window.location.href = `/review/${g.id}`)}
                             onShare={() => handleShare(g.id)}
                             onRename={() => promptRename(g)}

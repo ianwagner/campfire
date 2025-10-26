@@ -1,9 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import AdGroupCard from './components/AdGroupCard.jsx';
 import parseAdFilename from './utils/parseAdFilename';
 import getUserName from './utils/getUserName';
 import aggregateRecipeStatusCounts from './utils/aggregateRecipeStatusCounts';
 import computeKanbanStatus from './utils/computeKanbanStatus';
+import computeIntegrationStatusSummary from './utils/computeIntegrationStatusSummary';
 import {
   collection,
   getDocs,
@@ -17,6 +18,7 @@ import { auth, db } from './firebase/config';
 import useUserRole from './useUserRole';
 import generatePassword from './utils/generatePassword';
 import ShareLinkModal from './components/ShareLinkModal.jsx';
+import useIntegrations from './useIntegrations';
 
 const DesignerDashboard = () => {
   const [groups, setGroups] = useState([]);
@@ -26,6 +28,17 @@ const DesignerDashboard = () => {
   const { role, brandCodes, loading: roleLoading } = useUserRole(user?.uid);
 
   const [shareInfo, setShareInfo] = useState(null);
+
+  const { integrations } = useIntegrations();
+  const integrationMap = useMemo(() => {
+    const map = {};
+    integrations.forEach((integration) => {
+      if (integration?.id) {
+        map[integration.id] = integration;
+      }
+    });
+    return map;
+  }, [integrations]);
 
   const kanbanColumns = [
     { label: 'New', status: 'new' },
@@ -115,6 +128,12 @@ const DesignerDashboard = () => {
             const designerName = data.designerId ? await getUserName(data.designerId) : '';
             const editorName = data.editorId ? await getUserName(data.editorId) : '';
 
+            const integrationStatusSummary = computeIntegrationStatusSummary(
+              data.assignedIntegrationId,
+              data.assignedIntegrationName,
+              assets,
+            );
+
             return {
               id: d.id,
               ...data,
@@ -130,6 +149,7 @@ const DesignerDashboard = () => {
               },
               designerName,
               editorName,
+              integrationStatusSummary,
             };
           })
         );
@@ -169,14 +189,16 @@ const DesignerDashboard = () => {
         ) : (
           <>
             <div className="sm:hidden space-y-4">
-              {groups.map((g) => (
-                <AdGroupCard
-                  key={g.id}
-                  group={g}
-                  onReview={() => (window.location.href = `/review/${g.id}`)}
-                  onShare={() => handleShare(g.id)}
-                />
-              ))}
+            {groups.map((g) => (
+              <AdGroupCard
+                key={g.id}
+                group={g}
+                integration={integrationMap[g.assignedIntegrationId]}
+                integrationStatus={g.integrationStatusSummary}
+                onReview={() => (window.location.href = `/review/${g.id}`)}
+                onShare={() => handleShare(g.id)}
+              />
+            ))}
             </div>
             <div className="hidden sm:block overflow-x-auto mt-[0.8rem]">
               <div className="min-w-max flex gap-4">
@@ -193,6 +215,8 @@ const DesignerDashboard = () => {
                           <AdGroupCard
                             key={g.id}
                             group={g}
+                            integration={integrationMap[g.assignedIntegrationId]}
+                            integrationStatus={g.integrationStatusSummary}
                             onReview={() => (window.location.href = `/review/${g.id}`)}
                             onShare={() => handleShare(g.id)}
                           />

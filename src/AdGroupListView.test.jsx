@@ -9,6 +9,7 @@ jest.mock('./useUserRole', () => () => ({ role: 'project-manager' }));
 jest.mock('./useSiteSettings', () => () => ({}));
 jest.mock('./components/AdGroupCard.jsx', () => () => null);
 jest.mock('./components/MonthTag.jsx', () => () => null);
+jest.mock('./useIntegrations', () => () => ({ integrations: [] }));
 jest.mock('firebase/firestore', () => ({
   doc: jest.fn(() => ({})),
   updateDoc: jest.fn(() => Promise.resolve()),
