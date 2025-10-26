@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { FiFeather, FiSliders } from 'react-icons/fi';
+import { FiBell, FiFeather, FiSliders } from 'react-icons/fi';
 import TabButton from './components/TabButton.jsx';
 import AgencyThemeSettings from './AgencyThemeSettings.jsx';
 import AgencySettings from './AgencySettings.jsx';
 import useAgencyTheme from './useAgencyTheme';
 import OptimizedImage from './components/OptimizedImage.jsx';
+import AgencySlackNotifications from './AgencySlackNotifications.jsx';
 
 const AdminAgencyProfile = () => {
   const { agencyId } = useParams();
@@ -49,6 +50,9 @@ const AdminAgencyProfile = () => {
             <TabButton active={tab === 'settings'} onClick={() => setTab('settings')} disabled={loading}>
               <FiSliders /> <span>Feature Settings</span>
             </TabButton>
+            <TabButton active={tab === 'slack'} onClick={() => setTab('slack')} disabled={loading}>
+              <FiBell /> <span>Slack Notifications</span>
+            </TabButton>
           </div>
           <div className="pb-6">
             {loading ? (
@@ -59,6 +63,7 @@ const AdminAgencyProfile = () => {
               <>
                 {tab === 'theme' && <AgencyThemeSettings agencyId={agencyId} />}
                 {tab === 'settings' && <AgencySettings agencyId={agencyId} />}
+                {tab === 'slack' && <AgencySlackNotifications agencyId={agencyId} />}
               </>
             )}
           </div>

@@ -41,6 +41,7 @@ const defaultSettings = {
     editRequest: 1,
   },
   slackMessageTemplates: clonedSlackTemplates,
+  defaultSlackNotificationChannelIds: [],
 };
 
 
