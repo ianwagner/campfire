@@ -1,11 +1,204 @@
 import { doc, serverTimestamp, writeBatch } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import getVersion from './getVersion';
+import parseAdFilename from './parseAdFilename';
 
 const normalizeKeyPart = (value) => {
   if (value === null || value === undefined) return '';
   if (typeof value === 'string') return value.trim();
   return String(value);
+};
+
+const normalizeRecipeIdentifier = (value) => {
+  const normalized = normalizeKeyPart(value);
+  if (!normalized) return '';
+  const withoutLeadingZeros = normalized.replace(/^0+/, '');
+  return withoutLeadingZeros || normalized;
+};
+
+const getRecipeFieldCandidate = (source, keys) => {
+  if (!source || typeof source !== 'object') return '';
+  for (const key of keys) {
+    if (!Object.prototype.hasOwnProperty.call(source, key)) continue;
+    const candidate = normalizeRecipeIdentifier(source[key]);
+    if (candidate) {
+      return candidate;
+    }
+  }
+  return '';
+};
+
+const getAssetRecipeIdentifier = (asset) => {
+  if (!asset || typeof asset !== 'object') {
+    return '';
+  }
+
+  const recipeFieldsCandidate = getRecipeFieldCandidate(asset.recipeFields, [
+    'Recipe Number',
+    'Recipe #',
+    'Recipe No',
+    'Recipe',
+    'Recipe Id',
+    'RecipeID',
+    'Recipe Code',
+    'RecipeCode',
+  ]);
+  if (recipeFieldsCandidate) {
+    return recipeFieldsCandidate;
+  }
+
+  const directCandidate = getRecipeFieldCandidate(asset, [
+    'recipeNumber',
+    'recipe_number',
+    'recipeNo',
+    'recipe_no',
+    'recipe',
+    'recipeCode',
+    'recipe_code',
+    'recipeId',
+    'recipe_id',
+  ]);
+  if (directCandidate) {
+    return directCandidate;
+  }
+
+  const nestedRecipeCandidate = getRecipeFieldCandidate(asset.recipe, [
+    'number',
+    'recipeNumber',
+    'recipe_number',
+    'code',
+    'recipeCode',
+    'recipe_code',
+    'id',
+  ]);
+  if (nestedRecipeCandidate) {
+    return nestedRecipeCandidate;
+  }
+
+  const metadataCandidate = getRecipeFieldCandidate(asset.metadata, [
+    'recipeNumber',
+    'recipe_number',
+    'recipeCode',
+    'recipe_code',
+  ]);
+  if (metadataCandidate) {
+    return metadataCandidate;
+  }
+
+  const parsed = parseAdFilename(asset.filename || '');
+  const parsedCandidate = normalizeRecipeIdentifier(parsed.recipeCode);
+  if (parsedCandidate) {
+    return parsedCandidate;
+  }
+
+  return '';
+};
+
+const normalizeAspectRatioCandidate = (value) => {
+  const normalized = normalizeKeyPart(value);
+  if (!normalized) return '';
+
+  const sanitized = normalized.replace(/[:\s]/g, '').toLowerCase();
+  if (!sanitized) {
+    return '';
+  }
+
+  if (
+    sanitized === '1x1' ||
+    sanitized === 'square' ||
+    sanitized === '1080x1080'
+  ) {
+    return '1x1';
+  }
+
+  if (
+    sanitized === '4x5' ||
+    sanitized === '45' ||
+    sanitized === '1080x1350' ||
+    sanitized === 'portrait'
+  ) {
+    return '4x5';
+  }
+
+  if (
+    sanitized === '9x16' ||
+    sanitized === '916' ||
+    sanitized === '1080x1920' ||
+    sanitized === 'vertical' ||
+    sanitized === 'story'
+  ) {
+    return '9x16';
+  }
+
+  return normalized;
+};
+
+const buildApprovedAssetPayload = (asset) => {
+  const docId = getAssetDocumentId(asset);
+  const parsed = parseAdFilename(asset?.filename || '');
+  const canonicalAspect =
+    normalizeAspectRatioCandidate(asset?.aspectRatio) ||
+    normalizeAspectRatioCandidate(parsed.aspectRatio);
+
+  return {
+    payload: {
+      id: docId,
+      filename: asset?.filename || '',
+      status: asset?.status || '',
+      firebaseUrl: asset?.firebaseUrl || '',
+      cdnUrl: asset?.cdnUrl || '',
+      thumbnailUrl: asset?.thumbnailUrl || '',
+      aspectRatio: canonicalAspect || asset?.aspectRatio || '',
+      recipeCode: asset?.recipeCode || '',
+      version: getVersion(asset),
+    },
+    canonicalAspect: canonicalAspect || '',
+  };
+};
+
+const selectPrimaryAssetPayload = (assetEntries) => {
+  if (!assetEntries.length) {
+    return null;
+  }
+
+  const priority = ['1x1', '4x5', '9x16'];
+  for (const target of priority) {
+    const match = assetEntries.find((entry) => entry.canonicalAspect === target);
+    if (match && match.payload?.id) {
+      return match.payload;
+    }
+  }
+
+  const fallback = assetEntries.find((entry) => entry.payload?.id);
+  return fallback ? fallback.payload : null;
+};
+
+const groupAssetsByRecipe = (assets) => {
+  const groups = new Map();
+
+  assets.forEach((asset) => {
+    const docId = getAssetDocumentId(asset);
+    if (!docId) {
+      return;
+    }
+
+    const identifier = getAssetRecipeIdentifier(asset);
+    const key = identifier || docId;
+    const entry = groups.get(key);
+    if (entry) {
+      entry.assets.push(asset);
+      entry.docIds.push(docId);
+      return;
+    }
+
+    groups.set(key, {
+      key,
+      assets: [asset],
+      docIds: [docId],
+    });
+  });
+
+  return Array.from(groups.values());
 };
 
 export const getAssetDocumentId = (asset) =>
@@ -129,33 +322,48 @@ export const dispatchIntegrationForAssets = async ({
   );
 
   const errors = [];
+  const groupedAssets = groupAssetsByRecipe(assetsList);
 
-  for (let index = 0; index < assetsList.length; index += 1) {
-    const asset = assetsList[index];
-    const assetId = getAssetDocumentId(asset);
+  for (let index = 0; index < groupedAssets.length; index += 1) {
+    const group = groupedAssets[index];
     const attempt = index + 1;
+    const assetEntries = group.assets.map((asset) => buildApprovedAssetPayload(asset));
+    const approvedAssets = assetEntries
+      .map((entry) => entry.payload)
+      .filter((entry) => entry && entry.id);
+    const primaryAsset = selectPrimaryAssetPayload(assetEntries);
+    const approvedAssetIds = approvedAssets.map((entry) => entry.id).filter(Boolean);
 
-    const approvedAsset = {
-      id: assetId,
-      filename: asset.filename || '',
-      status: asset.status || '',
-      firebaseUrl: asset.firebaseUrl || '',
-      cdnUrl: asset.cdnUrl || '',
-      thumbnailUrl: asset.thumbnailUrl || '',
-      aspectRatio: asset.aspectRatio || '',
-      recipeCode: asset.recipeCode || '',
-      version: getVersion(asset),
-    };
+    if (approvedAssets.length === 0) {
+      const message = 'No assets available for integration dispatch.';
+      await updateIntegrationStatusForAssets(
+        { groupId, integrationId, integrationName },
+        group.assets,
+        'error',
+        {
+          errorMessage: message,
+          requestPayload: null,
+          responsePayload: null,
+          responseStatus: null,
+          responseHeaders: null,
+        },
+      );
+      errors.push({
+        assetId: group.key,
+        message,
+      });
+      continue;
+    }
 
     const payload = {
       adGroupId: groupId,
       integrationId,
       integrationName: integrationName || '',
-      approvedAssetId: assetId,
-      approvedAdId: assetId,
-      approvedAssetIds: assetId ? [assetId] : [],
-      approvedAssets: [approvedAsset],
-      approvedAsset,
+      approvedAssetId: primaryAsset?.id || approvedAssetIds[0] || '',
+      approvedAdId: primaryAsset?.id || approvedAssetIds[0] || '',
+      approvedAssetIds,
+      approvedAssets,
+      approvedAsset: primaryAsset || null,
     };
 
     let responsePayloadSnapshot = null;
@@ -208,7 +416,7 @@ export const dispatchIntegrationForAssets = async ({
           'Integration request failed.';
         await updateIntegrationStatusForAssets(
           { groupId, integrationId, integrationName },
-          [asset],
+          group.assets,
           'error',
           {
             errorMessage: message,
@@ -220,7 +428,7 @@ export const dispatchIntegrationForAssets = async ({
         );
         errorHandled = true;
         errors.push({
-          assetId,
+          assetId: group.key,
           message,
         });
         continue;
@@ -233,7 +441,7 @@ export const dispatchIntegrationForAssets = async ({
           'Integration reported failure.';
         await updateIntegrationStatusForAssets(
           { groupId, integrationId, integrationName },
-          [asset],
+          group.assets,
           'error',
           {
             errorMessage: message,
@@ -245,7 +453,7 @@ export const dispatchIntegrationForAssets = async ({
         );
         errorHandled = true;
         errors.push({
-          assetId,
+          assetId: group.key,
           message,
         });
         continue;
@@ -253,7 +461,7 @@ export const dispatchIntegrationForAssets = async ({
 
       await updateIntegrationStatusForAssets(
         { groupId, integrationId, integrationName },
-        [asset],
+        group.assets,
         'received',
         {
           requestPayload: requestPayloadSnapshot,
@@ -269,7 +477,7 @@ export const dispatchIntegrationForAssets = async ({
       if (!errorHandled) {
         await updateIntegrationStatusForAssets(
           { groupId, integrationId, integrationName },
-          [asset],
+          group.assets,
           'error',
           {
             errorMessage: message,
@@ -281,7 +489,7 @@ export const dispatchIntegrationForAssets = async ({
         );
       }
       errors.push({
-        assetId,
+        assetId: group.key,
         message,
       });
     }
