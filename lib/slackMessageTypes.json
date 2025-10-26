@@ -1,0 +1,32 @@
+[
+  {
+    "key": "designed",
+    "label": "Design ready",
+    "description": "Sent when an ad group is marked as designed and ready for review.",
+    "audiences": ["internal", "external"]
+  },
+  {
+    "key": "briefed",
+    "label": "Brief submitted",
+    "description": "Sent when a brief is submitted for an ad group.",
+    "audiences": ["internal"]
+  },
+  {
+    "key": "reviewed",
+    "label": "Review completed",
+    "description": "Sent when review outcomes are recorded for an ad group.",
+    "audiences": ["internal", "external"]
+  },
+  {
+    "key": "blocked",
+    "label": "Ad group blocked",
+    "description": "Sent when an ad group is blocked and needs attention.",
+    "audiences": ["internal"]
+  },
+  {
+    "key": "overall-feedback",
+    "label": "Overall feedback",
+    "description": "Sent when overall feedback is submitted for an ad group.",
+    "audiences": ["internal"]
+  }
+]

@@ -32,12 +32,14 @@ import {
   FiBookOpen,
   FiMessageSquare,
   FiUser,
+  FiAtSign,
 } from 'react-icons/fi';
 import BrandTone from './BrandTone.jsx';
 import BrandContracts from './BrandContracts.jsx';
 import BrandAIArtStyle from './BrandAIArtStyle.jsx';
 import BrandNotes from './BrandNotes.jsx';
 import BrandFeedback from './BrandFeedback.jsx';
+import BrandSlackMentions from './BrandSlackMentions.jsx';
 
 const BrandProfile = ({ brandId: propId = null, backPath }) => {
   const { id } = useParams();
@@ -56,6 +58,7 @@ const BrandProfile = ({ brandId: propId = null, backPath }) => {
   const [actionBusy, setActionBusy] = useState(false);
 
   const isAdmin = role === 'admin';
+  const canManageSlackMentions = ['admin', 'ops', 'client'].includes(role);
   const adminDirectoryRole = ['admin', 'manager', 'project-manager'].includes(role);
   const resolvedBackPath = backPath || (adminDirectoryRole ? '/admin/brands' : '/brand-profile');
 
@@ -288,6 +291,11 @@ const BrandProfile = ({ brandId: propId = null, backPath }) => {
             <TabButton active={tab === 'feedback'} onClick={() => setTab('feedback')}>
               <FiMessageSquare /> <span>Feedback</span>
             </TabButton>
+            {canManageSlackMentions && (
+              <TabButton active={tab === 'slack'} onClick={() => setTab('slack')}>
+                <FiAtSign /> <span>Slack Mentions</span>
+              </TabButton>
+            )}
             <TabButton active={tab === 'notes'} onClick={() => setTab('notes')}>
               <FiBookOpen /> <span>Notes</span>
             </TabButton>
@@ -310,6 +318,9 @@ const BrandProfile = ({ brandId: propId = null, backPath }) => {
             {tab === 'campaigns' && <BrandCampaigns brandId={brandId} brandCode={brandCode} />}
             {tab === 'feedback' && (
               <BrandFeedback brandId={brandId} brandCode={brandCode} brandName={brandName} />
+            )}
+            {tab === 'slack' && canManageSlackMentions && (
+              <BrandSlackMentions brandId={brandId} brandCode={brandCode} />
             )}
             {tab === 'notes' && <BrandNotes brandId={brandId} />}
             {tab === 'contracts' && (
