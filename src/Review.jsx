@@ -4802,7 +4802,18 @@ useEffect(() => {
           finalizeStatus === 'designed' ? null : serverTimestamp(),
       };
 
-      await updateDoc(doc(db, 'adGroups', groupId), updateData);
+      const publicUpdateData = {
+        status: finalizeStatus,
+        reviewProgress: null,
+        lastUpdated: new Date().toISOString(),
+        completedAt:
+          finalizeStatus === 'designed' ? null : new Date().toISOString(),
+      };
+
+      await performGroupUpdate(groupId, updateData, {
+        type: 'status',
+        publicUpdate: publicUpdateData,
+      });
 
       const { reviewUrl: detailUrl, adGroupUrl } = buildDetailLinks();
 
@@ -4814,28 +4825,6 @@ useEffect(() => {
         url: detailUrl,
         adGroupUrl,
       });
-
-      if (isPublicReviewer) {
-        try {
-          await addDoc(collection(db, 'adGroups', groupId, 'publicUpdates'), {
-            type: 'status',
-            update: {
-              status: finalizeStatus,
-              reviewProgress: null,
-              lastUpdated: new Date().toISOString(),
-              completedAt:
-                finalizeStatus === 'designed'
-                  ? null
-                  : new Date().toISOString(),
-            },
-            createdAt: serverTimestamp(),
-            reviewer: reviewerIdentifier,
-            source: 'public-review',
-          });
-        } catch (err) {
-          console.warn('Failed to record public finalize update', err);
-        }
-      }
 
       setGroupStatus(finalizeStatus);
       setInitialStatus(finalizeStatus === 'designed' ? 'designed' : 'done');
