@@ -4586,8 +4586,11 @@ useEffect(() => {
           ? ads.filter((asset) => asset.status === 'approved')
           : [];
 
+      const hasEditRequests = (reviewStatusCounts?.edit ?? 0) > 0;
+      const finalStatus = hasEditRequests ? 'reviewed' : 'done';
+
       const updateData = {
-        status: 'reviewed',
+        status: finalStatus,
         reviewProgress: null,
         lastUpdated: serverTimestamp(),
       };
@@ -4596,11 +4599,13 @@ useEffect(() => {
 
       const { reviewUrl: detailUrl, adGroupUrl } = buildDetailLinks();
 
+      const slackStatus = finalStatus === 'done' ? 'reviewed' : finalStatus;
+
       await notifySlackStatusChange({
         brandCode: groupBrandCode || brandCode || '',
         adGroupId: groupId,
         adGroupName: adGroupDisplayName,
-        status: 'reviewed',
+        status: slackStatus,
         url: detailUrl,
         adGroupUrl,
       });
@@ -4610,7 +4615,7 @@ useEffect(() => {
           await addDoc(collection(db, 'adGroups', groupId, 'publicUpdates'), {
             type: 'status',
             update: {
-              status: 'reviewed',
+              status: finalStatus,
               reviewProgress: null,
               lastUpdated: new Date().toISOString(),
             },
@@ -4623,7 +4628,7 @@ useEffect(() => {
         }
       }
 
-      setGroupStatus('reviewed');
+      setGroupStatus(finalStatus);
       setInitialStatus('done');
       setStarted(false);
       setShowFinalizeModal(null);
