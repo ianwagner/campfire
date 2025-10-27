@@ -803,6 +803,40 @@ const EMAIL_REGEX = /.+@.+\..+/i;
 const SLACK_MENTION_PATTERN = /^<[@!][^>]+>$/;
 const SLACK_MAILTO_PATTERN = /^<mailto:([^>|]+)(?:\|[^>]+)?>$/i;
 
+function hasEmailMentionEntries(map) {
+  if (!map) {
+    return false;
+  }
+
+  if (map instanceof Map) {
+    return map.size > 0;
+  }
+
+  if (typeof map === "object") {
+    return Object.keys(map).length > 0;
+  }
+
+  return false;
+}
+
+function getMentionUserIdForEmail(map, email) {
+  if (!map || !email) {
+    return null;
+  }
+
+  const normalized = email.toLowerCase();
+
+  if (map instanceof Map) {
+    return map.get(normalized) || map.get(email) || null;
+  }
+
+  if (typeof map === "object") {
+    return map[normalized] || map[email] || null;
+  }
+
+  return null;
+}
+
 function sanitizeEmailValue(value) {
   if (typeof value !== "string") {
     return null;
@@ -961,6 +995,108 @@ function getMentionsForStatus(config, status) {
   }
 
   return empty;
+}
+
+function replaceMailtoMentionsInString(input, emailMentionsMap) {
+  if (typeof input !== "string" || !hasEmailMentionEntries(emailMentionsMap)) {
+    return input;
+  }
+
+  let changed = false;
+
+  const replaceMatch = (match) => {
+    const normalizedEmail = sanitizeEmailValue(match);
+    if (!normalizedEmail) {
+      return match;
+    }
+
+    const userId = getMentionUserIdForEmail(emailMentionsMap, normalizedEmail);
+    if (!userId) {
+      return match;
+    }
+
+    changed = true;
+    return `<@${userId}>`;
+  };
+
+  let output = input.replace(/<mailto:[^>]+>/gi, replaceMatch);
+  output = output.replace(/mailto:[^\s>]+/gi, replaceMatch);
+
+  return changed ? output : input;
+}
+
+function replaceMailtoMentionsInPayload(payload, emailMentionsMap) {
+  if (!hasEmailMentionEntries(emailMentionsMap)) {
+    return payload;
+  }
+
+  if (typeof payload === "string") {
+    return replaceMailtoMentionsInString(payload, emailMentionsMap);
+  }
+
+  if (!payload || typeof payload !== "object") {
+    return payload;
+  }
+
+  let textChanged = false;
+  let updatedText = payload.text;
+  if (typeof payload.text === "string") {
+    const replacedText = replaceMailtoMentionsInString(payload.text, emailMentionsMap);
+    if (replacedText !== payload.text) {
+      textChanged = true;
+      updatedText = replacedText;
+    }
+  }
+
+  let blocksChanged = false;
+  let updatedBlocks = payload.blocks;
+  if (Array.isArray(payload.blocks)) {
+    const newBlocks = [];
+
+    payload.blocks.forEach((block) => {
+      if (
+        block &&
+        block.type === "section" &&
+        block.text &&
+        typeof block.text.text === "string"
+      ) {
+        const replacedBlockText = replaceMailtoMentionsInString(
+          block.text.text,
+          emailMentionsMap,
+        );
+
+        if (replacedBlockText !== block.text.text) {
+          blocksChanged = true;
+          newBlocks.push({
+            ...block,
+            text: { ...block.text, text: replacedBlockText },
+          });
+          return;
+        }
+      }
+
+      newBlocks.push(block);
+    });
+
+    if (blocksChanged) {
+      updatedBlocks = newBlocks;
+    }
+  }
+
+  if (!textChanged && !blocksChanged) {
+    return payload;
+  }
+
+  const updated = { ...payload };
+  if (textChanged) {
+    updated.text = updatedText;
+  }
+
+  if (blocksChanged) {
+    updated.blocks = updatedBlocks;
+  }
+
+  return updated;
 }
 
 async function lookupSlackUserIdByEmail(email, token) {
@@ -1508,6 +1644,7 @@ module.exports = async function handler(req, res) {
           if (!mentionInfo) {
             const mentionSet = new Set();
             const mentionOrder = [];
+            const emailMentionMap = new Map();
             const addMention = (value) => {
               if (!value || mentionSet.has(value)) {
                 return;
@@ -1521,6 +1658,7 @@ module.exports = async function handler(req, res) {
             for (const email of mentionConfig.emails) {
               const userInfo = await lookupSlackUserIdByEmail(email, token);
               if (userInfo && userInfo.id) {
+                emailMentionMap.set(email, userInfo.id);
                 addMention(`<@${userInfo.id}>`);
               } else {
                 const label =
@@ -1535,6 +1673,7 @@ module.exports = async function handler(req, res) {
             mentionInfo = {
               mentions: mentionOrder,
               text: mentionOrder.join(" "),
+              emailMentions: emailMentionMap,
             };
             mentionInfoCache.set(cacheKey, mentionInfo);
           }
@@ -1553,6 +1692,13 @@ module.exports = async function handler(req, res) {
           if (mentionText) {
             payloadToSend = appendMentionsToPayload(payloadToSend, mentionText);
           }
+        }
+
+        if (mentionInfo && hasEmailMentionEntries(mentionInfo.emailMentions)) {
+          payloadToSend = replaceMailtoMentionsInPayload(
+            payloadToSend,
+            mentionInfo.emailMentions,
+          );
         }
 
         const response = await postSlackMessage(doc.id, payloadToSend, token);
