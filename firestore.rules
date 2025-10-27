@@ -119,7 +119,7 @@ match /assets/{assetId} {
     function isReviewedStatusUpdate() {
       return isReviewFieldUpdate() &&
         request.resource.data.keys().hasAny(['status']) &&
-        request.resource.data.status == 'reviewed';
+        ['reviewed', 'done'].hasAny([request.resource.data.status]);
     }
 
     // ✅ Global Settings
