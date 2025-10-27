@@ -27,17 +27,86 @@ const normalizeKeyPart = (value) => {
 
 const normalizeProductKey = (value) => normalizeKeyPart(value).toLowerCase();
 
+const CANONICAL_ASPECTS = [
+  { label: '1x1', ratio: 1 },
+  { label: '4x5', ratio: 4 / 5 },
+  { label: '9x16', ratio: 9 / 16 },
+];
+
+const CANONICAL_ASPECT_LABELS = new Set(CANONICAL_ASPECTS.map((aspect) => aspect.label));
+
+const gcd = (a, b) => {
+  let x = Math.trunc(Math.abs(a));
+  let y = Math.trunc(Math.abs(b));
+  while (y !== 0) {
+    const remainder = x % y;
+    x = y;
+    y = remainder;
+  }
+  return x || 1;
+};
+
+const canonicalizeNumericAspect = (width, height) => {
+  if (!Number.isFinite(width) || !Number.isFinite(height)) return '';
+  const absWidth = Math.abs(width);
+  const absHeight = Math.abs(height);
+  if (!absWidth || !absHeight) return '';
+  const [minSide, maxSide] =
+    absWidth <= absHeight ? [absWidth, absHeight] : [absHeight, absWidth];
+  const divisor = gcd(minSide, maxSide);
+  const simplified = `${minSide / divisor}x${maxSide / divisor}`;
+  if (CANONICAL_ASPECT_LABELS.has(simplified)) {
+    return simplified;
+  }
+  const ratio = minSide / maxSide;
+  let closest = '';
+  let smallest = Number.POSITIVE_INFINITY;
+  CANONICAL_ASPECTS.forEach((candidate) => {
+    const delta = Math.abs(ratio - candidate.ratio);
+    if (delta < smallest) {
+      smallest = delta;
+      closest = candidate.label;
+    }
+  });
+  return smallest <= 0.05 ? closest : '';
+};
+
 const normalizeAspectRatio = (value) => {
   if (value == null) return '';
-  const str = String(value).trim().toLowerCase();
-  if (!str) return '';
-  if (str === 'square') return '1x1';
-  if (['vertical', 'portrait', 'story', 'stories', 'reel', 'reels'].includes(str)) {
+  const raw = String(value).trim();
+  if (!raw) return '';
+  const lowered = raw.toLowerCase();
+
+  const aliasMap = {
+    square: '1x1',
+    '1x1': '1x1',
+    '1:1': '1x1',
+    portrait: '4x5',
+    '4x5': '4x5',
+    '4:5': '4x5',
+    '3x5': '4x5',
+    '3:5': '4x5',
+    '9x16': '9x16',
+    '9:16': '9x16',
+  };
+
+  if (aliasMap[lowered]) return aliasMap[lowered];
+  if (['vertical', 'story', 'stories', 'reel', 'reels'].includes(lowered)) {
     return '9x16';
   }
-  const match = str.match(/(\d+)\s*(?:x|×|:|-|by|_)\s*(\d+)/);
+
+  const sanitized = lowered
+    .replace(/by/g, 'x')
+    .replace(/[×:]/g, 'x')
+    .replace(/\s+/g, '');
+
+  if (aliasMap[sanitized]) return aliasMap[sanitized];
+
+  const match = sanitized.match(/(\d+)x(\d+)/);
   if (match) {
-    return `${match[1]}x${match[2]}`;
+    const width = Number(match[1]);
+    const height = Number(match[2]);
+    return canonicalizeNumericAspect(width, height);
   }
   return '';
 };
@@ -69,8 +138,10 @@ const baseColumnDefs = [
     cellClass: 'text-center',
   },
   { key: 'product', label: 'Product', width: 'auto' },
+  { key: 'format', label: 'Format', width: 'auto' },
   { key: 'moment', label: 'Moment', width: 'auto' },
   { key: 'funnel', label: 'Funnel', width: 'auto' },
+  { key: 'market', label: 'Market', width: 'auto' },
   { key: 'goLive', label: 'Go Live', width: 'auto' },
   { key: 'url', label: 'Url', width: 'auto' },
   { key: 'angle', label: 'Angle', width: 'auto' },
@@ -90,6 +161,13 @@ const assetCols = [
   {
     key: '1x1',
     label: '1x1',
+    width: '48px',
+    headerClass: 'text-center',
+    cellClass: 'text-center',
+  },
+  {
+    key: '4x5',
+    label: '4x5',
     width: '48px',
     headerClass: 'text-center',
     cellClass: 'text-center',
@@ -236,6 +314,7 @@ const ClientData = ({ brandCodes = [] }) => {
   const nonEditable = new Set([
     'recipeNo',
     '1x1',
+    '4x5',
     '9x16',
     'storeId',
     'groupName',
@@ -405,7 +484,7 @@ const ClientData = ({ brandCodes = [] }) => {
             if (!aspect) {
               aspect = '9x16';
             }
-            if (!['1x1', '9x16'].includes(aspect)) {
+            if (!['1x1', '4x5', '9x16'].includes(aspect)) {
               return;
             }
             const label = aspect;
@@ -535,6 +614,14 @@ const ClientData = ({ brandCodes = [] }) => {
               rData.audience ||
               rData.components?.audience ||
               '';
+            const format = pickMetaField(
+              'format',
+              rData.metadata,
+              rData,
+              rData.components,
+              gData.metadata,
+              gData,
+            );
             const moment = pickMetaField(
               'moment',
               rData.metadata,
@@ -545,6 +632,14 @@ const ClientData = ({ brandCodes = [] }) => {
             );
             const funnel = pickMetaField(
               'funnel',
+              rData.metadata,
+              rData,
+              rData.components,
+              gData.metadata,
+              gData,
+            );
+            const market = pickMetaField(
+              'market',
               rData.metadata,
               rData,
               rData.components,
@@ -580,14 +675,16 @@ const ClientData = ({ brandCodes = [] }) => {
               primary,
               headline,
               description,
+              format,
               moment,
               funnel,
+              market,
               goLive,
               ...groupMeta,
               ...recipeMeta,
             };
             assets.forEach(({ url, label }) => {
-              if (['1x1', '9x16'].includes(label)) {
+              if (['1x1', '4x5', '9x16'].includes(label)) {
                 row[label] = url;
               }
             });
@@ -665,6 +762,7 @@ const ClientData = ({ brandCodes = [] }) => {
               case 'recipeNo':
                 return r.recipeNo;
               case '1x1':
+              case '4x5':
               case '9x16':
                 return r[c.key] || '';
               default:
@@ -826,6 +924,7 @@ const ClientData = ({ brandCodes = [] }) => {
                         </td>
                       );
                     case '1x1':
+                    case '4x5':
                     case '9x16':
                       const url = r[c.key];
                       return (

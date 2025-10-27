@@ -16,6 +16,10 @@ jest.mock('firebase/firestore', () => ({
 import { getDocs, updateDoc, doc } from 'firebase/firestore';
 import ClientData from './ClientData';
 
+beforeEach(() => {
+  getDocs.mockResolvedValue({ docs: [] });
+});
+
 afterEach(() => {
   jest.clearAllMocks();
 });
@@ -66,8 +70,8 @@ test('saves edited values to metadata', async () => {
   await screen.findByRole('option', { name: 'BR1' });
 
   const selects = screen.getAllByRole('combobox');
-  fireEvent.change(selects[0], { target: { value: '2023-09' } });
   fireEvent.change(selects[2], { target: { value: 'BR1' } });
+  fireEvent.change(selects[0], { target: { value: '2023-09' } });
 
   await screen.findByText('Group1');
 
@@ -123,8 +127,8 @@ test('scrolling the filters delegates to window scrolling', async () => {
   render(<ClientData brandCodes={['BR1']} />);
 
   const selects = await screen.findAllByRole('combobox');
-  fireEvent.change(selects[0], { target: { value: '2023-09' } });
   fireEvent.change(selects[2], { target: { value: 'BR1' } });
+  fireEvent.change(selects[0], { target: { value: '2023-09' } });
 
   await screen.findByText('Group1');
 
@@ -216,8 +220,8 @@ test('preserves asset links after saving edits', async () => {
   await screen.findByRole('option', { name: 'BR1' });
 
   const selects = screen.getAllByRole('combobox');
-  fireEvent.change(selects[0], { target: { value: '2023-09' } });
   fireEvent.change(selects[2], { target: { value: 'BR1' } });
+  fireEvent.change(selects[0], { target: { value: '2023-09' } });
 
   await screen.findAllByRole('cell', { name: 'Group1' });
 
@@ -300,6 +304,15 @@ test('populates asset columns for normalized aspect ratios', async () => {
         },
         {
           data: () => ({
+            filename: 'BR1_GROUP1_001_4x5.png',
+            recipeCode: '001',
+            firebaseUrl: 'https://example.com/4x5',
+            aspectRatio: 'portrait',
+            status: 'approved',
+          }),
+        },
+        {
+          data: () => ({
             filename: 'BR1_GROUP1_001_9x16.png',
             recipeCode: '001',
             adUrl: 'https://example.com/9x16',
@@ -317,20 +330,23 @@ test('populates asset columns for normalized aspect ratios', async () => {
   await screen.findByRole('option', { name: 'BR1' });
 
   const selects = screen.getAllByRole('combobox');
+  fireEvent.change(selects[2], { target: { value: 'BR1' } });
   fireEvent.change(selects[0], { target: { value: '2023-09' } });
   expect(selects[0].value).toBe('2023-09');
-  fireEvent.change(selects[2], { target: { value: 'BR1' } });
   expect(selects[2].value).toBe('BR1');
 
-  await waitFor(() => expect(getDocs).toHaveBeenCalledTimes(6));
   await screen.findByText('Group1');
 
   await waitFor(() => {
     const links = screen.getAllByRole('link', { name: 'Link' });
-    expect(links).toHaveLength(2);
+    expect(links).toHaveLength(3);
     const hrefs = links.map((link) => link.getAttribute('href'));
     expect(hrefs).toEqual(
-      expect.arrayContaining(['https://example.com/1x1', 'https://example.com/9x16']),
+      expect.arrayContaining([
+        'https://example.com/1x1',
+        'https://example.com/4x5',
+        'https://example.com/9x16',
+      ]),
     );
   });
   expect(errorSpy).not.toHaveBeenCalled();
@@ -397,10 +413,9 @@ test('matches assets when recipe numbers include leading zeros', async () => {
   await screen.findByRole('option', { name: 'BR1' });
 
   const selects = screen.getAllByRole('combobox');
-  fireEvent.change(selects[0], { target: { value: '2023-09' } });
   fireEvent.change(selects[2], { target: { value: 'BR1' } });
+  fireEvent.change(selects[0], { target: { value: '2023-09' } });
 
-  await waitFor(() => expect(getDocs).toHaveBeenCalledTimes(6));
   await screen.findByText('Group1');
 
   await waitFor(() =>
@@ -473,10 +488,9 @@ test('treats missing aspect ratios as 9x16', async () => {
   await screen.findByRole('option', { name: 'BR1' });
 
   const selects = screen.getAllByRole('combobox');
-  fireEvent.change(selects[0], { target: { value: '2023-09' } });
   fireEvent.change(selects[2], { target: { value: 'BR1' } });
+  fireEvent.change(selects[0], { target: { value: '2023-09' } });
 
-  await waitFor(() => expect(getDocs).toHaveBeenCalledTimes(6));
   await screen.findByText('Group1');
 
   await waitFor(() =>

@@ -7,15 +7,21 @@ const make = (aspectRatio, version = 1, filename) => ({
 });
 
 test('prefers 9x16 over others', () => {
-  const list = [make('3x5'), make('9x16')];
+  const list = [make('4x5'), make('9x16')];
   const hero = pickHeroAsset(list);
   expect(hero.aspectRatio).toBe('9x16');
 });
 
-test('falls back to 1x1 when 9x16 and 3x5 missing', () => {
+test('prefers 4x5 over 1x1 when 9x16 missing', () => {
   const list = [make('1x1'), make('4x5')];
   const hero = pickHeroAsset(list);
-  expect(hero.aspectRatio).toBe('1x1');
+  expect(hero.aspectRatio).toBe('4x5');
+});
+
+test('treats 3x5 as 4x5', () => {
+  const list = [make('1x1'), make('3x5')];
+  const hero = pickHeroAsset(list);
+  expect(hero.aspectRatio).toBe('3x5');
 });
 
 test('returns first when no preferred aspect ratio found', () => {

@@ -7,10 +7,13 @@ const {
   missingFirebaseEnvVars,
 } = require("./firebase");
 const { normalizeAudience } = require("./audience");
+const defaultSlackMessageTemplates = require("../../lib/slackMessageTemplates.json");
 
 const SLACK_BOT_TOKEN = process.env.SLACK_BOT_TOKEN;
 
 const workspaceAccessTokenCache = new Map();
+const siteTemplateCache = { templates: null, expiresAt: 0 };
+const mentionLookupCache = new Map();
 
 async function getWorkspaceAccessToken(workspaceId) {
   const normalizedWorkspaceId = typeof workspaceId === "string" ? workspaceId.trim() : "";
@@ -201,6 +204,101 @@ function collectStringValues(value, add) {
   }
 }
 
+function getFirstNonEmptyString(...values) {
+  for (const value of values) {
+    if (typeof value === "string") {
+      const trimmed = value.trim();
+      if (trimmed) {
+        return trimmed;
+      }
+    }
+  }
+
+  return "";
+}
+
+function resolveIntegrationNameFromGroup(groupData) {
+  if (!groupData || typeof groupData !== "object") {
+    return "";
+  }
+
+  const candidates = [];
+  const addCandidate = (value) => {
+    if (typeof value !== "string") {
+      return;
+    }
+
+    const trimmed = value.trim();
+    if (trimmed && !candidates.includes(trimmed)) {
+      candidates.push(trimmed);
+    }
+  };
+
+  addCandidate(groupData.integrationName);
+  addCandidate(groupData.integrationDisplayName);
+  addCandidate(groupData.assignedIntegrationName);
+  addCandidate(groupData.assignedIntegrationDisplayName);
+
+  const integration =
+    groupData.integration && typeof groupData.integration === "object"
+      ? groupData.integration
+      : null;
+  if (integration) {
+    addCandidate(integration.name);
+    addCandidate(integration.displayName);
+    addCandidate(integration.label);
+    addCandidate(integration.title);
+  }
+
+  const assignedIntegration =
+    groupData.assignedIntegration &&
+    typeof groupData.assignedIntegration === "object"
+      ? groupData.assignedIntegration
+      : null;
+  if (assignedIntegration) {
+    addCandidate(assignedIntegration.name);
+    addCandidate(assignedIntegration.displayName);
+    addCandidate(assignedIntegration.label);
+    addCandidate(assignedIntegration.title);
+  }
+
+  const assignedIntegrationId = getFirstNonEmptyString(
+    groupData.assignedIntegrationId,
+    integration ? integration.id : "",
+  );
+
+  if (assignedIntegrationId) {
+    const statusMaps = [];
+    if (
+      groupData.integrationStatuses &&
+      typeof groupData.integrationStatuses === "object"
+    ) {
+      statusMaps.push(groupData.integrationStatuses);
+    }
+    if (
+      groupData.integrationStatus &&
+      typeof groupData.integrationStatus === "object"
+    ) {
+      statusMaps.push(groupData.integrationStatus);
+    }
+
+    for (const statusMap of statusMaps) {
+      if (!statusMap || typeof statusMap !== "object") {
+        continue;
+      }
+
+      const entry = statusMap[assignedIntegrationId];
+      if (entry && typeof entry === "object") {
+        addCandidate(entry.integrationName);
+        addCandidate(entry.name);
+        addCandidate(entry.displayName);
+      }
+    }
+  }
+
+  return candidates.length ? candidates[0] : "";
+}
+
 const userNameCache = new Map();
 
 async function getUserDisplayName(userId) {
@@ -248,131 +346,118 @@ function formatInlineCode(value, fallback) {
   return `\`${sanitizeInlineCodeValue(finalValue)}\``;
 }
 
-function buildInternalMessage(status, context) {
-  const brand = formatInlineCode(
-    context.brandCode,
-    context.brandCode || "UNKNOWN"
-  );
-  const adGroup = formatInlineCode(
-    context.adGroupName,
-    context.adGroupName || "Ad Group"
-  );
-  const designer = formatInlineCode(
-    context.designerName,
-    context.designerName || "Unassigned"
-  );
-  const editor = formatInlineCode(
-    context.editorName,
-    context.editorName || "Unknown"
-  );
-  const approved = formatInlineCode(
-    String(Number(context.approvedCount) || 0),
-    "0"
-  );
-  const editRequests = formatInlineCode(
-    String(Number(context.editRequestedCount) || 0),
-    "0"
-  );
-  const rejections = formatInlineCode(
-    String(Number(context.rejectedCount) || 0),
-    "0"
-  );
-  const reviewLink = context.reviewUrl
-    ? `<${context.reviewUrl}|View details>`
-    : "View details";
-  const adGroupLink = context.adGroupUrl
-    ? `<${context.adGroupUrl}|View details>`
-    : reviewLink;
+function renderTemplate(templateValue, replacements, { includeBlocks = false } = {}) {
+  const templateString =
+    typeof templateValue === "string" ? templateValue.replace(/\r\n/g, "\n") : "";
+  const trimmed = templateString.trim();
 
-  const sections = [];
-  const lines = [];
-  const addSection = (text) => {
-    if (typeof text !== "string") {
-      return;
-    }
-
-    const trimmed = text.trim();
-    if (!trimmed) {
-      return;
-    }
-
-    sections.push({
-      type: "section",
-      text: {
-        type: "mrkdwn",
-        text: trimmed,
-      },
-    });
-    lines.push(trimmed);
-  };
-
-  const addDivider = () => {
-    sections.push({ type: "divider" });
-  };
-
-  const noteText =
-    typeof context.note === "string" && context.note.trim()
-      ? context.note.trim()
-      : "";
-
-  switch (status) {
-    case "designed":
-      addSection(brand);
-      addSection(`Ad group: ${adGroup} has been designed by ${designer}!`);
-      addSection(adGroupLink);
-      break;
-    case "briefed":
-      addSection(brand);
-      addSection(`Ad group: ${adGroup} has been briefed by ${editor}!`);
-      if (noteText) {
-        addDivider();
-        addSection(noteText);
-      }
-      addSection(adGroupLink);
-      break;
-    case "reviewed": {
-      const header = [brand, editor, designer].join("  ");
-      addSection(header);
-      addSection(`Ad group: ${adGroup} has been reviewed!`);
-      addSection(`Approved: ${approved}`);
-      addSection(`Edit Requests: ${editRequests}`);
-      addSection(`Rejections: ${rejections}`);
-      addSection(adGroupLink);
-      break;
-    }
-    case "blocked": {
-      const header = [brand, editor, designer].join("  ");
-      addSection(header);
-      addSection(`Ad group: ${adGroup} is blocked!`);
-      if (noteText) {
-        addDivider();
-        addSection(noteText);
-      }
-      addSection(adGroupLink);
-      break;
-    }
-    case "overall-feedback": {
-      const header = [brand, editor, designer].join("  ");
-      const feedbackNote = noteText || "No additional note provided.";
-      addSection(header);
-      addSection(`Overall feedback note received for ${adGroup}`);
-      addDivider();
-      addSection(feedbackNote);
-      addSection(adGroupLink);
-      break;
-    }
-    default:
-      return null;
-  }
-
-  if (!lines.length) {
+  if (!trimmed) {
     return null;
   }
 
-  return {
-    text: lines.join("\n"),
-    blocks: sections,
-  };
+  const segments = trimmed.split(/\n{2,}/);
+  const blocks = [];
+  const lines = [];
+
+  segments.forEach((segment) => {
+    const cleanSegment = segment.replace(/\r/g, "").trim();
+    if (!cleanSegment) {
+      return;
+    }
+
+    if (/^\[divider\]$/i.test(cleanSegment)) {
+      if (includeBlocks) {
+        blocks.push({ type: "divider" });
+      }
+      return;
+    }
+
+    const replaced = cleanSegment.replace(/\{\{\s*([\w.-]+)\s*\}\}/g, (match, key) => {
+      const replacement = replacements[key];
+      if (replacement === null || replacement === undefined) {
+        return "";
+      }
+      return String(replacement);
+    });
+
+    const finalText = replaced.trim();
+    if (!finalText) {
+      return;
+    }
+
+    lines.push(finalText);
+
+    if (includeBlocks) {
+      blocks.push({
+        type: "section",
+        text: {
+          type: "mrkdwn",
+          text: finalText,
+        },
+      });
+    }
+  });
+
+  if (!lines.length && !blocks.length) {
+    return null;
+  }
+
+  const text = lines.join("\n\n");
+
+  if (includeBlocks) {
+    return {
+      text: text || "",
+      blocks,
+    };
+  }
+
+  return text || "";
+}
+
+function resolveTemplateValue(templates, audience, status) {
+  if (!templates || !audience || !status) {
+    return { value: "", found: false };
+  }
+
+  const bucket = templates[audience];
+  if (!bucket || typeof bucket !== "object") {
+    return { value: "", found: false };
+  }
+
+  if (Object.prototype.hasOwnProperty.call(bucket, status)) {
+    const rawValue = bucket[status];
+    if (Array.isArray(rawValue)) {
+      return {
+        value: rawValue
+          .map((entry) => (entry == null ? "" : String(entry)))
+          .join("\n\n"),
+        found: true,
+      };
+    }
+    if (typeof rawValue === "string") {
+      return { value: rawValue, found: true };
+    }
+    return { value: "", found: true };
+  }
+
+  return { value: "", found: false };
+}
+
+function getTemplateValue(templates, audience, status) {
+  const direct = resolveTemplateValue(templates, audience, status);
+  if (direct.found) {
+    return direct.value;
+  }
+
+  const normalizedKey = status.replace(/[-\s]+/g, "");
+  if (normalizedKey && normalizedKey !== status) {
+    const alternate = resolveTemplateValue(templates, audience, normalizedKey);
+    if (alternate.found) {
+      return alternate.value;
+    }
+  }
+
+  return "";
 }
 
 function formatProductTags(names) {
@@ -412,50 +497,277 @@ function formatProductTags(names) {
   return tags;
 }
 
-function buildExternalMessage(status, context) {
-  const adGroup = formatInlineCode(
-    context.adGroupName,
-    context.adGroupName || "Ad Group"
-  );
+function createTemplateReplacements(context = {}) {
+  const note =
+    typeof context.note === "string" && context.note.trim()
+      ? context.note.trim()
+      : "";
+  const productTags = formatProductTags(context.productNames || []);
+  const tagsJoined = productTags.join(" ");
+  const offersLine = tagsJoined ? `Offers in this batch: ${tagsJoined}` : "";
   const reviewLink = context.reviewUrl
     ? `<${context.reviewUrl}|View details>`
     : "View details";
+  const adGroupLink = context.adGroupUrl
+    ? `<${context.adGroupUrl}|View details>`
+    : reviewLink;
 
-  switch (status) {
-    case "designed": {
-      const productTags = formatProductTags(context.productNames);
-      const lines = [`Ad group: ${adGroup} is ready for review.`];
-      if (productTags.length) {
-        lines.push(`Offers in this batch: ${productTags.join(" ")}`);
-      }
-      lines.push(reviewLink);
-      return lines.join("\n");
-    }
-    case "reviewed": {
-      const approved = formatInlineCode(
-        String(Number(context.approvedCount) || 0),
-        "0"
-      );
-      const editRequests = formatInlineCode(
-        String(Number(context.editRequestedCount) || 0),
-        "0"
-      );
-      const rejections = formatInlineCode(
-        String(Number(context.rejectedCount) || 0),
-        "0"
-      );
+  return {
+    brand: formatInlineCode(context.brandCode, context.brandCode || "UNKNOWN"),
+    brandName: context.brandCode || "UNKNOWN",
+    adGroup: formatInlineCode(
+      context.adGroupName,
+      context.adGroupName || "Ad Group",
+    ),
+    adGroupName: context.adGroupName || "Ad Group",
+    designer: formatInlineCode(
+      context.designerName,
+      context.designerName || "Unassigned",
+    ),
+    designerName: context.designerName || "Unassigned",
+    editor: formatInlineCode(context.editorName, context.editorName || "Unknown"),
+    editorName: context.editorName || "Unknown",
+    integration: formatInlineCode(
+      context.integrationName,
+      context.integrationName || "Unassigned",
+    ),
+    integrationName: context.integrationName || "Unassigned",
+    approvedCount: formatInlineCode(
+      String(Number(context.approvedCount) || 0),
+      "0",
+    ),
+    editRequestedCount: formatInlineCode(
+      String(Number(context.editRequestedCount) || 0),
+      "0",
+    ),
+    rejectedCount: formatInlineCode(
+      String(Number(context.rejectedCount) || 0),
+      "0",
+    ),
+    reviewLink,
+    reviewUrl: context.reviewUrl || "",
+    adGroupLink,
+    adGroupUrl: context.adGroupUrl || "",
+    note,
+    noteBlock: note ? `*Note:* ${note}` : "",
+    noteSection: note,
+    productTags: tagsJoined,
+    offerTags: offersLine,
+    productList: (context.productNames || []).join(", "),
+  };
+}
 
-      return [
-        `Review completed for ${adGroup}`,
-        `Approved: ${approved}`,
-        `Edit Requests: ${editRequests}`,
-        `Rejections: ${rejections}`,
-        reviewLink,
-      ].join("\n");
-    }
-    default:
-      return null;
+function buildInternalMessage(status, context, templates) {
+  const replacements = createTemplateReplacements(context);
+  const siteTemplate = getTemplateValue(templates, "internal", status);
+  const renderedSiteTemplate = renderTemplate(siteTemplate, replacements, {
+    includeBlocks: true,
+  });
+  if (renderedSiteTemplate) {
+    return renderedSiteTemplate;
   }
+
+  const fallbackTemplate = getTemplateValue(
+    defaultSlackMessageTemplates,
+    "internal",
+    status,
+  );
+  const renderedFallback = renderTemplate(fallbackTemplate, replacements, {
+    includeBlocks: true,
+  });
+
+  return renderedFallback || null;
+}
+
+function buildExternalMessage(status, context, templates) {
+  const replacements = createTemplateReplacements(context);
+  const siteTemplate = getTemplateValue(templates, "external", status);
+  const renderedSiteTemplate = renderTemplate(siteTemplate, replacements, {
+    includeBlocks: false,
+  });
+  if (typeof renderedSiteTemplate === "string" && renderedSiteTemplate.trim()) {
+    return renderedSiteTemplate;
+  }
+
+  const fallbackTemplate = getTemplateValue(
+    defaultSlackMessageTemplates,
+    "external",
+    status,
+  );
+  const renderedFallback = renderTemplate(fallbackTemplate, replacements, {
+    includeBlocks: false,
+  });
+
+  if (typeof renderedFallback === "string" && renderedFallback.trim()) {
+    return renderedFallback;
+  }
+
+  return null;
+}
+
+async function getSiteSlackTemplates() {
+  const now = Date.now();
+  if (siteTemplateCache.templates && siteTemplateCache.expiresAt > now) {
+    return siteTemplateCache.templates;
+  }
+
+  try {
+    const snap = await db.collection("settings").doc("site").get();
+    if (!snap.exists) {
+      siteTemplateCache.templates = null;
+      siteTemplateCache.expiresAt = now + 30000;
+      return null;
+    }
+
+    const data = snap.data() || {};
+    const templates = data.slackMessageTemplates || null;
+    siteTemplateCache.templates = templates;
+    siteTemplateCache.expiresAt = now + 60000;
+    return templates;
+  } catch (error) {
+    console.error("Failed to load Slack message templates", error);
+    siteTemplateCache.templates = null;
+    siteTemplateCache.expiresAt = now + 15000;
+    return null;
+  }
+}
+
+function normalizeMentionEmails(entry) {
+  const emails = new Set();
+  const addEmail = (value) => {
+    if (typeof value !== "string") {
+      return;
+    }
+    const trimmed = value.trim().toLowerCase();
+    if (!trimmed) {
+      return;
+    }
+    if (!/.+@.+\..+/.test(trimmed)) {
+      return;
+    }
+    emails.add(trimmed);
+  };
+
+  if (Array.isArray(entry)) {
+    entry.forEach(addEmail);
+  } else if (typeof entry === "string") {
+    entry
+      .split(/[\s,;]+/)
+      .map((part) => part.trim())
+      .forEach(addEmail);
+  } else if (entry && typeof entry === "object") {
+    if (Array.isArray(entry.emails)) {
+      entry.emails.forEach(addEmail);
+    } else if (typeof entry.email === "string") {
+      addEmail(entry.email);
+    }
+  }
+
+  return Array.from(emails);
+}
+
+function getMentionEmailsForStatus(config, status) {
+  if (!config || typeof config !== "object") {
+    return [];
+  }
+
+  const direct = normalizeMentionEmails(config[status]);
+  if (direct.length) {
+    return direct;
+  }
+
+  const normalizedKey = status.replace(/[-\s]+/g, "");
+  if (normalizedKey && normalizedKey !== status) {
+    const alternate = normalizeMentionEmails(config[normalizedKey]);
+    if (alternate.length) {
+      return alternate;
+    }
+  }
+
+  const fallbackKeys = ["default", "all", "any"];
+  for (const key of fallbackKeys) {
+    const fallback = normalizeMentionEmails(config[key]);
+    if (fallback.length) {
+      return fallback;
+    }
+  }
+
+  return [];
+}
+
+async function lookupSlackUserIdByEmail(email, token) {
+  if (!email || !token) {
+    return null;
+  }
+
+  const cacheKey = `${token}:${email}`;
+  if (mentionLookupCache.has(cacheKey)) {
+    return mentionLookupCache.get(cacheKey);
+  }
+
+  try {
+    const response = await fetchWithFallback(
+      `https://slack.com/api/users.lookupByEmail?email=${encodeURIComponent(email)}`,
+      {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      },
+    );
+
+    if (!response.ok) {
+      const body = await response.text();
+      console.error("Slack lookup failed", response.status, body);
+      mentionLookupCache.set(cacheKey, null);
+      return null;
+    }
+
+    const body = await response.json();
+    if (body.ok && body.user && body.user.id) {
+      const userId = body.user.id;
+      mentionLookupCache.set(cacheKey, userId);
+      return userId;
+    }
+
+    console.warn("Slack lookup returned no user", email, body.error);
+    mentionLookupCache.set(cacheKey, null);
+    return null;
+  } catch (error) {
+    console.error("Slack lookup error", email, error);
+    mentionLookupCache.set(cacheKey, null);
+    return null;
+  }
+}
+
+function appendMentionsToPayload(payload, mentionText) {
+  if (!mentionText) {
+    return payload;
+  }
+
+  if (!payload) {
+    return { text: mentionText };
+  }
+
+  const updated = { ...payload };
+
+  if (Array.isArray(payload.blocks) && payload.blocks.length) {
+    updated.blocks = [
+      {
+        type: "section",
+        text: { type: "mrkdwn", text: mentionText },
+      },
+      ...payload.blocks,
+    ];
+  }
+
+  if (typeof payload.text === "string" && payload.text.trim()) {
+    updated.text = `${mentionText}\n${payload.text}`.trim();
+  } else {
+    updated.text = mentionText;
+  }
+
+  return updated;
 }
 
 async function getRecipeProductNames(adGroupId) {
@@ -658,6 +970,33 @@ module.exports = async function handler(req, res) {
     }
 
     const displayName = adGroupName || adGroupId || "this ad group";
+    const brandIdCandidates = new Set();
+    if (adGroupData) {
+      if (typeof adGroupData.brandId === "string" && adGroupData.brandId.trim()) {
+        brandIdCandidates.add(adGroupData.brandId.trim());
+      }
+      if (adGroupData.brand && typeof adGroupData.brand === "object") {
+        const nestedBrand = adGroupData.brand;
+        if (typeof nestedBrand.id === "string" && nestedBrand.id.trim()) {
+          brandIdCandidates.add(nestedBrand.id.trim());
+        }
+        if (typeof nestedBrand.brandId === "string" && nestedBrand.brandId.trim()) {
+          brandIdCandidates.add(nestedBrand.brandId.trim());
+        }
+        if (typeof nestedBrand.docId === "string" && nestedBrand.docId.trim()) {
+          brandIdCandidates.add(nestedBrand.docId.trim());
+        }
+      }
+      if (
+        adGroupData.brandRef &&
+        typeof adGroupData.brandRef === "object" &&
+        typeof adGroupData.brandRef.id === "string" &&
+        adGroupData.brandRef.id.trim()
+      ) {
+        brandIdCandidates.add(adGroupData.brandRef.id.trim());
+      }
+    }
+
     let reviewUrl = reviewUrlRaw || "";
     let adGroupUrl = adGroupUrlRaw || "";
 
@@ -693,6 +1032,8 @@ module.exports = async function handler(req, res) {
       rejectedCount = toNumber(adGroupData.rejectedCount);
     }
 
+    let integrationName = resolveIntegrationNameFromGroup(adGroupData);
+
     let productNames = [];
     if (status === "designed") {
       productNames = await getRecipeProductNames(adGroupId);
@@ -710,13 +1051,90 @@ module.exports = async function handler(req, res) {
     brandCandidates.push(rawBrandCode);
     brandCandidates.push(normalizedBrandCode);
 
+    let brandDocData = null;
+    let brandDocId = null;
+
+    const idCandidates = Array.from(brandIdCandidates).filter(Boolean);
+    for (const candidateId of idCandidates) {
+      try {
+        const snap = await db.collection("brands").doc(candidateId).get();
+        if (snap.exists) {
+          brandDocId = snap.id;
+          brandDocData = snap.data() || {};
+          break;
+        }
+      } catch (error) {
+        console.error("Failed to load brand by ID", candidateId, error);
+      }
+    }
+
+    if (!brandDocData) {
+      const codeCandidates = Array.from(
+        new Set(
+          brandCandidates
+            .concat([rawBrandCode, normalizedBrandCode])
+            .filter((value) => typeof value === "string" && value.trim()),
+        ),
+      );
+
+      for (const candidateCode of codeCandidates) {
+        try {
+          const snap = await db
+            .collection("brands")
+            .where("code", "==", candidateCode)
+            .limit(1)
+            .get();
+          if (!snap.empty) {
+            const docSnap = snap.docs[0];
+            brandDocId = docSnap.id;
+            brandDocData = docSnap.data() || {};
+            break;
+          }
+        } catch (error) {
+          console.error("Failed to load brand by code", candidateCode, error);
+        }
+      }
+    }
+
+    const brandSlackMentions =
+      brandDocData && typeof brandDocData.slackMentions === "object"
+        ? brandDocData.slackMentions
+        : null;
+
+    if (!integrationName && brandDocData && typeof brandDocData === "object") {
+      integrationName = getFirstNonEmptyString(
+        brandDocData.defaultIntegrationName,
+        brandDocData.defaultIntegrationDisplayName,
+        brandDocData.integrationName,
+        brandDocData.integrationDisplayName,
+      );
+
+      if (
+        !integrationName &&
+        brandDocData.defaultIntegration &&
+        typeof brandDocData.defaultIntegration === "object"
+      ) {
+        integrationName = getFirstNonEmptyString(
+          brandDocData.defaultIntegration.name,
+          brandDocData.defaultIntegration.displayName,
+          brandDocData.defaultIntegration.integrationName,
+          brandDocData.defaultIntegration.label,
+        );
+      }
+    }
+
     const resolvedBrandCodeRaw = brandCandidates.find(
       (value) => typeof value === "string" && value.trim()
     );
 
-    const brandCodeForMessage = resolvedBrandCodeRaw
-      ? normalizeBrandCode(resolvedBrandCodeRaw)
-      : normalizedBrandCode;
+    let brandCodeForMessage = normalizedBrandCode;
+    if (resolvedBrandCodeRaw) {
+      brandCodeForMessage = normalizeBrandCode(resolvedBrandCodeRaw);
+    } else if (brandDocData && typeof brandDocData.code === "string") {
+      brandCodeForMessage = normalizeBrandCode(brandDocData.code);
+    }
+
+    const siteTemplates = await getSiteSlackTemplates();
 
     const internalMessage = buildInternalMessage(status, {
       brandCode: brandCodeForMessage,
@@ -729,7 +1147,8 @@ module.exports = async function handler(req, res) {
       reviewUrl,
       adGroupUrl,
       note,
-    });
+      integrationName,
+    }, siteTemplates);
 
     const externalText = buildExternalMessage(status, {
       adGroupName: displayName,
@@ -738,19 +1157,22 @@ module.exports = async function handler(req, res) {
       rejectedCount,
       reviewUrl,
       productNames,
-    });
+      integrationName,
+    }, siteTemplates);
 
     const externalPayload = externalText ? { text: externalText } : null;
+    const mentionEmails = getMentionEmailsForStatus(brandSlackMentions, status);
+    const mentionTextByToken = new Map();
 
     const results = [];
     for (const doc of docsById.values()) {
       try {
         const docData = doc.data() || {};
         const audience = normalizeAudience(docData.audience) || "external";
-        const payload =
+        const basePayload =
           audience === "internal" ? internalMessage : externalPayload;
 
-        if (!payload) {
+        if (!basePayload) {
           results.push({
             channel: doc.id,
             ok: true,
@@ -784,7 +1206,30 @@ module.exports = async function handler(req, res) {
           }
         }
 
-        const response = await postSlackMessage(doc.id, payload, token);
+        let payloadToSend = basePayload;
+        if (mentionEmails.length) {
+          let mentionText = mentionTextByToken.get(token);
+          if (mentionText === undefined) {
+            const resolvedMentions = [];
+            for (const email of mentionEmails) {
+              const userId = await lookupSlackUserIdByEmail(email, token);
+              if (userId) {
+                const formatted = `<@${userId}>`;
+                if (!resolvedMentions.includes(formatted)) {
+                  resolvedMentions.push(formatted);
+                }
+              }
+            }
+            mentionText = resolvedMentions.join(" ");
+            mentionTextByToken.set(token, mentionText);
+          }
+
+          if (mentionText) {
+            payloadToSend = appendMentionsToPayload(basePayload, mentionText);
+          }
+        }
+
+        const response = await postSlackMessage(doc.id, payloadToSend, token);
         results.push({ channel: doc.id, ok: true, ts: response.ts });
       } catch (error) {
         console.error("Failed to post Slack message", error);

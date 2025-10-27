@@ -9,6 +9,7 @@ jest.mock('./useUserRole', () => () => ({ role: 'project-manager' }));
 jest.mock('./useSiteSettings', () => () => ({}));
 jest.mock('./components/AdGroupCard.jsx', () => () => null);
 jest.mock('./components/MonthTag.jsx', () => () => null);
+jest.mock('./useIntegrations', () => () => ({ integrations: [] }));
 jest.mock('firebase/firestore', () => ({
   doc: jest.fn(() => ({})),
   updateDoc: jest.fn(() => Promise.resolve()),
@@ -246,4 +247,43 @@ test('normalizes nested review version values containing v3 to the brief option'
   expect(select.value).toBe('3');
   const briefOption = within(select).getByRole('option', { name: 'Brief' });
   expect(briefOption.selected).toBe(true);
+});
+
+test('allows overriding kanban column labels', () => {
+  render(
+    <MemoryRouter>
+      <AdGroupListView
+        groups={[
+          {
+            id: '1',
+            name: 'Ops Group',
+            brandCode: 'OP',
+            status: 'designed',
+            month: 1,
+          },
+        ]}
+        loading={false}
+        filter=""
+        onFilterChange={() => {}}
+        view="kanban"
+        onViewChange={() => {}}
+        showArchived={false}
+        onToggleArchived={() => {}}
+        onGallery={() => {}}
+        onCopy={() => {}}
+        onDownload={() => {}}
+        kanbanColumnLabels={{
+          designed: 'Ready for Review',
+          reviewed: 'Revisions in Progress',
+        }}
+      />
+    </MemoryRouter>
+  );
+
+  expect(
+    screen.getByRole('heading', { level: 2, name: 'Ready for Review' })
+  ).toBeInTheDocument();
+  expect(
+    screen.getByRole('heading', { level: 2, name: 'Revisions in Progress' })
+  ).toBeInTheDocument();
 });

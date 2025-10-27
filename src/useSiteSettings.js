@@ -6,6 +6,7 @@ import { DEFAULT_MONTH_COLORS } from './constants';
 import { applyAccentColor } from './utils/theme';
 import { applyFavicon } from './utils/favicon';
 import debugLog from './utils/debugLog';
+import defaultSlackMessageTemplates from '../lib/slackMessageTemplates.json';
 
 // Guard against browsers where localStorage may be unavailable (e.g. privacy
 // mode). Accessing it can throw a DOMException, so wrap reads in try/catch.
@@ -23,6 +24,10 @@ try {
   storedMonthColors = null;
   storedTagStrokeWeight = null;
 }
+const clonedSlackTemplates = JSON.parse(
+  JSON.stringify(defaultSlackMessageTemplates || {}),
+);
+
 const defaultSettings = {
   logoUrl: '',
   iconUrl: '',
@@ -35,6 +40,7 @@ const defaultSettings = {
     projectCreation: 1,
     editRequest: 1,
   },
+  slackMessageTemplates: clonedSlackTemplates,
 };
 
 

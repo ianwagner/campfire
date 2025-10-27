@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useLocation, Link } from 'react-router-dom';
 import {
   FiEye,
@@ -28,6 +28,8 @@ import Table from './components/common/Table';
 import AdGroupCard from './components/AdGroupCard.jsx';
 import IconButton from './components/IconButton.jsx';
 import fetchBrandNamesByCode from './utils/fetchBrandNamesByCode';
+import computeIntegrationStatusSummary from './utils/computeIntegrationStatusSummary';
+import useIntegrations from './useIntegrations';
 
 const AgencyAdGroups = ({ agencyId: propAgencyId, brandCodes: propBrandCodes = [] }) => {
   const paramsId = new URLSearchParams(useLocation().search).get('agencyId');
@@ -37,6 +39,17 @@ const AgencyAdGroups = ({ agencyId: propAgencyId, brandCodes: propBrandCodes = [
   const [loading, setLoading] = useState(true);
   const user = auth.currentUser;
   const { role } = useUserRole(user?.uid);
+
+  const { integrations } = useIntegrations();
+  const integrationMap = useMemo(() => {
+    const map = {};
+    integrations.forEach((integration) => {
+      if (integration?.id) {
+        map[integration.id] = integration;
+      }
+    });
+    return map;
+  }, [integrations]);
 
   const handleDeleteGroup = async (groupId, brandCode, groupName) => {
     if (!window.confirm('Delete this group?')) return;
@@ -168,6 +181,12 @@ const AgencyAdGroups = ({ agencyId: propAgencyId, brandCodes: propBrandCodes = [
               const designerName = data.designerId ? await getUserName(data.designerId) : '';
               const editorName = data.editorId ? await getUserName(data.editorId) : '';
 
+              const integrationStatusSummary = computeIntegrationStatusSummary(
+                data.assignedIntegrationId,
+                data.assignedIntegrationName,
+                assets,
+              );
+
               return {
                 id: d.id,
                 ...data,
@@ -184,6 +203,7 @@ const AgencyAdGroups = ({ agencyId: propAgencyId, brandCodes: propBrandCodes = [
                 },
                 designerName,
                 editorName,
+                integrationStatusSummary,
               };
             })
         );
@@ -212,6 +232,8 @@ const AgencyAdGroups = ({ agencyId: propAgencyId, brandCodes: propBrandCodes = [
               <AdGroupCard
                 key={g.id}
                 group={g}
+                integration={integrationMap[g.assignedIntegrationId]}
+                integrationStatus={g.integrationStatusSummary}
                 onReview={() => (window.location.href = `/review/${g.id}${agencyId ? `?agency=${agencyId}` : ''}`)}
                 onShare={() => handleShare(g.id, agencyId)}
                 onDelete={() => handleDeleteGroup(g.id, g.brandCode, g.name)}

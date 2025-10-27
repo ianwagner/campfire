@@ -21,6 +21,7 @@ import MonthTag from './MonthTag.jsx';
 import AdGroupGantt from './AdGroupGantt.jsx';
 import { db } from '../firebase/config';
 import { normalizeReviewVersion } from '../utils/reviewVersion';
+import useIntegrations from '../useIntegrations';
 
 const statusOrder = {
   blocked: 0,
@@ -60,12 +61,23 @@ const AdGroupListView = ({
   onReviewFilterChange,
   restrictGanttToDueDate = false,
   allowedViews = DEFAULT_VIEWS,
+  kanbanColumnLabels,
 }) => {
   const term = (filter || '').toLowerCase();
   const months = Array.from(new Set(groups.map((g) => g.month).filter(Boolean))).sort();
   const [sortField, setSortField] = useState('title');
   const [reviewVersions, setReviewVersions] = useState({});
   const [updatingReview, setUpdatingReview] = useState(null);
+  const { integrations } = useIntegrations();
+  const integrationMap = useMemo(() => {
+    const map = {};
+    integrations.forEach((integration) => {
+      if (integration?.id) {
+        map[integration.id] = integration;
+      }
+    });
+    return map;
+  }, [integrations]);
 
   const handleReviewTypeChange = async (groupId, newValue, previousValue, hadOverride) => {
     const normalizedValue = normalizeReviewVersion(newValue);
@@ -107,6 +119,26 @@ const AdGroupListView = ({
   );
 
   const availableViewButtons = ['table', 'kanban', 'gantt'].filter((v) => normalizedViews.includes(v));
+
+  const kanbanColumns = useMemo(() => {
+    const columns = [
+      { label: 'New', status: 'new' },
+      { label: 'Blocked', status: 'blocked' },
+      { label: 'Briefed', status: 'briefed' },
+      { label: 'Designed', status: 'designed' },
+      { label: 'Reviewed', status: 'reviewed' },
+      { label: 'Done', status: 'done' },
+    ];
+
+    if (!kanbanColumnLabels || typeof kanbanColumnLabels !== 'object') {
+      return columns;
+    }
+
+    return columns.map((col) => ({
+      ...col,
+      label: kanbanColumnLabels[col.status] ?? col.label,
+    }));
+  }, [kanbanColumnLabels]);
 
   useEffect(() => {
     if (
@@ -288,6 +320,8 @@ const AdGroupListView = ({
               <AdGroupCard
                 key={g.id}
                 group={g}
+                integration={integrationMap[g.assignedIntegrationId]}
+                integrationStatus={g.integrationStatusSummary}
                 onGallery={onGallery ? () => onGallery(g.id) : undefined}
                 onCopy={onCopy ? () => onCopy(g.id) : undefined}
                 onDownload={onDownload ? () => onDownload(g.id) : undefined}
@@ -386,14 +420,7 @@ const AdGroupListView = ({
           ) : view === 'kanban' ? (
             <div className="hidden sm:block overflow-x-auto mt-[0.8rem]">
               <div className="min-w-max flex gap-4">
-                {[
-                  { label: 'New', status: 'new' },
-                  { label: 'Blocked', status: 'blocked' },
-                  { label: 'Briefed', status: 'briefed' },
-                  { label: 'Designed', status: 'designed' },
-                  { label: 'Reviewed', status: 'reviewed' },
-                  { label: 'Done', status: 'done' },
-                ].map((col) => (
+                {kanbanColumns.map((col) => (
                   <div key={col.status} className="flex-shrink-0 w-[240px] sm:w-[320px]">
                     <h2 className="text-xl mb-2 capitalize">{col.label}</h2>
                     <div
@@ -406,6 +433,8 @@ const AdGroupListView = ({
                           <AdGroupCard
                             key={g.id}
                             group={g}
+                            integration={integrationMap[g.assignedIntegrationId]}
+                            integrationStatus={g.integrationStatusSummary}
                             onGallery={onGallery ? () => onGallery(g.id) : undefined}
                             onCopy={onCopy ? () => onCopy(g.id) : undefined}
                             onDownload={onDownload ? () => onDownload(g.id) : undefined}

@@ -1,13 +1,15 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db, auth } from './firebase/config';
 import parseAdFilename from './utils/parseAdFilename';
 import getUserName from './utils/getUserName';
 import aggregateRecipeStatusCounts from './utils/aggregateRecipeStatusCounts';
 import computeKanbanStatus from './utils/computeKanbanStatus';
+import computeIntegrationStatusSummary from './utils/computeIntegrationStatusSummary';
 import AdGroupCard from './components/AdGroupCard.jsx';
 import PageToolbar from './components/PageToolbar.jsx';
 import { normalizeReviewVersion } from './utils/reviewVersion';
+import useIntegrations from './useIntegrations';
 
 const EditorAdGroups = () => {
   const [groups, setGroups] = useState([]);
@@ -16,6 +18,16 @@ const EditorAdGroups = () => {
   const [reviewFilter, setReviewFilter] = useState('2');
 
   const user = auth.currentUser;
+  const { integrations } = useIntegrations();
+  const integrationMap = useMemo(() => {
+    const map = {};
+    integrations.forEach((integration) => {
+      if (integration?.id) {
+        map[integration.id] = integration;
+      }
+    });
+    return map;
+  }, [integrations]);
 
   useEffect(() => {
     const fetchGroups = async () => {
@@ -68,6 +80,12 @@ const EditorAdGroups = () => {
             const designerName = data.designerId ? await getUserName(data.designerId) : '';
             const editorName = data.editorId ? await getUserName(data.editorId) : '';
 
+            const integrationStatusSummary = computeIntegrationStatusSummary(
+              data.assignedIntegrationId,
+              data.assignedIntegrationName,
+              assets,
+            );
+
             return {
               id: d.id,
               ...data,
@@ -83,6 +101,7 @@ const EditorAdGroups = () => {
               },
               designerName,
               editorName,
+              integrationStatusSummary,
             };
           })
         );
@@ -147,9 +166,15 @@ const EditorAdGroups = () => {
         ) : (
           <>
             <div className="sm:hidden space-y-4">
-              {displayGroups.map((g) => (
-                <AdGroupCard key={g.id} group={g} hideMenu />
-              ))}
+            {displayGroups.map((g) => (
+              <AdGroupCard
+                key={g.id}
+                group={g}
+                hideMenu
+                integration={integrationMap[g.assignedIntegrationId]}
+                integrationStatus={g.integrationStatusSummary}
+              />
+            ))}
             </div>
             <div className="hidden sm:block overflow-x-auto mt-[0.8rem]">
               <div className="min-w-max flex gap-4">
@@ -170,7 +195,13 @@ const EditorAdGroups = () => {
                       {displayGroups
                         .filter((g) => computeKanbanStatus(g) === col.status)
                         .map((g) => (
-                          <AdGroupCard key={g.id} group={g} hideMenu />
+                          <AdGroupCard
+                            key={g.id}
+                            group={g}
+                            hideMenu
+                            integration={integrationMap[g.assignedIntegrationId]}
+                            integrationStatus={g.integrationStatusSummary}
+                          />
                         ))}
                     </div>
                   </div>

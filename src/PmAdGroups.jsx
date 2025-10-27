@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { useLocation } from 'react-router-dom';
 import { auth, db } from './firebase/config';
@@ -11,8 +11,16 @@ import IconButton from './components/IconButton.jsx';
 import useAdGroups from './useAdGroups';
 
 const PmAdGroups = () => {
+  const location = useLocation();
   const [showArchived, setShowArchived] = useState(false);
-  const [filter, setFilter] = useState('');
+  const [filter, setFilter] = useState(() => {
+    const search =
+      typeof window !== 'undefined' && window.location?.search
+        ? window.location.search
+        : location.search;
+    const params = new URLSearchParams(search || '');
+    return params.get('brandCode') || '';
+  });
   const [view, setView] = useState('kanban');
   const [codes, setCodes] = useState([]);
   const [showGallery, setShowGallery] = useState(false);
@@ -28,7 +36,6 @@ const PmAdGroups = () => {
 
   const user = auth.currentUser;
   const { agencyId, brandCodes: roleCodes, role } = useUserRole(user?.uid);
-  const location = useLocation();
 
   const showStaffFilters = role && role !== 'ops';
 
@@ -54,6 +61,16 @@ const PmAdGroups = () => {
     const params = new URLSearchParams(location.search);
     const initialView = params.get('view');
     if (initialView) setView(initialView);
+  }, [location.search]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const brandParam = params.get('brandCode');
+    if (brandParam) {
+      setFilter((prev) => (prev === brandParam ? prev : brandParam));
+    } else {
+      setFilter((prev) => (prev === '' ? prev : ''));
+    }
   }, [location.search]);
 
   useEffect(() => {
@@ -150,6 +167,16 @@ const PmAdGroups = () => {
   const restrictGanttToDueDate =
     (role === 'project-manager' && Boolean(agencyId)) || role === 'ops';
 
+  const kanbanColumnLabels = useMemo(() => {
+    if (role === 'ops') {
+      return {
+        designed: 'Ready for Review',
+        reviewed: 'Revisions in Progress',
+      };
+    }
+    return undefined;
+  }, [role]);
+
   return (
     <div className="min-h-screen p-4">
       <h1 className="text-2xl mb-4">Ad Groups</h1>
@@ -177,6 +204,7 @@ const PmAdGroups = () => {
         onReviewFilterChange={setReviewFilter}
         linkToDetail
         restrictGanttToDueDate={restrictGanttToDueDate}
+        kanbanColumnLabels={kanbanColumnLabels}
       />
       {showGallery && (
         <GalleryModal ads={galleryAds} onClose={() => setShowGallery(false)} />

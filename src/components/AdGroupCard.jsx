@@ -18,6 +18,8 @@ import {
   FiClock,
   FiUser,
   FiCheckCircle,
+  FiCheck,
+  FiX,
 } from 'react-icons/fi';
 import { auth } from '../firebase/config';
 import useUserRole from '../useUserRole';
@@ -42,6 +44,8 @@ const AdGroupCard = ({
   onChangeDesigner,
   triggerClickMenu,
   hideMenu = false,
+  integration = null,
+  integrationStatus = null,
 }) => {
   const [menuOpen, setMenuOpen] = useState(false);
   const user = auth.currentUser;
@@ -77,6 +81,35 @@ const AdGroupCard = ({
     group.unitCount ?? group.recipeCount ?? group.assetCount ?? 0;
   const pendingTotal = group.pendingCount ?? 0;
   const counts = group.counts || {};
+
+  const assignedIntegrationId =
+    typeof group?.assignedIntegrationId === 'string'
+      ? group.assignedIntegrationId
+      : '';
+  const hasIntegrationAssigned = Boolean(assignedIntegrationId);
+  const resolvedIntegration = integration || null;
+  const integrationSummary = integrationStatus || group?.integrationStatusSummary || null;
+  const integrationOutcome = integrationSummary?.outcome || null;
+  const wasIntegrationTriggered = Boolean(integrationSummary?.wasTriggered);
+  const shouldShowIntegrationPill = hasIntegrationAssigned && wasIntegrationTriggered;
+  const integrationLabel =
+    (resolvedIntegration && (resolvedIntegration.name || resolvedIntegration.id)) ||
+    (typeof group?.assignedIntegrationName === 'string'
+      ? group.assignedIntegrationName
+      : '') ||
+    integrationSummary?.integrationName ||
+    assignedIntegrationId ||
+    '';
+  const integrationLogoUrl =
+    typeof resolvedIntegration?.logoUrl === 'string' ? resolvedIntegration.logoUrl : '';
+  const integrationInitial = integrationLabel?.trim?.().charAt(0)?.toUpperCase() || 'I';
+  const integrationTitle = integrationOutcome
+    ? integrationOutcome === 'success'
+      ? `${integrationLabel || 'Integration'} succeeded`
+      : `${integrationLabel || 'Integration'} failed`
+    : integrationLabel
+    ? `${integrationLabel} integration assigned`
+    : 'Integration assigned';
 
   const handleClick = (e, cb) => {
     e.preventDefault();
@@ -252,8 +285,48 @@ const AdGroupCard = ({
                 <span>{due.value}</span>
               </p>
             ))}
-            {(group.brandCode || group.month) && (
+            {(group.brandCode || group.month || shouldShowIntegrationPill) && (
               <div className="flex items-center gap-2 self-end">
+                {shouldShowIntegrationPill && (
+                  <span
+                    className="tag-pill inline-flex items-center gap-1 border border-gray-300 bg-white px-2 py-0.5 text-xs text-gray-600 max-h-[22px]"
+                    title={integrationTitle}
+                  >
+                    <span className="flex h-5 w-5 items-center justify-center overflow-hidden rounded-full bg-white">
+                      {integrationLogoUrl ? (
+                        <img
+                          src={integrationLogoUrl}
+                          alt={`${integrationLabel || 'Integration'} logo`}
+                          className="h-full w-full object-contain"
+                        />
+                      ) : (
+                        <span className="text-[10px] font-semibold uppercase text-gray-500">
+                          {integrationInitial}
+                        </span>
+                      )}
+                    </span>
+                    {integrationOutcome && (
+                      <span
+                        className={`flex h-4 w-4 items-center justify-center rounded-full ${
+                          integrationOutcome === 'success'
+                            ? 'bg-gray-200 text-gray-600'
+                            : 'bg-rose-500 text-white'
+                        }`}
+                      >
+                        {integrationOutcome === 'success' ? (
+                          <FiCheck className="h-3 w-3" aria-hidden="true" />
+                        ) : (
+                          <FiX className="h-3 w-3" aria-hidden="true" />
+                        )}
+                        <span className="sr-only">
+                          {integrationOutcome === 'success'
+                            ? 'Integration succeeded'
+                            : 'Integration failed'}
+                        </span>
+                      </span>
+                    )}
+                  </span>
+                )}
                 {group.brandCode && (
                   <span className="tag-pill inline-flex items-center justify-center px-2 py-0.5 text-xs uppercase tracking-wide bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-200 border border-gray-300 dark:border-gray-500">
                     {group.brandCode}
