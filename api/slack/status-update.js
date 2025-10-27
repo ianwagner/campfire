@@ -912,8 +912,19 @@ function appendMentionsToPayload(payload, mentionText) {
     return payload;
   }
 
+  const appendToText = (existingText = "") => {
+    const combined = existingText
+      ? `${mentionText}\n${existingText}`
+      : mentionText;
+    return cleanupSlackText(combined);
+  };
+
   if (!payload) {
-    return { text: mentionText };
+    return { text: appendToText() };
+  }
+
+  if (typeof payload === "string") {
+    return { text: appendToText(payload) };
   }
 
   const updated = { ...payload };
@@ -928,8 +939,9 @@ function appendMentionsToPayload(payload, mentionText) {
     ];
   }
 
-  if (typeof payload.text === "string" && payload.text.trim()) {
-    updated.text = `${mentionText}\n${payload.text}`.trim();
+  if (typeof payload.text === "string") {
+    const existingText = payload.text.trim();
+    updated.text = appendToText(existingText);
   } else {
     updated.text = mentionText;
   }
