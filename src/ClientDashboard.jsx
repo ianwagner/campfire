@@ -5,6 +5,13 @@ import summarizeAdUnits from './utils/summarizeAdUnits.js';
 import { db } from './firebase/config';
 import getPrimaryLogoUrl from './utils/getPrimaryLogoUrl.js';
 import {
+  AlertTriangle,
+  Calendar,
+  RotateCcw,
+  Search,
+  Sparkles,
+} from 'lucide-react';
+import {
   collection,
   getDocs,
   query,
@@ -37,6 +44,8 @@ const ClientDashboard = ({ user, brandCodes = [] }) => {
       ),
     [groups, filter, monthFilter]
   );
+
+  const hasActiveFilters = Boolean(filter.trim()) || Boolean(monthFilter);
 
   useEffect(() => {
     if (brandCodes.length === 0) {
@@ -249,51 +258,150 @@ const ClientDashboard = ({ user, brandCodes = [] }) => {
   }, [brandLogos]);
 
   return (
-    <div className="min-h-screen p-4">
-      {hasNegativeCredits && (
-        <div className="mb-4 rounded border border-red-200 bg-red-100 p-2 text-red-800">
-          Your credit balance is negative. Please add more credits.
-        </div>
-      )}
-      <div className="flex items-center gap-2 mb-4">
-        <input
-          type="text"
-          placeholder="Search groups"
-          className="border px-2 py-1 rounded flex-1"
-          value={filter}
-          onChange={(e) => setFilter(e.target.value)}
-        />
-        <select
-          className="border px-2 py-1 rounded"
-          value={monthFilter}
-          onChange={(e) => setMonthFilter(e.target.value)}
-        >
-          <option value="">All months</option>
-          {months.map((m) => {
-            const label = new Date(
-              Number(m.slice(0, 4)),
-              Number(m.slice(-2)) - 1,
-              1
-            ).toLocaleString('default', { month: 'short', year: 'numeric' });
-            return (
-              <option key={m} value={m}>
-                {label}
-              </option>
-            );
-          })}
-        </select>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-indigo-50/60 py-10 dark:from-[#0b1220] dark:via-[#0f172a] dark:to-[#1d1b39]">
+      <div className="mx-auto flex min-h-[70vh] max-w-6xl flex-col gap-8 px-4 sm:px-6 lg:px-8">
+        {hasNegativeCredits && (
+          <div className="flex items-start gap-3 rounded-2xl border border-amber-200/80 bg-amber-50/80 p-4 text-amber-900 shadow-sm backdrop-blur dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-100">
+            <AlertTriangle className="mt-0.5 h-5 w-5 flex-shrink-0" aria-hidden="true" />
+            <div className="space-y-1">
+              <p className="text-sm font-semibold">Negative credit balance</p>
+              <p className="text-sm text-amber-700 dark:text-amber-100/80">
+                Your credit balance is negative. Please add more credits.
+              </p>
+            </div>
+          </div>
+        )}
+
+        <header className="flex flex-col gap-3 text-center md:text-left">
+          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-indigo-500 dark:text-indigo-300">
+            Campaign overview
+          </p>
+          <div>
+            <h1 className="text-3xl font-semibold text-slate-900 sm:text-4xl dark:text-white">
+              Your active ad groups
+            </h1>
+            <p className="mt-2 max-w-2xl text-sm text-slate-600 dark:text-slate-300">
+              Stay on top of every review cycle. Filter groups by name or month to quickly find the creative work that needs your attention.
+            </p>
+          </div>
+        </header>
+
+        <section className="rounded-3xl border border-slate-200/70 bg-white/70 p-6 shadow-sm backdrop-blur dark:border-slate-700/60 dark:bg-slate-900/70">
+          <div className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
+            <div className="flex w-full flex-col gap-2 md:max-w-lg">
+              <label htmlFor="dashboard-group-search" className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
+                Search
+              </label>
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden="true" />
+                <input
+                  id="dashboard-group-search"
+                  type="text"
+                  placeholder="Search by ad group name"
+                  className="w-full rounded-2xl border border-slate-200 bg-white/90 py-3 pl-10 pr-4 text-sm text-slate-900 shadow-sm transition focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:placeholder-slate-500 dark:focus:border-indigo-400 dark:focus:ring-indigo-400/30"
+                  value={filter}
+                  onChange={(e) => setFilter(e.target.value)}
+                />
+              </div>
+            </div>
+            <div className="flex w-full flex-col gap-2 md:max-w-xs">
+              <label htmlFor="dashboard-month-filter" className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
+                Month
+              </label>
+              <div className="relative">
+                <Calendar className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden="true" />
+                <select
+                  id="dashboard-month-filter"
+                  className="w-full appearance-none rounded-2xl border border-slate-200 bg-white/90 py-3 pl-10 pr-8 text-sm text-slate-900 shadow-sm transition focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:focus:border-indigo-400 dark:focus:ring-indigo-400/30"
+                  value={monthFilter}
+                  onChange={(e) => setMonthFilter(e.target.value)}
+                >
+                  <option value="">All months</option>
+                  {months.map((m) => {
+                    const label = new Date(
+                      Number(m.slice(0, 4)),
+                      Number(m.slice(-2)) - 1,
+                      1
+                    ).toLocaleString('default', {
+                      month: 'short',
+                      year: 'numeric',
+                    });
+                    return (
+                      <option key={m} value={m}>
+                        {label}
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+            </div>
+            {hasActiveFilters && (
+              <button
+                type="button"
+                onClick={() => {
+                  setFilter('');
+                  setMonthFilter('');
+                }}
+                className="inline-flex items-center justify-center gap-2 self-start rounded-full border border-indigo-100 bg-indigo-50 px-4 py-2 text-sm font-medium text-indigo-600 shadow-sm transition hover:bg-indigo-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 dark:border-indigo-400/40 dark:bg-indigo-500/10 dark:text-indigo-200 dark:hover:bg-indigo-500/20"
+              >
+                <RotateCcw className="h-4 w-4" aria-hidden="true" />
+                Reset filters
+              </button>
+            )}
+          </div>
+        </section>
+
+        {loading ? (
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {Array.from({ length: 6 }).map((_, idx) => (
+              <div
+                key={idx}
+                className="flex flex-col overflow-hidden rounded-2xl border border-slate-200/70 bg-white/60 shadow-sm backdrop-blur-sm dark:border-slate-700/60 dark:bg-slate-900/60"
+              >
+                <div className="h-40 w-full animate-pulse bg-slate-100 dark:bg-slate-800" />
+                <div className="space-y-3 p-5">
+                  <div className="h-4 w-1/2 animate-pulse rounded-full bg-slate-100 dark:bg-slate-800" />
+                  <div className="flex gap-2">
+                    <div className="h-3 w-20 animate-pulse rounded-full bg-slate-100 dark:bg-slate-800" />
+                    <div className="h-3 w-16 animate-pulse rounded-full bg-slate-100 dark:bg-slate-800" />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : filteredGroups.length === 0 ? (
+          <div className="flex flex-col items-center justify-center gap-4 rounded-3xl border border-dashed border-slate-300/70 bg-white/80 p-12 text-center shadow-inner backdrop-blur dark:border-slate-700/60 dark:bg-slate-900/70">
+            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-indigo-100 text-indigo-500 shadow-sm dark:bg-indigo-500/20 dark:text-indigo-200">
+              <Sparkles className="h-6 w-6" aria-hidden="true" />
+            </div>
+            <div className="space-y-2">
+              <h2 className="text-xl font-semibold text-slate-900 dark:text-slate-100">No ad groups found</h2>
+              <p className="max-w-md text-sm text-slate-600 dark:text-slate-300">
+                Try adjusting your search or choose a different month to discover more ad groups ready for review.
+              </p>
+            </div>
+            {hasActiveFilters && (
+              <button
+                type="button"
+                onClick={() => {
+                  setFilter('');
+                  setMonthFilter('');
+                }}
+                className="inline-flex items-center justify-center gap-2 rounded-full border border-indigo-100 bg-indigo-50 px-5 py-2 text-sm font-medium text-indigo-600 shadow-sm transition hover:bg-indigo-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 dark:border-indigo-400/40 dark:bg-indigo-500/10 dark:text-indigo-200 dark:hover:bg-indigo-500/20"
+              >
+                <RotateCcw className="h-4 w-4" aria-hidden="true" />
+                Clear filters
+              </button>
+            )}
+          </div>
+        ) : (
+          <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
+            {filteredGroups.map((g) => (
+              <ReviewGroupCard key={g.id} group={g} />
+            ))}
+          </div>
+        )}
       </div>
-      {loading ? (
-        <p>Loading groups...</p>
-      ) : filteredGroups.length === 0 ? (
-        <p>No ad groups found.</p>
-      ) : (
-        <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-5">
-          {filteredGroups.map((g) => (
-            <ReviewGroupCard key={g.id} group={g} />
-          ))}
-        </div>
-      )}
     </div>
   );
 };
