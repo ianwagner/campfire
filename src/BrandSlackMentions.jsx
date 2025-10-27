@@ -75,6 +75,12 @@ const normalizeMentionEntry = (entry) => {
   }
 
   if (SLACK_MENTION_REGEX.test(trimmed)) {
+    if (trimmed.startsWith('<@')) {
+      const separatorIndex = trimmed.indexOf('|');
+      if (separatorIndex !== -1) {
+        return `${trimmed.slice(0, separatorIndex)}>`;
+      }
+    }
     return trimmed;
   }
 

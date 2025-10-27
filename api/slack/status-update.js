@@ -883,6 +883,12 @@ function formatMentionString(value) {
   }
 
   if (SLACK_MENTION_PATTERN.test(trimmed)) {
+    if (trimmed.startsWith('<@')) {
+      const separatorIndex = trimmed.indexOf('|');
+      if (separatorIndex !== -1) {
+        return `${trimmed.slice(0, separatorIndex)}>`;
+      }
+    }
     return trimmed;
   }
 
