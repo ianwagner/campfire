@@ -799,67 +799,137 @@ async function getSiteSlackTemplates() {
   }
 }
 
-function normalizeMentionEmails(entry) {
+const EMAIL_REGEX = /.+@.+\..+/i;
+const SLACK_MENTION_PATTERN = /^<[@!][^>]+>$/;
+
+function formatMentionString(value) {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  if (SLACK_MENTION_PATTERN.test(trimmed)) {
+    return trimmed;
+  }
+
+  const lower = trimmed.toLowerCase();
+  if (lower === "@channel" || lower === "@here" || lower === "@everyone") {
+    return `<!${lower.slice(1)}>`;
+  }
+
+  const memberIdMatch = trimmed.match(/^@?([UW][A-Z0-9]{8,})$/);
+  if (memberIdMatch) {
+    return `<@${memberIdMatch[1]}>`;
+  }
+
+  if (/^<!subteam\^[A-Z0-9]+(\|[^>]+)?>$/i.test(trimmed)) {
+    return trimmed;
+  }
+
+  return null;
+}
+
+function normalizeMentionEntries(entry) {
   const emails = new Set();
+  const mentions = new Set();
+
   const addEmail = (value) => {
     if (typeof value !== "string") {
-      return;
+      return false;
     }
     const trimmed = value.trim().toLowerCase();
-    if (!trimmed) {
-      return;
-    }
-    if (!/.+@.+\..+/.test(trimmed)) {
-      return;
+    if (!trimmed || !EMAIL_REGEX.test(trimmed)) {
+      return false;
     }
     emails.add(trimmed);
+    return true;
+  };
+
+  const addMention = (value) => {
+    const formatted = formatMentionString(value);
+    if (!formatted) {
+      return false;
+    }
+    mentions.add(formatted);
+    return true;
+  };
+
+  const processString = (raw) => {
+    if (typeof raw !== "string") {
+      return;
+    }
+    raw
+      .split(/[\s,;]+/)
+      .map((part) => part.trim())
+      .filter(Boolean)
+      .forEach((part) => {
+        if (!addEmail(part)) {
+          addMention(part);
+        }
+      });
   };
 
   if (Array.isArray(entry)) {
-    entry.forEach(addEmail);
+    entry.forEach((value) => {
+      if (!addEmail(value)) {
+        addMention(value);
+      }
+    });
   } else if (typeof entry === "string") {
-    entry
-      .split(/[\s,;]+/)
-      .map((part) => part.trim())
-      .forEach(addEmail);
+    processString(entry);
   } else if (entry && typeof entry === "object") {
     if (Array.isArray(entry.emails)) {
       entry.emails.forEach(addEmail);
-    } else if (typeof entry.email === "string") {
+    }
+    if (Array.isArray(entry.mentions)) {
+      entry.mentions.forEach(addMention);
+    }
+    if (typeof entry.email === "string") {
       addEmail(entry.email);
+    }
+    if (typeof entry.mention === "string") {
+      addMention(entry.mention);
     }
   }
 
-  return Array.from(emails);
+  return {
+    emails: Array.from(emails),
+    mentions: Array.from(mentions),
+  };
 }
 
-function getMentionEmailsForStatus(config, status) {
+function getMentionsForStatus(config, status) {
+  const empty = { emails: [], mentions: [] };
   if (!config || typeof config !== "object") {
-    return [];
+    return empty;
   }
 
-  const direct = normalizeMentionEmails(config[status]);
-  if (direct.length) {
+  const direct = normalizeMentionEntries(config[status]);
+  if (direct.emails.length || direct.mentions.length) {
     return direct;
   }
 
   const normalizedKey = status.replace(/[-\s]+/g, "");
   if (normalizedKey && normalizedKey !== status) {
-    const alternate = normalizeMentionEmails(config[normalizedKey]);
-    if (alternate.length) {
+    const alternate = normalizeMentionEntries(config[normalizedKey]);
+    if (alternate.emails.length || alternate.mentions.length) {
       return alternate;
     }
   }
 
   const fallbackKeys = ["default", "all", "any"];
   for (const key of fallbackKeys) {
-    const fallback = normalizeMentionEmails(config[key]);
-    if (fallback.length) {
+    const fallback = normalizeMentionEntries(config[key]);
+    if (fallback.emails.length || fallback.mentions.length) {
       return fallback;
     }
   }
 
-  return [];
+  return empty;
 }
 
 async function lookupSlackUserIdByEmail(email, token) {
@@ -1340,8 +1410,8 @@ module.exports = async function handler(req, res) {
     }, siteTemplates);
 
     const externalPayload = externalText ? { text: externalText } : null;
-    const mentionEmails = getMentionEmailsForStatus(brandSlackMentions, status);
-    const mentionInfoByToken = new Map();
+    const mentionConfig = getMentionsForStatus(brandSlackMentions, status);
+    const mentionInfoCache = new Map();
 
     const results = [];
     for (const doc of docsById.values()) {
@@ -1390,25 +1460,37 @@ module.exports = async function handler(req, res) {
 
         let payloadToSend = basePayload;
         let mentionInfo = null;
-        if (mentionEmails.length) {
-          mentionInfo = mentionInfoByToken.get(token);
-          if (mentionInfo === undefined) {
-            const resolvedMentions = [];
-            for (const email of mentionEmails) {
+        if (mentionConfig.emails.length || mentionConfig.mentions.length) {
+          const cacheKey = `${token}:${mentionConfig.emails.join(",")}:${mentionConfig.mentions.join(",")}`;
+          mentionInfo = mentionInfoCache.get(cacheKey);
+
+          if (!mentionInfo) {
+            const mentionSet = new Set();
+            const mentionOrder = [];
+            const addMention = (value) => {
+              if (!value || mentionSet.has(value)) {
+                return;
+              }
+              mentionSet.add(value);
+              mentionOrder.push(value);
+            };
+
+            mentionConfig.mentions.forEach(addMention);
+
+            for (const email of mentionConfig.emails) {
               const userId = await lookupSlackUserIdByEmail(email, token);
               if (userId) {
-                const formatted = `<@${userId}>`;
-                if (!resolvedMentions.includes(formatted)) {
-                  resolvedMentions.push(formatted);
-                }
+                addMention(`<@${userId}>`);
+              } else {
+                addMention(`<mailto:${email}|${email}>`);
               }
             }
 
             mentionInfo = {
-              mentions: resolvedMentions,
-              text: resolvedMentions.join(" "),
+              mentions: mentionOrder,
+              text: mentionOrder.join(" "),
             };
-            mentionInfoByToken.set(token, mentionInfo);
+            mentionInfoCache.set(cacheKey, mentionInfo);
           }
         }
 
