@@ -248,3 +248,42 @@ test('normalizes nested review version values containing v3 to the brief option'
   const briefOption = within(select).getByRole('option', { name: 'Brief' });
   expect(briefOption.selected).toBe(true);
 });
+
+test('allows overriding kanban column labels', () => {
+  render(
+    <MemoryRouter>
+      <AdGroupListView
+        groups={[
+          {
+            id: '1',
+            name: 'Ops Group',
+            brandCode: 'OP',
+            status: 'designed',
+            month: 1,
+          },
+        ]}
+        loading={false}
+        filter=""
+        onFilterChange={() => {}}
+        view="kanban"
+        onViewChange={() => {}}
+        showArchived={false}
+        onToggleArchived={() => {}}
+        onGallery={() => {}}
+        onCopy={() => {}}
+        onDownload={() => {}}
+        kanbanColumnLabels={{
+          designed: 'Ready for Review',
+          reviewed: 'Revisions in Progress',
+        }}
+      />
+    </MemoryRouter>
+  );
+
+  expect(
+    screen.getByRole('heading', { level: 2, name: 'Ready for Review' })
+  ).toBeInTheDocument();
+  expect(
+    screen.getByRole('heading', { level: 2, name: 'Revisions in Progress' })
+  ).toBeInTheDocument();
+});

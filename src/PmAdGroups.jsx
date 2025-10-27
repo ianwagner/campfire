@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { useLocation } from 'react-router-dom';
 import { auth, db } from './firebase/config';
@@ -167,6 +167,16 @@ const PmAdGroups = () => {
   const restrictGanttToDueDate =
     (role === 'project-manager' && Boolean(agencyId)) || role === 'ops';
 
+  const kanbanColumnLabels = useMemo(() => {
+    if (role === 'ops') {
+      return {
+        designed: 'Ready for Review',
+        reviewed: 'Revisions in Progress',
+      };
+    }
+    return undefined;
+  }, [role]);
+
   return (
     <div className="min-h-screen p-4">
       <h1 className="text-2xl mb-4">Ad Groups</h1>
@@ -194,6 +204,7 @@ const PmAdGroups = () => {
         onReviewFilterChange={setReviewFilter}
         linkToDetail
         restrictGanttToDueDate={restrictGanttToDueDate}
+        kanbanColumnLabels={kanbanColumnLabels}
       />
       {showGallery && (
         <GalleryModal ads={galleryAds} onClose={() => setShowGallery(false)} />

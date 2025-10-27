@@ -61,6 +61,7 @@ const AdGroupListView = ({
   onReviewFilterChange,
   restrictGanttToDueDate = false,
   allowedViews = DEFAULT_VIEWS,
+  kanbanColumnLabels,
 }) => {
   const term = (filter || '').toLowerCase();
   const months = Array.from(new Set(groups.map((g) => g.month).filter(Boolean))).sort();
@@ -118,6 +119,26 @@ const AdGroupListView = ({
   );
 
   const availableViewButtons = ['table', 'kanban', 'gantt'].filter((v) => normalizedViews.includes(v));
+
+  const kanbanColumns = useMemo(() => {
+    const columns = [
+      { label: 'New', status: 'new' },
+      { label: 'Blocked', status: 'blocked' },
+      { label: 'Briefed', status: 'briefed' },
+      { label: 'Designed', status: 'designed' },
+      { label: 'Reviewed', status: 'reviewed' },
+      { label: 'Done', status: 'done' },
+    ];
+
+    if (!kanbanColumnLabels || typeof kanbanColumnLabels !== 'object') {
+      return columns;
+    }
+
+    return columns.map((col) => ({
+      ...col,
+      label: kanbanColumnLabels[col.status] ?? col.label,
+    }));
+  }, [kanbanColumnLabels]);
 
   useEffect(() => {
     if (
@@ -399,14 +420,7 @@ const AdGroupListView = ({
           ) : view === 'kanban' ? (
             <div className="hidden sm:block overflow-x-auto mt-[0.8rem]">
               <div className="min-w-max flex gap-4">
-                {[
-                  { label: 'New', status: 'new' },
-                  { label: 'Blocked', status: 'blocked' },
-                  { label: 'Briefed', status: 'briefed' },
-                  { label: 'Designed', status: 'designed' },
-                  { label: 'Reviewed', status: 'reviewed' },
-                  { label: 'Done', status: 'done' },
-                ].map((col) => (
+                {kanbanColumns.map((col) => (
                   <div key={col.status} className="flex-shrink-0 w-[240px] sm:w-[320px]">
                     <h2 className="text-xl mb-2 capitalize">{col.label}</h2>
                     <div
