@@ -15,6 +15,9 @@ const workspaceAccessTokenCache = new Map();
 const siteTemplateCache = { templates: null, expiresAt: 0 };
 const mentionLookupCache = new Map();
 
+const SINGLE_MENTION_SENTINEL = "__SLACK_MENTION__";
+const MULTI_MENTION_SENTINEL = "__SLACK_MENTIONS__";
+
 async function getWorkspaceAccessToken(workspaceId) {
   const normalizedWorkspaceId = typeof workspaceId === "string" ? workspaceId.trim() : "";
 
@@ -346,6 +349,168 @@ function formatInlineCode(value, fallback) {
   return `\`${sanitizeInlineCodeValue(finalValue)}\``;
 }
 
+function replaceMentionTokensInString(input, mentionText, singleMention) {
+  if (typeof input !== "string") {
+    return input;
+  }
+
+  let output = input;
+
+  if (output.includes(MULTI_MENTION_SENTINEL)) {
+    output = output.split(MULTI_MENTION_SENTINEL).join(mentionText);
+  }
+
+  if (output.includes(SINGLE_MENTION_SENTINEL)) {
+    output = output.split(SINGLE_MENTION_SENTINEL).join(singleMention);
+  }
+
+  return output;
+}
+
+function cleanupSlackText(value) {
+  if (typeof value !== "string") {
+    return value;
+  }
+
+  const collapsed = value.replace(/\n{3,}/g, "\n\n");
+  return collapsed.trim();
+}
+
+function payloadContainsMentionPlaceholder(payload) {
+  if (!payload) {
+    return false;
+  }
+
+  const containsToken = (value) =>
+    typeof value === "string" &&
+    (value.includes(SINGLE_MENTION_SENTINEL) ||
+      value.includes(MULTI_MENTION_SENTINEL));
+
+  if (containsToken(payload)) {
+    return true;
+  }
+
+  if (typeof payload !== "object") {
+    return false;
+  }
+
+  if (containsToken(payload.text)) {
+    return true;
+  }
+
+  if (Array.isArray(payload.blocks)) {
+    return payload.blocks.some((block) => {
+      if (
+        !block ||
+        block.type !== "section" ||
+        !block.text ||
+        typeof block.text.text !== "string"
+      ) {
+        return false;
+      }
+
+      return containsToken(block.text.text);
+    });
+  }
+
+  return false;
+}
+
+function replaceMentionSentinels(payload, mentions = []) {
+  const mentionText = mentions.join(" ");
+  const singleMention = mentions.length ? mentions[0] : "";
+
+  if (typeof payload === "string") {
+    const replaced = replaceMentionTokensInString(
+      payload,
+      mentionText,
+      singleMention,
+    );
+
+    if (replaced === payload) {
+      return payload;
+    }
+
+    return cleanupSlackText(replaced);
+  }
+
+  if (!payload || typeof payload !== "object") {
+    return payload;
+  }
+
+  let textChanged = false;
+  let blocksChanged = false;
+
+  let updatedText = payload.text;
+  if (typeof payload.text === "string") {
+    const replacedText = replaceMentionTokensInString(
+      payload.text,
+      mentionText,
+      singleMention,
+    );
+
+    if (replacedText !== payload.text) {
+      textChanged = true;
+      updatedText = cleanupSlackText(replacedText);
+    }
+  }
+
+  let updatedBlocks = payload.blocks;
+  if (Array.isArray(payload.blocks)) {
+    const newBlocks = [];
+
+    payload.blocks.forEach((block) => {
+      if (
+        block &&
+        block.type === "section" &&
+        block.text &&
+        typeof block.text.text === "string"
+      ) {
+        const replacedBlockText = replaceMentionTokensInString(
+          block.text.text,
+          mentionText,
+          singleMention,
+        ).trim();
+
+        if (!replacedBlockText) {
+          blocksChanged = true;
+          return;
+        }
+
+        if (replacedBlockText !== block.text.text) {
+          blocksChanged = true;
+          newBlocks.push({
+            ...block,
+            text: { ...block.text, text: replacedBlockText },
+          });
+          return;
+        }
+      }
+
+      newBlocks.push(block);
+    });
+
+    if (blocksChanged) {
+      updatedBlocks = newBlocks;
+    }
+  }
+
+  if (!textChanged && !blocksChanged) {
+    return payload;
+  }
+
+  const updated = { ...payload };
+  if (textChanged) {
+    updated.text = updatedText;
+  }
+
+  if (blocksChanged) {
+    updated.blocks = updatedBlocks;
+  }
+
+  return updated;
+}
+
 function renderTemplate(templateValue, replacements, { includeBlocks = false } = {}) {
   const templateString =
     typeof templateValue === "string" ? templateValue.replace(/\r\n/g, "\n") : "";
@@ -554,6 +719,8 @@ function createTemplateReplacements(context = {}) {
     productTags: tagsJoined,
     offerTags: offersLine,
     productList: (context.productNames || []).join(", "),
+    mention: SINGLE_MENTION_SENTINEL,
+    mentions: MULTI_MENTION_SENTINEL,
   };
 }
 
@@ -1162,7 +1329,7 @@ module.exports = async function handler(req, res) {
 
     const externalPayload = externalText ? { text: externalText } : null;
     const mentionEmails = getMentionEmailsForStatus(brandSlackMentions, status);
-    const mentionTextByToken = new Map();
+    const mentionInfoByToken = new Map();
 
     const results = [];
     for (const doc of docsById.values()) {
@@ -1171,6 +1338,9 @@ module.exports = async function handler(req, res) {
         const audience = normalizeAudience(docData.audience) || "external";
         const basePayload =
           audience === "internal" ? internalMessage : externalPayload;
+        const mentionPlaceholderUsed = payloadContainsMentionPlaceholder(
+          basePayload,
+        );
 
         if (!basePayload) {
           results.push({
@@ -1207,9 +1377,10 @@ module.exports = async function handler(req, res) {
         }
 
         let payloadToSend = basePayload;
+        let mentionInfo = null;
         if (mentionEmails.length) {
-          let mentionText = mentionTextByToken.get(token);
-          if (mentionText === undefined) {
+          mentionInfo = mentionInfoByToken.get(token);
+          if (mentionInfo === undefined) {
             const resolvedMentions = [];
             for (const email of mentionEmails) {
               const userId = await lookupSlackUserIdByEmail(email, token);
@@ -1220,12 +1391,27 @@ module.exports = async function handler(req, res) {
                 }
               }
             }
-            mentionText = resolvedMentions.join(" ");
-            mentionTextByToken.set(token, mentionText);
-          }
 
+            mentionInfo = {
+              mentions: resolvedMentions,
+              text: resolvedMentions.join(" "),
+            };
+            mentionInfoByToken.set(token, mentionInfo);
+          }
+        }
+
+        const replacedPayload = replaceMentionSentinels(
+          payloadToSend,
+          (mentionInfo && mentionInfo.mentions) || [],
+        );
+        if (replacedPayload !== payloadToSend) {
+          payloadToSend = replacedPayload;
+        }
+
+        if (!mentionPlaceholderUsed) {
+          const mentionText = mentionInfo ? mentionInfo.text : "";
           if (mentionText) {
-            payloadToSend = appendMentionsToPayload(basePayload, mentionText);
+            payloadToSend = appendMentionsToPayload(payloadToSend, mentionText);
           }
         }
 
