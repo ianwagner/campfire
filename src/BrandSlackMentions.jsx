@@ -24,6 +24,40 @@ const createEmptyState = () =>
 
 const EMAIL_REGEX = /.+@.+\..+/i;
 const SLACK_MENTION_REGEX = /^<[@!][^>]+>$/;
+const SLACK_MAILTO_REGEX = /^<mailto:([^>|]+)(?:\|[^>]+)?>$/i;
+
+const sanitizeEmailInput = (value) => {
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  let trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  const mailtoMatch = trimmed.match(SLACK_MAILTO_REGEX);
+  if (mailtoMatch) {
+    return mailtoMatch[1].trim().toLowerCase();
+  }
+
+  if (trimmed.startsWith('<') && trimmed.endsWith('>')) {
+    trimmed = trimmed.slice(1, -1).trim();
+  }
+
+  if (/^mailto:/i.test(trimmed)) {
+    trimmed = trimmed.replace(/^mailto:/i, '').trim();
+  }
+
+  trimmed = trimmed.replace(/^[<\s]+/, '').replace(/[>\s]+$/, '');
+  trimmed = trimmed.replace(/[;,]+$/, '');
+
+  if (EMAIL_REGEX.test(trimmed)) {
+    return trimmed.toLowerCase();
+  }
+
+  return null;
+};
 
 const normalizeMentionEntry = (entry) => {
   if (typeof entry !== 'string') {
@@ -35,8 +69,9 @@ const normalizeMentionEntry = (entry) => {
     return null;
   }
 
-  if (EMAIL_REGEX.test(trimmed)) {
-    return trimmed.toLowerCase();
+  const sanitizedEmail = sanitizeEmailInput(trimmed);
+  if (sanitizedEmail) {
+    return sanitizedEmail;
   }
 
   if (SLACK_MENTION_REGEX.test(trimmed)) {

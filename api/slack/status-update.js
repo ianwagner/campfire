@@ -801,6 +801,40 @@ async function getSiteSlackTemplates() {
 
 const EMAIL_REGEX = /.+@.+\..+/i;
 const SLACK_MENTION_PATTERN = /^<[@!][^>]+>$/;
+const SLACK_MAILTO_PATTERN = /^<mailto:([^>|]+)(?:\|[^>]+)?>$/i;
+
+function sanitizeEmailValue(value) {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  let trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  const mailtoMatch = trimmed.match(SLACK_MAILTO_PATTERN);
+  if (mailtoMatch) {
+    return mailtoMatch[1].trim().toLowerCase();
+  }
+
+  if (trimmed.startsWith("<") && trimmed.endsWith(">")) {
+    trimmed = trimmed.slice(1, -1).trim();
+  }
+
+  if (/^mailto:/i.test(trimmed)) {
+    trimmed = trimmed.replace(/^mailto:/i, "").trim();
+  }
+
+  trimmed = trimmed.replace(/^[<\s]+/, "").replace(/[>\s]+$/, "");
+  trimmed = trimmed.replace(/[;,]+$/, "");
+
+  if (EMAIL_REGEX.test(trimmed)) {
+    return trimmed.toLowerCase();
+  }
+
+  return null;
+}
 
 function formatMentionString(value) {
   if (typeof value !== "string") {
@@ -838,14 +872,11 @@ function normalizeMentionEntries(entry) {
   const mentions = new Set();
 
   const addEmail = (value) => {
-    if (typeof value !== "string") {
+    const sanitized = sanitizeEmailValue(value);
+    if (!sanitized) {
       return false;
     }
-    const trimmed = value.trim().toLowerCase();
-    if (!trimmed || !EMAIL_REGEX.test(trimmed)) {
-      return false;
-    }
-    emails.add(trimmed);
+    emails.add(sanitized);
     return true;
   };
 
