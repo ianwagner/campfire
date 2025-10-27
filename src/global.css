@@ -376,8 +376,9 @@
     background-color: inherit;
   }
   .dashboard-table .metric-col {
-    width: 6.5rem;
-    max-width: 6.5rem;
+    width: 6.75rem;
+    min-width: 6.75rem;
+    max-width: 6.75rem;
     white-space: nowrap;
   }
   .dashboard-table td.notes-cell {
