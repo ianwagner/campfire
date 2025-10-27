@@ -239,7 +239,7 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
     }
     const metricKeys = ['contracted', 'briefed', 'delivered'];
     if (!briefOnly) {
-      metricKeys.push('approved', 'rejected');
+      metricKeys.push('inRevisions', 'approved', 'rejected');
     }
     const stats = {};
     metricKeys.forEach((key) => {
@@ -385,6 +385,7 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
       contracted: briefOnly ? 'Contracted briefs' : 'Contracted units',
       briefed: briefOnly ? 'Briefs submitted' : 'Briefed',
       delivered: 'Delivered',
+      inRevisions: 'In Revisions',
       approved: 'Approved',
       rejected: 'Rejected',
     }),
@@ -411,13 +412,14 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
 
     const metricOrder = ['contracted', 'briefed', 'delivered'];
     if (!briefOnly) {
-      metricOrder.push('approved', 'rejected');
+      metricOrder.push('inRevisions', 'approved', 'rejected');
     }
 
     const accentMap = {
       contracted: 'from-indigo-500 to-purple-500',
       briefed: 'from-amber-500 to-orange-500',
       delivered: 'from-emerald-500 to-teal-500',
+      inRevisions: 'from-amber-500 to-orange-500',
       approved: 'from-blue-500 to-cyan-500',
       rejected: 'from-rose-500 to-red-500',
     };
@@ -443,7 +445,7 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
     () =>
       briefOnly
         ? ['contracted', 'briefed', 'delivered']
-        : ['contracted', 'briefed', 'delivered', 'approved', 'rejected'],
+        : ['contracted', 'briefed', 'delivered', 'inRevisions', 'approved', 'rejected'],
     [briefOnly],
   );
 
@@ -490,6 +492,7 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
       let contractedBrief = 0;
       let briefed = 0;
       let delivered = 0;
+      let inRevisions = 0;
       let approved = 0;
       let rejected = 0;
       let publicDashboardSlug =
@@ -605,6 +608,7 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
             const recipeCount = rSnap.data().count || 0;
             briefed += recipeCount;
             const deliveredSet = new Set();
+            const revisionSet = new Set();
             const approvedSet = new Set();
             const rejectedSet = new Set();
             aSnap.docs.forEach((a) => {
@@ -617,12 +621,16 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
               if (data.status === 'rejected') {
                 rejectedSet.add(key);
               }
+              if (data.status === 'edit_requested') {
+                revisionSet.add(key);
+              }
             });
             let deliveredCount = deliveredSet.size;
             if (briefFilter && gData.status === 'designed') {
               deliveredCount = Math.max(deliveredCount, recipeCount);
             }
             delivered += deliveredCount;
+            inRevisions += revisionSet.size;
             if (!briefFilter) {
               approved += approvedSet.size;
               rejected += rejectedSet.size;
@@ -636,7 +644,7 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
           contracted === 0 &&
           briefed === 0 &&
           delivered === 0 &&
-          (briefFilter || (approved === 0 && rejected === 0));
+          (briefFilter || (inRevisions === 0 && approved === 0 && rejected === 0));
         if (noProgress) {
           return null;
         }
@@ -651,6 +659,7 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
           contracted,
           briefed,
           delivered,
+          inRevisions: briefFilter ? '-' : inRevisions,
           approved: briefFilter ? '-' : approved,
           rejected: briefFilter ? '-' : rejected,
           noteKey,
@@ -665,6 +674,7 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
           contracted: '?',
           briefed: '?',
           delivered: '?',
+          inRevisions: briefFilter ? '-' : '?',
           approved: briefFilter ? '-' : '?',
           rejected: briefFilter ? '-' : '?',
           noteKey: brand.code || brand.id || '',
@@ -1055,7 +1065,7 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
           );
           const metricKeys = ['contracted', 'briefed', 'delivered'];
           if (!briefOnly) {
-            metricKeys.push('approved', 'rejected');
+            metricKeys.push('inRevisions', 'approved', 'rejected');
           }
           const metrics = {};
           metricKeys.forEach((key) => {
@@ -1324,6 +1334,7 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
                     <th className="metric-col">Contracted</th>
                     <th className="metric-col">Briefed</th>
                     <th className="metric-col">Delivered</th>
+                    {!briefOnly && <th className="metric-col">In Revisions</th>}
                     {!briefOnly && <th className="metric-col">Approved</th>}
                     {!briefOnly && <th className="metric-col">Rejected</th>}
                     <th>Notes</th>
@@ -1339,8 +1350,7 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
                       label,
                       {
                         showProgress = true,
-                        highlightOnGoal = false,
-                        accent = 'bg-[var(--accent-color)] dark:bg-[var(--accent-color)]/80',
+                        accent = 'bg-[var(--approve-color)] dark:bg-[var(--approve-color)]/80',
                         textClass = '',
                       } = {},
                     ) => {
@@ -1355,13 +1365,9 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
                           : null;
                       const clampedRatio =
                         ratio !== null ? Math.max(0, Math.min(ratio, 999)) : null;
-                      const highlightClass =
-                        highlightOnGoal && clampedRatio !== null && clampedRatio >= 100
-                          ? 'bg-approve-10'
-                          : '';
                       const progressWidth = clampedRatio !== null ? Math.min(clampedRatio, 100) : 0;
                       return (
-                        <td className={`metric-col align-middle text-center ${highlightClass}`.trim()} data-label={label}>
+                        <td className="metric-col align-middle text-center" data-label={label}>
                           <div className="flex flex-col items-center gap-1">
                             <span
                               className={`text-base font-semibold text-gray-900 dark:text-gray-100 ${textClass}`.trim()}
@@ -1424,19 +1430,13 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
                           </div>
                         </td>
                         {renderMetricCell('contracted', 'Contracted', { showProgress: false })}
-                        {renderMetricCell('briefed', 'Briefed', {
-                          highlightOnGoal: true,
-                          accent: 'bg-amber-500 dark:bg-amber-400',
-                        })}
-                        {renderMetricCell('delivered', 'Delivered', {
-                          highlightOnGoal: true,
-                          accent: 'bg-emerald-500 dark:bg-emerald-400',
-                        })}
+                        {renderMetricCell('briefed', 'Briefed')}
+                        {renderMetricCell('delivered', 'Delivered')}
                         {!briefOnly &&
-                          renderMetricCell('approved', 'Approved', {
-                            highlightOnGoal: true,
-                            accent: 'bg-[var(--approve-color)] dark:bg-[var(--approve-color)]/80',
+                          renderMetricCell('inRevisions', 'In Revisions', {
+                            accent: 'bg-amber-500 dark:bg-amber-400',
                           })}
+                        {!briefOnly && renderMetricCell('approved', 'Approved')}
                         {!briefOnly &&
                           renderMetricCell('rejected', 'Rejected', {
                             showProgress: false,

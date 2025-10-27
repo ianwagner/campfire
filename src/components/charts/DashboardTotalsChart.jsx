@@ -33,13 +33,14 @@ const DashboardTotalsChart = ({ entries = [], briefOnly = false }) => {
 
     const metricKeys = ['contracted', 'briefed', 'delivered'];
     if (!briefOnly) {
-      metricKeys.push('approved', 'rejected');
+      metricKeys.push('inRevisions', 'approved', 'rejected');
     }
 
     const colors = {
       contracted: getCssVar('--accent-color', '#ea580c'),
       briefed: getCssVar('--edit-color', '#ffb700'),
       delivered: getCssVar('--approve-color', '#00ab47'),
+      inRevisions: getCssVar('--edit-color', '#ffb700'),
       approved: getCssVar('--approve-color', '#00ab47'),
       rejected: getCssVar('--reject-color', '#ff5c5c'),
     };
@@ -48,6 +49,7 @@ const DashboardTotalsChart = ({ entries = [], briefOnly = false }) => {
       contracted: 'Contracted',
       briefed: briefOnly ? 'Briefs submitted' : 'Briefed',
       delivered: 'Delivered',
+      inRevisions: 'In Revisions',
       approved: 'Approved',
       rejected: 'Rejected',
     };
@@ -67,6 +69,7 @@ const DashboardTotalsChart = ({ entries = [], briefOnly = false }) => {
       pointRadius: 3,
       pointHoverRadius: 4,
       spanGaps: true,
+      borderDash: key === 'inRevisions' ? [6, 4] : undefined,
     }));
 
     const labels = months.map((month) => new Date(`${month}-01T00:00:00`));

@@ -80,6 +80,14 @@
     "description": "Integration name without additional formatting."
   },
   {
+    "key": "mention",
+    "description": "First Slack mention resolved from the configured email list."
+  },
+  {
+    "key": "mentions",
+    "description": "All Slack mentions resolved from the configured email list, separated by spaces."
+  },
+  {
     "key": "productTags",
     "description": "Product hashtags (e.g. #Widget) separated by spaces."
   },
