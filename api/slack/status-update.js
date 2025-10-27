@@ -14,6 +14,8 @@ const SLACK_BOT_TOKEN = process.env.SLACK_BOT_TOKEN;
 const workspaceAccessTokenCache = new Map();
 const siteTemplateCache = { templates: null, expiresAt: 0 };
 const mentionLookupCache = new Map();
+const MENTION_LOOKUP_SUCCESS_TTL_MS = 6 * 60 * 60 * 1000; // 6 hours
+const MENTION_LOOKUP_FAILURE_TTL_MS = 10 * 60 * 1000; // 10 minutes
 
 const SINGLE_MENTION_SENTINEL = "__SLACK_MENTION__";
 const MULTI_MENTION_SENTINEL = "__SLACK_MENTIONS__";
@@ -1099,14 +1101,43 @@ function replaceMailtoMentionsInPayload(payload, emailMentionsMap) {
   return updated;
 }
 
+function getCachedMentionLookup(cacheKey) {
+  if (!mentionLookupCache.has(cacheKey)) {
+    return undefined;
+  }
+
+  const cached = mentionLookupCache.get(cacheKey);
+  if (!cached || typeof cached !== "object") {
+    mentionLookupCache.delete(cacheKey);
+    return undefined;
+  }
+
+  const expiresAt = typeof cached.expiresAt === "number" ? cached.expiresAt : 0;
+  if (expiresAt && expiresAt <= Date.now()) {
+    mentionLookupCache.delete(cacheKey);
+    return undefined;
+  }
+
+  return cached.value;
+}
+
+function setCachedMentionLookup(cacheKey, value, ttlMs) {
+  const ttl = Number(ttlMs) || 0;
+  mentionLookupCache.set(cacheKey, {
+    value,
+    expiresAt: ttl > 0 ? Date.now() + ttl : 0,
+  });
+}
+
 async function lookupSlackUserIdByEmail(email, token) {
   if (!email || !token) {
     return null;
   }
 
   const cacheKey = `${token}:${email}`;
-  if (mentionLookupCache.has(cacheKey)) {
-    return mentionLookupCache.get(cacheKey);
+  const cachedResult = getCachedMentionLookup(cacheKey);
+  if (cachedResult !== undefined) {
+    return cachedResult;
   }
 
   try {
@@ -1123,7 +1154,7 @@ async function lookupSlackUserIdByEmail(email, token) {
     if (!response.ok) {
       const body = await response.text();
       console.error("Slack lookup failed", response.status, body);
-      mentionLookupCache.set(cacheKey, null);
+      setCachedMentionLookup(cacheKey, null, MENTION_LOOKUP_FAILURE_TTL_MS);
       return null;
     }
 
@@ -1140,16 +1171,16 @@ async function lookupSlackUserIdByEmail(email, token) {
         id: body.user.id,
         displayName,
       };
-      mentionLookupCache.set(cacheKey, result);
+      setCachedMentionLookup(cacheKey, result, MENTION_LOOKUP_SUCCESS_TTL_MS);
       return result;
     }
 
     console.warn("Slack lookup returned no user", email, body.error);
-    mentionLookupCache.set(cacheKey, null);
+    setCachedMentionLookup(cacheKey, null, MENTION_LOOKUP_FAILURE_TTL_MS);
     return null;
   } catch (error) {
     console.error("Slack lookup error", email, error);
-    mentionLookupCache.set(cacheKey, null);
+    setCachedMentionLookup(cacheKey, null, MENTION_LOOKUP_FAILURE_TTL_MS);
     return null;
   }
 }
