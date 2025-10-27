@@ -993,9 +993,19 @@ async function lookupSlackUserIdByEmail(email, token) {
 
     const body = await response.json();
     if (body.ok && body.user && body.user.id) {
-      const userId = body.user.id;
-      mentionLookupCache.set(cacheKey, userId);
-      return userId;
+      const profile = body.user.profile || {};
+      const displayName =
+        (typeof profile.display_name === "string" && profile.display_name.trim()) ||
+        (typeof profile.display_name_normalized === "string" &&
+          profile.display_name_normalized.trim()) ||
+        (typeof profile.real_name === "string" && profile.real_name.trim()) ||
+        null;
+      const result = {
+        id: body.user.id,
+        displayName,
+      };
+      mentionLookupCache.set(cacheKey, result);
+      return result;
     }
 
     console.warn("Slack lookup returned no user", email, body.error);
@@ -1509,11 +1519,16 @@ module.exports = async function handler(req, res) {
             mentionConfig.mentions.forEach(addMention);
 
             for (const email of mentionConfig.emails) {
-              const userId = await lookupSlackUserIdByEmail(email, token);
-              if (userId) {
-                addMention(`<@${userId}>`);
+              const userInfo = await lookupSlackUserIdByEmail(email, token);
+              if (userInfo && userInfo.id) {
+                addMention(`<@${userInfo.id}>`);
               } else {
-                addMention(`<mailto:${email}|${email}>`);
+                const label =
+                  (userInfo && userInfo.displayName) ||
+                  (typeof email === "string" && email.includes("@")
+                    ? `@${email.split("@")[0]}`
+                    : email);
+                addMention(`<mailto:${email}|${label || email}>`);
               }
             }
 
