@@ -299,7 +299,7 @@ const BrandSlackMentions = ({ brandId: propId = null, brandCode: propCode = '' }
             Choose who should be tagged when Slack status messages send for this brand.
             Add email addresses or Slack member IDs separated by commas or new lines.
             We'll look up Slack users by email when notifications fire, and you can
-            also paste values like <@U12345678> or @channel to mention them directly.
+            also paste values like <code>&lt;@U12345678&gt;</code> or <code>@channel</code> to mention them directly.
           </p>
           {resolvedBrandCode && (
             <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
