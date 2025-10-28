@@ -342,6 +342,76 @@ export const getAssetDocumentId = (asset) =>
 
 const hasOwn = (obj, key) => Object.prototype.hasOwnProperty.call(obj, key);
 
+const DUPLICATE_MESSAGE_PATTERNS = [/duplicate/i, /already exists/i];
+
+const collectCandidateMessages = (entry) => {
+  const candidates = [];
+  const pushCandidate = (value) => {
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      if (trimmed) {
+        candidates.push(trimmed);
+      }
+    }
+  };
+
+  if (!entry || typeof entry !== 'object') {
+    pushCandidate(entry);
+    return candidates;
+  }
+
+  pushCandidate(entry.errorMessage);
+  pushCandidate(entry.message);
+  pushCandidate(entry.error);
+
+  const body = entry.body;
+  if (body && typeof body === 'object') {
+    pushCandidate(body.error);
+    pushCandidate(body.message);
+    pushCandidate(body.detail);
+  } else {
+    pushCandidate(body);
+  }
+
+  const response = entry.response;
+  if (response && typeof response === 'object') {
+    pushCandidate(response.errorMessage);
+    pushCandidate(response.message);
+    pushCandidate(response.error);
+
+    const responseBody = response.body;
+    if (responseBody && typeof responseBody === 'object') {
+      pushCandidate(responseBody.error);
+      pushCandidate(responseBody.message);
+      pushCandidate(responseBody.detail);
+    } else {
+      pushCandidate(responseBody);
+    }
+  }
+
+  return candidates;
+};
+
+const extractDuplicateConflictMessage = (dispatchEntry, parsedResponse) => {
+  const candidates = collectCandidateMessages(dispatchEntry);
+
+  if (parsedResponse && typeof parsedResponse === 'object') {
+    candidates.push(...collectCandidateMessages(parsedResponse));
+    if (parsedResponse.dispatch && typeof parsedResponse.dispatch === 'object') {
+      candidates.push(...collectCandidateMessages(parsedResponse.dispatch));
+    }
+  }
+
+  return (
+    candidates.find((text) =>
+      DUPLICATE_MESSAGE_PATTERNS.every((pattern) => pattern.test(text)),
+    ) || ''
+  );
+};
+
+export const isDuplicateConflictResponse = (statusCode, dispatchEntry, parsedResponse) =>
+  statusCode === 409 && Boolean(extractDuplicateConflictMessage(dispatchEntry, parsedResponse));
+
 export const updateIntegrationStatusForAssets = async (
   {
     groupId,
@@ -556,6 +626,11 @@ export const dispatchIntegrationForAssets = async ({
       }
 
       const statusEntry = parsedResponse?.dispatch;
+      const duplicateConflict = isDuplicateConflictResponse(
+        responseStatusCode,
+        statusEntry,
+        parsedResponse,
+      );
       const statusState = normalizeKeyPart(statusEntry?.status).toLowerCase();
       const integrationErrorMessage = normalizeKeyPart(
         statusEntry?.errorMessage,
@@ -577,7 +652,10 @@ export const dispatchIntegrationForAssets = async ({
         }
       }
 
-      const responseStatusIsError = isErrorStatusCode(responseStatusCode);
+      let responseStatusIsError = isErrorStatusCode(responseStatusCode);
+      if (responseStatusIsError && duplicateConflict) {
+        responseStatusIsError = false;
+      }
 
       if (!response.ok || responseStatusIsError) {
         const message =
