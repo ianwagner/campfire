@@ -1,5 +1,25 @@
 import { auth } from '../firebase/config';
 
+const RECENT_NOTIFICATION_TTL = 60 * 1000;
+const recentNotifications = new Map();
+
+const buildPayloadKey = ({
+  brandCode,
+  adGroupId,
+  status,
+  note,
+  url,
+  adGroupUrl,
+}) =>
+  JSON.stringify({
+    brandCode: brandCode || '',
+    adGroupId: adGroupId || '',
+    status: status || '',
+    note: note || '',
+    url: url || '',
+    adGroupUrl: adGroupUrl || '',
+  });
+
 const ensureReviewUrl = (adGroupId, providedUrl) => {
   if (!adGroupId) {
     return undefined;
@@ -131,6 +151,8 @@ const notifySlackStatusChange = async ({
     return;
   }
 
+  let payloadKey;
+
   try {
     const idToken = await currentUser.getIdToken();
     if (!idToken) return;
@@ -156,6 +178,25 @@ const notifySlackStatusChange = async ({
       payload.note = note.trim();
     }
 
+    const now = Date.now();
+
+    const staleKeys = [];
+    for (const [key, timestamp] of recentNotifications) {
+      if (now - timestamp > RECENT_NOTIFICATION_TTL) {
+        staleKeys.push(key);
+      }
+    }
+    staleKeys.forEach((key) => recentNotifications.delete(key));
+
+    payloadKey = buildPayloadKey(payload);
+    const lastSent = recentNotifications.get(payloadKey);
+
+    if (lastSent && now - lastSent < RECENT_NOTIFICATION_TTL) {
+      return;
+    }
+
+    recentNotifications.set(payloadKey, now);
+
     const response = await fetch('/api/slack/status-update', {
       method: 'POST',
       headers: {
@@ -168,9 +209,15 @@ const notifySlackStatusChange = async ({
     if (!response.ok) {
       const text = await response.text();
       console.error('Failed to notify Slack', response.status, text);
+      if (payloadKey) {
+        recentNotifications.delete(payloadKey);
+      }
     }
   } catch (error) {
     console.error('Failed to notify Slack', error);
+    if (payloadKey) {
+      recentNotifications.delete(payloadKey);
+    }
   }
 };
 
