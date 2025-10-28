@@ -1,5 +1,6 @@
 const { request: httpRequest } = require("http");
 const { request: httpsRequest } = require("https");
+const crypto = require("crypto");
 const {
   admin,
   db,
@@ -19,6 +20,7 @@ const MENTION_LOOKUP_FAILURE_TTL_MS = 10 * 60 * 1000; // 10 minutes
 
 const RECENT_STATUS_NOTIFICATION_TTL_MS = 15 * 1000; // 15 seconds
 const recentStatusNotificationCache = new Map();
+const STATUS_NOTIFICATION_LOCK_COLLECTION = "slackStatusNotificationLocks";
 
 function pruneRecentStatusNotifications(now = Date.now()) {
   for (const [key, entry] of recentStatusNotificationCache.entries()) {
@@ -87,6 +89,110 @@ function clearStatusNotificationEntry(key) {
     return;
   }
   recentStatusNotificationCache.delete(key);
+}
+
+function getTimestampMillis(value) {
+  if (!value) {
+    return 0;
+  }
+
+  if (typeof value === "number") {
+    return value;
+  }
+
+  if (typeof value === "string") {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+
+  if (typeof value.toMillis === "function") {
+    try {
+      return value.toMillis();
+    } catch (error) {
+      console.error("Failed to convert Firestore timestamp", error);
+      return 0;
+    }
+  }
+
+  return 0;
+}
+
+function getStatusNotificationLockRef(dedupeKey) {
+  if (!dedupeKey) {
+    return null;
+  }
+
+  const hash = crypto.createHash("sha256").update(dedupeKey).digest("hex");
+  return db.collection(STATUS_NOTIFICATION_LOCK_COLLECTION).doc(hash);
+}
+
+async function acquireStatusNotificationLock(dedupeKey, now = Date.now()) {
+  const docRef = getStatusNotificationLockRef(dedupeKey);
+  if (!docRef) {
+    return { allowed: true, docRef: null };
+  }
+
+  try {
+    const result = await db.runTransaction(async (tx) => {
+      const snap = await tx.get(docRef);
+      const data = snap.exists ? snap.data() || {} : {};
+      const pendingSinceMs = getTimestampMillis(data.pendingSince);
+      if (pendingSinceMs && now - pendingSinceMs < RECENT_STATUS_NOTIFICATION_TTL_MS) {
+        return { allowed: false, reason: "pending" };
+      }
+
+      const lastSuccessMs = getTimestampMillis(data.lastSuccess);
+      if (lastSuccessMs && now - lastSuccessMs < RECENT_STATUS_NOTIFICATION_TTL_MS) {
+        return { allowed: false, reason: "recent" };
+      }
+
+      tx.set(
+        docRef,
+        {
+          key: dedupeKey,
+          pending: true,
+          pendingSince: admin.firestore.Timestamp.fromMillis(now),
+          updatedAt: admin.firestore.Timestamp.fromMillis(now),
+          expiresAt: admin.firestore.Timestamp.fromMillis(
+            now + RECENT_STATUS_NOTIFICATION_TTL_MS * 10,
+          ),
+        },
+        { merge: true },
+      );
+
+      return { allowed: true };
+    });
+
+    return { ...result, docRef };
+  } catch (error) {
+    console.error("Failed to acquire Slack notification dedupe lock", error);
+    return { allowed: true, docRef };
+  }
+}
+
+async function releaseStatusNotificationLock(docRef, { success = false, now = Date.now() } = {}) {
+  if (!docRef) {
+    return;
+  }
+
+  const update = {
+    pending: false,
+    updatedAt: admin.firestore.Timestamp.fromMillis(now),
+    expiresAt: admin.firestore.Timestamp.fromMillis(
+      now + RECENT_STATUS_NOTIFICATION_TTL_MS * 10,
+    ),
+    pendingSince: admin.firestore.FieldValue.delete(),
+  };
+
+  if (success) {
+    update.lastSuccess = admin.firestore.Timestamp.fromMillis(now);
+  }
+
+  try {
+    await docRef.set(update, { merge: true });
+  } catch (error) {
+    console.error("Failed to release Slack notification dedupe lock", error);
+  }
 }
 
 const SINGLE_MENTION_SENTINEL = "__SLACK_MENTION__";
@@ -1474,6 +1580,21 @@ module.exports = async function handler(req, res) {
     return;
   }
 
+  const { allowed: lockAllowed, docRef: dedupeLockRef } =
+    await acquireStatusNotificationLock(dedupeKey, now);
+
+  if (!lockAllowed) {
+    markStatusNotificationProcessed(dedupeKey);
+    res.status(200).json({
+      ok: true,
+      deduplicated: true,
+      message: "Duplicate Slack status notification suppressed.",
+    });
+    return;
+  }
+
+  let lockRefForCleanup = dedupeLockRef || null;
+
   recentStatusNotificationCache.set(dedupeKey, {
     timestamp: now,
     inFlight: true,
@@ -1510,6 +1631,10 @@ module.exports = async function handler(req, res) {
     }
 
     if (!docsById.size) {
+      await releaseStatusNotificationLock(lockRefForCleanup, {
+        success: true,
+        now: Date.now(),
+      });
       markStatusNotificationProcessed(dedupeKey);
       res
         .status(200)
@@ -1848,15 +1973,27 @@ module.exports = async function handler(req, res) {
 
     const failed = results.filter((r) => !r.ok);
     if (failed.length && failed.length === results.length) {
+      await releaseStatusNotificationLock(lockRefForCleanup, {
+        success: false,
+        now: Date.now(),
+      });
       clearStatusNotificationEntry(dedupeKey);
       res.status(502).json({ error: "Failed to post Slack message", results });
       return;
     }
 
+    await releaseStatusNotificationLock(lockRefForCleanup, {
+      success: true,
+      now: Date.now(),
+    });
     markStatusNotificationProcessed(dedupeKey);
     res.status(200).json({ ok: true, results });
   } catch (error) {
     console.error("Slack status update error", error);
+    await releaseStatusNotificationLock(lockRefForCleanup, {
+      success: false,
+      now: Date.now(),
+    });
     clearStatusNotificationEntry(dedupeKey);
     res.status(500).json({ error: error.message || "Internal Server Error" });
   }
