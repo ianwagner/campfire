@@ -49,4 +49,32 @@ describe('computeIntegrationStatusSummary', () => {
     });
     expect(summary.latestState).toBe('received');
   });
+
+  it('treats payload response status errors as failures even when stored status is ok', () => {
+    const integrationId = 'compass';
+    const asset = buildAsset(integrationId, {
+      state: 'received',
+      responseStatus: 200,
+      responsePayload: {
+        dispatch: {
+          status: 422,
+          message: 'Unprocessable entity',
+          response: {
+            status: 422,
+            statusText: 'Unprocessable Entity',
+          },
+        },
+      },
+      errorMessage: 'Remote validation failed',
+    });
+
+    const summary = computeIntegrationStatusSummary(integrationId, 'Compass', [asset]);
+
+    expect(summary).toMatchObject({
+      outcome: 'error',
+      wasTriggered: true,
+      responseStatus: 422,
+      errorMessage: 'Remote validation failed',
+    });
+  });
 });

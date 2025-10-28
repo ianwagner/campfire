@@ -1,23 +1,10 @@
+import {
+  isErrorStatusCode,
+  resolveIntegrationResponseStatus,
+} from './integrationStatus';
+
 const SUCCESS_STATES = new Set(['received', 'succeeded', 'completed', 'delivered']);
 const ERROR_STATES = new Set(['error', 'failed', 'rejected']);
-
-const toStatusCode = (value) => {
-  if (value === null || value === undefined) {
-    return null;
-  }
-  if (typeof value === 'number' && Number.isFinite(value)) {
-    return value;
-  }
-  if (typeof value === 'string') {
-    const trimmed = value.trim();
-    if (!trimmed) {
-      return null;
-    }
-    const parsed = Number.parseInt(trimmed, 10);
-    return Number.isNaN(parsed) ? null : parsed;
-  }
-  return null;
-};
 
 const toMillis = (value) => {
   if (!value) return 0;
@@ -84,9 +71,8 @@ const computeIntegrationStatusSummary = (
     hasStatuses = true;
     const stateRaw = typeof entry.state === 'string' ? entry.state.toLowerCase() : '';
     const updatedAt = toMillis(entry.updatedAt);
-    const responseStatus = toStatusCode(entry.responseStatus);
-    const responseStatusIsError =
-      typeof responseStatus === 'number' && responseStatus >= 400;
+    const responseStatus = resolveIntegrationResponseStatus(entry);
+    const responseStatusIsError = isErrorStatusCode(responseStatus);
     const normalized = {
       state: responseStatusIsError && !stateRaw ? 'error' : stateRaw,
       updatedAt,
