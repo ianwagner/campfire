@@ -657,7 +657,9 @@ export const dispatchIntegrationForAssets = async ({
         responseStatusIsError = false;
       }
 
-      if (!response.ok || responseStatusIsError) {
+      const responseFailedWithoutDuplicateConflict = !response.ok && !duplicateConflict;
+
+      if (responseFailedWithoutDuplicateConflict || responseStatusIsError) {
         const message =
           integrationErrorMessage ||
           parsedResponse?.error ||
