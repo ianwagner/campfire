@@ -944,6 +944,8 @@ const AdGroupDetail = () => {
   const [menuRecipe, setMenuRecipe] = useState(null);
   const [inspectRecipe, setInspectRecipe] = useState(null);
   const [integrationDetail, setIntegrationDetail] = useState(null);
+  const [resubmittingIntegrationAssetIds, setResubmittingIntegrationAssetIds] =
+    useState(() => new Set());
   const menuRef = useRef(null);
   const allFeedbackLoadedRef = useRef(false);
   const autoSummaryTriggeredRef = useRef(false);
@@ -1034,26 +1036,41 @@ const AdGroupDetail = () => {
           ? statusEntry.errorMessage.trim()
           : "";
 
+      const responseStatusValue = statusEntry.responseStatus;
+      const responseStatus =
+        responseStatusValue !== undefined &&
+        responseStatusValue !== null &&
+        String(responseStatusValue).trim() !== ""
+          ? String(responseStatusValue).trim()
+          : "";
+      const statusSuffix = responseStatus ? ` • ${responseStatus}` : "";
+
       let text = "";
       let className = "";
       let tone = "info";
       let title = "";
 
       if (["sending", "sent", "in_progress", "queued", "pending"].includes(state)) {
-        text = `Sent to ${resolvedName}`;
+        text = `Sent to ${resolvedName}${statusSuffix}`;
         className = "bg-indigo-600 text-white";
         tone = "info";
       } else if (
         ["received", "succeeded", "completed", "delivered"].includes(state)
       ) {
-        text = `Received by ${resolvedName}`;
+        text = `Received by ${resolvedName}${statusSuffix}`;
         className = "bg-emerald-600 text-white";
         tone = "success";
       } else if (["error", "failed", "rejected"].includes(state)) {
-        text = "Error";
+        const errorContext = errorMessage || `Delivery to ${resolvedName} failed.`;
+        const statusPortion = statusSuffix ? statusSuffix : "";
+        const namePortion = resolvedName ? ` from ${resolvedName}` : "";
+        const separator = errorContext ? ":" : "";
+        text = `Error${namePortion}${statusPortion}${separator}${
+          errorContext ? ` ${errorContext}` : ""
+        }`.trim();
         className = "bg-red-600 text-white";
         tone = "error";
-        title = errorMessage;
+        title = errorContext;
       } else {
         return null;
       }
@@ -1104,6 +1121,54 @@ const AdGroupDetail = () => {
   );
   const integrationDetailHeaders = formatJsonValue(
     integrationDetailStatus?.responseHeaders,
+  );
+  const integrationDetailAssetDocId = integrationDetailAsset
+    ? getAssetDocumentId(integrationDetailAsset)
+    : "";
+  const integrationDetailIsResubmitting =
+    integrationDetailAssetDocId &&
+    resubmittingIntegrationAssetIds.has(integrationDetailAssetDocId);
+
+  const handleResubmitIntegration = useCallback(
+    async (asset) => {
+      if (!assignedIntegrationId || !asset) {
+        return;
+      }
+
+      const docId = getAssetDocumentId(asset);
+      if (!docId) {
+        return;
+      }
+
+      setResubmittingIntegrationAssetIds((prev) => {
+        const next = new Set(prev);
+        next.add(docId);
+        return next;
+      });
+
+      try {
+        await dispatchIntegrationForAssets({
+          groupId: id,
+          integrationId: assignedIntegrationId,
+          integrationName: assignedIntegrationName,
+          assets: [asset],
+        });
+      } catch (error) {
+        console.error("Failed to resubmit integration delivery", error);
+      } finally {
+        setResubmittingIntegrationAssetIds((prev) => {
+          const next = new Set(prev);
+          next.delete(docId);
+          return next;
+        });
+      }
+    },
+    [
+      assignedIntegrationId,
+      assignedIntegrationName,
+      dispatchIntegrationForAssets,
+      id,
+    ],
   );
 
   useEffect(() => {
@@ -4444,6 +4509,14 @@ const AdGroupDetail = () => {
       INTEGRATION_TONE_STYLES.info;
     const integrationAssetLabel =
       integrationSummary?.asset?.filename || "Unnamed asset";
+    const integrationSummaryAssetDocId = integrationSummary?.asset
+      ? getAssetDocumentId(integrationSummary.asset)
+      : "";
+    const isResubmittingIntegrationAsset =
+      integrationSummaryAssetDocId &&
+      resubmittingIntegrationAssetIds.has(integrationSummaryAssetDocId);
+    const canShowResubmitButton =
+      canManageIntegrations && integrationSummary?.badge?.tone === "error";
     const replacementEntries = activeAds
       .map((asset) => {
         const request = asset.replacementRequest;
@@ -4691,6 +4764,22 @@ const AdGroupDetail = () => {
                     </span>
                   </span>
                 </button>
+                {canShowResubmitButton && (
+                  <Button
+                    type="button"
+                    variant="neutral"
+                    size="sm"
+                    onClick={() =>
+                      handleResubmitIntegration(integrationSummary.asset)
+                    }
+                    disabled={isResubmittingIntegrationAsset}
+                  >
+                    <FiRefreshCw className="h-4 w-4" aria-hidden="true" />
+                    {isResubmittingIntegrationAsset
+                      ? "Resubmitting..."
+                      : "Resubmit"}
+                  </Button>
+                )}
               </div>
             ) : (
               editAsset && (
@@ -6629,7 +6718,23 @@ const AdGroupDetail = () => {
               )}
             </section>
           </div>
-          <div className="mt-4 flex justify-end">
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
+            {canManageIntegrations &&
+              integrationDetailBadge?.tone === "error" &&
+              integrationDetailAsset && (
+                <Button
+                  type="button"
+                  variant="neutral"
+                  size="sm"
+                  onClick={() => handleResubmitIntegration(integrationDetailAsset)}
+                  disabled={integrationDetailIsResubmitting}
+                >
+                  <FiRefreshCw className="h-4 w-4" aria-hidden="true" />
+                  {integrationDetailIsResubmitting
+                    ? "Resubmitting..."
+                    : "Resubmit"}
+                </Button>
+              )}
             <IconButton onClick={() => setIntegrationDetail(null)}>Close</IconButton>
           </div>
         </Modal>
