@@ -409,8 +409,16 @@ const extractDuplicateConflictMessage = (dispatchEntry, parsedResponse) => {
   );
 };
 
+const getDuplicateConflictMessage = (statusCode, dispatchEntry, parsedResponse) => {
+  if (statusCode !== null && Number.isFinite(statusCode) && statusCode < 400) {
+    return '';
+  }
+
+  return extractDuplicateConflictMessage(dispatchEntry, parsedResponse);
+};
+
 export const isDuplicateConflictResponse = (statusCode, dispatchEntry, parsedResponse) =>
-  statusCode === 409 && Boolean(extractDuplicateConflictMessage(dispatchEntry, parsedResponse));
+  Boolean(getDuplicateConflictMessage(statusCode, dispatchEntry, parsedResponse));
 
 export const updateIntegrationStatusForAssets = async (
   {
@@ -432,6 +440,8 @@ export const updateIntegrationStatusForAssets = async (
   }
 
   const { errorMessage = '' } = options;
+  const statusMessage =
+    typeof options.statusMessage === 'string' ? options.statusMessage : '';
   const hasRequestPayload = hasOwn(options, 'requestPayload');
   const hasResponsePayload = hasOwn(options, 'responsePayload');
   const hasResponseStatus = hasOwn(options, 'responseStatus');
@@ -454,11 +464,12 @@ export const updateIntegrationStatusForAssets = async (
         integrationName: integrationName || '',
         updatedAt: timestamp,
       };
-      if (nextState === 'error') {
+      if (nextState === 'error' || nextState === 'duplicate') {
         payload.errorMessage = errorMessage || '';
       } else {
         payload.errorMessage = '';
       }
+      payload.statusMessage = statusMessage;
       if (hasRequestPayload) {
         payload.requestPayload =
           options.requestPayload === undefined ? null : options.requestPayload;
@@ -626,11 +637,6 @@ export const dispatchIntegrationForAssets = async ({
       }
 
       const statusEntry = parsedResponse?.dispatch;
-      const duplicateConflict = isDuplicateConflictResponse(
-        responseStatusCode,
-        statusEntry,
-        parsedResponse,
-      );
       const statusState = normalizeKeyPart(statusEntry?.status).toLowerCase();
       const integrationErrorMessage = normalizeKeyPart(
         statusEntry?.errorMessage,
@@ -652,12 +658,47 @@ export const dispatchIntegrationForAssets = async ({
         }
       }
 
+      const duplicateConflictMessage = getDuplicateConflictMessage(
+        responseStatusCode,
+        statusEntry,
+        parsedResponse,
+      );
+      const duplicateConflict = Boolean(duplicateConflictMessage);
+
       let responseStatusIsError = isErrorStatusCode(responseStatusCode);
       if (responseStatusIsError && duplicateConflict) {
         responseStatusIsError = false;
       }
 
       const responseFailedWithoutDuplicateConflict = !response.ok && !duplicateConflict;
+
+      if (duplicateConflict) {
+        const integrationDisplayName = normalizeKeyPart(
+          statusEntry?.integrationName ?? integrationName,
+        );
+        const resolvedName = integrationDisplayName
+          ? `"${integrationDisplayName}"`
+          : 'integration';
+        const friendlyDuplicateMessage = `Already Exists in ${resolvedName}`;
+
+        await updateIntegrationStatusForAssets(
+          { groupId, integrationId, integrationName },
+          group.assets,
+          'duplicate',
+          {
+            errorMessage:
+              duplicateConflictMessage ||
+              integrationErrorMessage ||
+              `Duplicate detected for ${resolvedName}.`,
+            statusMessage: friendlyDuplicateMessage,
+            requestPayload: requestPayloadSnapshot,
+            responsePayload: responsePayloadSnapshot,
+            responseStatus: responseStatusCode,
+            responseHeaders: responseHeadersSnapshot,
+          },
+        );
+        continue;
+      }
 
       if (responseFailedWithoutDuplicateConflict || responseStatusIsError) {
         const message =

@@ -147,6 +147,12 @@ const INTEGRATION_TONE_STYLES = {
     dot: "bg-emerald-500",
     accent: "text-emerald-600",
   },
+  duplicate: {
+    container:
+      "border-purple-200 bg-purple-50 text-purple-700 hover:border-purple-300 hover:bg-purple-100 focus:ring-purple-500/40",
+    dot: "bg-purple-500",
+    accent: "text-purple-600",
+  },
   error: {
     container:
       "border-rose-200 bg-rose-50 text-rose-700 hover:border-rose-300 hover:bg-rose-100 focus:ring-rose-500/40",
@@ -157,6 +163,7 @@ const INTEGRATION_TONE_STYLES = {
 
 const INTEGRATION_TONE_PRIORITY = {
   error: 3,
+  duplicate: 2.5,
   info: 2,
   success: 1,
 };
@@ -1039,6 +1046,10 @@ const AdGroupDetail = () => {
         typeof statusEntry.errorMessage === "string"
           ? statusEntry.errorMessage.trim()
           : "";
+      const statusMessage =
+        typeof statusEntry.statusMessage === "string"
+          ? statusEntry.statusMessage.trim()
+          : "";
 
       const responseStatusCode = resolveIntegrationResponseStatus(statusEntry);
       const rawResponseStatus = statusEntry.responseStatus;
@@ -1059,6 +1070,7 @@ const AdGroupDetail = () => {
       const statusSuffix = responseStatus ? ` • ${responseStatus}` : "";
 
       const isErrorState = ["error", "failed", "rejected"].includes(state);
+      const isDuplicateState = state === "duplicate";
       const isSuccessState =
         ["received", "succeeded", "completed", "delivered"].includes(state);
       const isPendingState =
@@ -1069,7 +1081,13 @@ const AdGroupDetail = () => {
       let tone = "info";
       let title = "";
 
-      if (isErrorState || responseStatusIsError) {
+      if (isDuplicateState) {
+        const displayMessage = statusMessage || `Already Exists in ${resolvedName}`;
+        text = displayMessage;
+        className = "bg-purple-600 text-white";
+        tone = "duplicate";
+        title = errorMessage || statusMessage || displayMessage;
+      } else if (isErrorState || responseStatusIsError) {
         const errorContext =
           errorMessage || `Delivery to ${resolvedName} failed.`;
         const statusPortion = statusSuffix ? statusSuffix : "";
@@ -1094,12 +1112,15 @@ const AdGroupDetail = () => {
       }
 
       const normalizedState =
-        responseStatusIsError && !isErrorState ? "error" : state;
+        responseStatusIsError && !isErrorState && !isDuplicateState
+          ? "error"
+          : state;
 
       const normalizedEntry = {
         ...statusEntry,
         state: normalizedState,
         errorMessage,
+        statusMessage,
       };
 
       if (hasOwn(statusEntry, "requestPayload")) {
