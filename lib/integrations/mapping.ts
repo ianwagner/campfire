@@ -1683,6 +1683,30 @@ function tryParseDate(value: unknown): Date | undefined {
   return undefined;
 }
 
+function normalizeAdFormat(value: string | undefined): string | undefined {
+  if (!value) {
+    return undefined;
+  }
+
+  const normalized = value.trim().toLowerCase();
+  if (!normalized) {
+    return undefined;
+  }
+
+  const aliasMap: Record<string, string> = {
+    static: "Static",
+    still: "Static",
+    image: "Static",
+    video: "Video",
+    motion: "Video",
+    animated: "Video",
+    carousel: "Carousel",
+    slideshow: "Carousel",
+  };
+
+  return aliasMap[normalized] ?? value;
+}
+
 function formatRowValue(value: unknown): string | undefined {
   if (value === undefined || value === null) {
     return undefined;
@@ -2139,8 +2163,8 @@ function buildStandardAdExports(
     const productName = formatRowValue(
       extractStandardFieldValue("product", fieldContext)
     );
-    const format = formatRowValue(
-      extractStandardFieldValue("format", fieldContext)
+    const format = normalizeAdFormat(
+      formatRowValue(extractStandardFieldValue("format", fieldContext))
     );
     const moment = formatRowValue(extractStandardFieldValue("moment", fieldContext));
     const funnel = formatRowValue(extractStandardFieldValue("funnel", fieldContext));
