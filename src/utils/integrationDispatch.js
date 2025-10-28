@@ -342,7 +342,31 @@ export const getAssetDocumentId = (asset) =>
 
 const hasOwn = (obj, key) => Object.prototype.hasOwnProperty.call(obj, key);
 
-const DUPLICATE_MESSAGE_PATTERNS = [/duplicate/i, /already exists/i];
+const DUPLICATE_STATUS_CODES = new Set([208, 409]);
+
+const DUPLICATE_MESSAGE_PATTERNS = [
+  /duplicate/i,
+  /\balready\b.*\bexist/i,
+  /\balready\b.*\bsubmit/i,
+  /\balready\b.*\bupload/i,
+  /\balready\b.*\bprocess/i,
+  /\balready\b.*\bsent/i,
+  /\balready\b.*\bcreate/i,
+  /\balready\b.*\bassign/i,
+  /\balready\b.*\battach/i,
+  /\balready\b.*\bassociat/i,
+  /\bpreviously\b.*\bsubmit/i,
+  /\bpreviously\b.*\bupload/i,
+  /\bpreviously\b.*\bprocess/i,
+  /\balready\b.*\breport/i,
+  /\balready\b.*\bin flight/i,
+  /\balready\b.*\bin use/i,
+  /\balready\b.*\bon file/i,
+  /\bexist(?:s)?\s+already\b/i,
+];
+
+const matchesDuplicateMessage = (text) =>
+  DUPLICATE_MESSAGE_PATTERNS.some((pattern) => pattern.test(text));
 
 const collectCandidateMessages = (entry) => {
   const candidates = [];
@@ -363,12 +387,18 @@ const collectCandidateMessages = (entry) => {
   pushCandidate(entry.errorMessage);
   pushCandidate(entry.message);
   pushCandidate(entry.error);
+  pushCandidate(entry.detail);
+  pushCandidate(entry.description);
+  pushCandidate(entry.reason);
+  pushCandidate(entry.code);
+  pushCandidate(entry.errorCode);
 
   const body = entry.body;
   if (body && typeof body === 'object') {
     pushCandidate(body.error);
     pushCandidate(body.message);
     pushCandidate(body.detail);
+    pushCandidate(body.reason);
   } else {
     pushCandidate(body);
   }
@@ -378,12 +408,15 @@ const collectCandidateMessages = (entry) => {
     pushCandidate(response.errorMessage);
     pushCandidate(response.message);
     pushCandidate(response.error);
+    pushCandidate(response.detail);
+    pushCandidate(response.reason);
 
     const responseBody = response.body;
     if (responseBody && typeof responseBody === 'object') {
       pushCandidate(responseBody.error);
       pushCandidate(responseBody.message);
       pushCandidate(responseBody.detail);
+      pushCandidate(responseBody.reason);
     } else {
       pushCandidate(responseBody);
     }
@@ -392,7 +425,7 @@ const collectCandidateMessages = (entry) => {
   return candidates;
 };
 
-const extractDuplicateConflictMessage = (dispatchEntry, parsedResponse) => {
+const gatherCandidateMessages = (dispatchEntry, parsedResponse) => {
   const candidates = collectCandidateMessages(dispatchEntry);
 
   if (parsedResponse && typeof parsedResponse === 'object') {
@@ -402,19 +435,91 @@ const extractDuplicateConflictMessage = (dispatchEntry, parsedResponse) => {
     }
   }
 
-  return (
-    candidates.find((text) =>
-      DUPLICATE_MESSAGE_PATTERNS.every((pattern) => pattern.test(text)),
-    ) || ''
+  return candidates;
+};
+
+const extractDuplicateConflictMessage = (dispatchEntry, parsedResponse) => {
+  const candidates = gatherCandidateMessages(dispatchEntry, parsedResponse);
+  return candidates.find((text) => matchesDuplicateMessage(text)) || '';
+};
+
+const normalizeStatusCode = (statusCode) => {
+  if (statusCode === null || statusCode === undefined) {
+    return null;
+  }
+  const numeric = Number(statusCode);
+  return Number.isFinite(numeric) ? numeric : null;
+};
+
+const indicatesDuplicateStatus = (entry) => {
+  if (!entry || typeof entry !== 'object') {
+    return false;
+  }
+
+  const candidates = [
+    entry.status,
+    entry.state,
+    entry.code,
+    entry.errorCode,
+    entry.result,
+    entry.type,
+    entry.reason,
+  ];
+
+  if (entry.response && typeof entry.response === 'object') {
+    candidates.push(entry.response.status, entry.response.statusCode, entry.response.reason);
+  }
+
+  return candidates.some(
+    (value) =>
+      typeof value === 'string' &&
+      normalizeKeyPart(value).toLowerCase() === 'duplicate',
   );
 };
 
 const getDuplicateConflictMessage = (statusCode, dispatchEntry, parsedResponse) => {
-  if (statusCode !== null && Number.isFinite(statusCode) && statusCode < 400) {
+  const normalizedStatusCode = normalizeStatusCode(statusCode);
+  if (normalizedStatusCode !== null && normalizedStatusCode < 400) {
     return '';
   }
 
-  return extractDuplicateConflictMessage(dispatchEntry, parsedResponse);
+  const candidates = gatherCandidateMessages(dispatchEntry, parsedResponse);
+  const duplicateMessage = candidates.find((text) => matchesDuplicateMessage(text));
+  if (duplicateMessage) {
+    return duplicateMessage;
+  }
+
+  const statusCodeIndicatesDuplicate =
+    normalizedStatusCode !== null && DUPLICATE_STATUS_CODES.has(normalizedStatusCode);
+  const hasDuplicateHint = candidates.some((text) =>
+    /\b(duplicate|already|exist|previous)\b/i.test(text),
+  );
+  const shouldTreatAsDuplicateByStatusCode =
+    statusCodeIndicatesDuplicate && (hasDuplicateHint || candidates.length === 0);
+  const dispatchIndicatesDuplicate =
+    indicatesDuplicateStatus(dispatchEntry) ||
+    indicatesDuplicateStatus(dispatchEntry?.dispatch);
+  const parsedIndicatesDuplicate =
+    indicatesDuplicateStatus(parsedResponse) ||
+    indicatesDuplicateStatus(parsedResponse?.dispatch);
+
+  if (
+    shouldTreatAsDuplicateByStatusCode ||
+    dispatchIndicatesDuplicate ||
+    parsedIndicatesDuplicate
+  ) {
+    if (candidates.length > 0) {
+      return candidates[0];
+    }
+
+    if (statusCodeIndicatesDuplicate) {
+      return `Duplicate detected (status ${normalizedStatusCode}).`;
+    }
+
+    return 'Duplicate detected.';
+  }
+
+  return '';
 };
 
 export const isDuplicateConflictResponse = (statusCode, dispatchEntry, parsedResponse) =>
