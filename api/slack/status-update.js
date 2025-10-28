@@ -17,6 +17,78 @@ const mentionLookupCache = new Map();
 const MENTION_LOOKUP_SUCCESS_TTL_MS = 6 * 60 * 60 * 1000; // 6 hours
 const MENTION_LOOKUP_FAILURE_TTL_MS = 10 * 60 * 1000; // 10 minutes
 
+const RECENT_STATUS_NOTIFICATION_TTL_MS = 15 * 1000; // 15 seconds
+const recentStatusNotificationCache = new Map();
+
+function pruneRecentStatusNotifications(now = Date.now()) {
+  for (const [key, entry] of recentStatusNotificationCache.entries()) {
+    if (!entry || typeof entry.timestamp !== "number") {
+      recentStatusNotificationCache.delete(key);
+      continue;
+    }
+    if (now - entry.timestamp > RECENT_STATUS_NOTIFICATION_TTL_MS) {
+      recentStatusNotificationCache.delete(key);
+    }
+  }
+}
+
+function normalizeForCache(value, { lower = false } = {}) {
+  if (typeof value !== "string") {
+    return "";
+  }
+  let normalized = value.trim();
+  if (!normalized) {
+    return "";
+  }
+  if (lower) {
+    normalized = normalized.toLowerCase();
+  }
+  return normalized;
+}
+
+function normalizeUrlForCache(value) {
+  const normalized = normalizeForCache(value);
+  if (!normalized) {
+    return "";
+  }
+  return normalized.replace(/\/+$/, "");
+}
+
+function buildStatusNotificationCacheKey({
+  brandCode,
+  adGroupId,
+  status,
+  reviewUrl,
+  adGroupUrl,
+  note,
+}) {
+  return JSON.stringify({
+    brandCode: normalizeForCache(brandCode, { lower: true }),
+    adGroupId: normalizeForCache(adGroupId, { lower: true }),
+    status: normalizeForCache(status, { lower: true }),
+    reviewUrl: normalizeUrlForCache(reviewUrl),
+    adGroupUrl: normalizeUrlForCache(adGroupUrl),
+    note: normalizeForCache(note),
+  });
+}
+
+function markStatusNotificationProcessed(key) {
+  if (!key) {
+    return;
+  }
+  recentStatusNotificationCache.set(key, {
+    timestamp: Date.now(),
+    inFlight: false,
+  });
+}
+
+function clearStatusNotificationEntry(key) {
+  if (!key) {
+    return;
+  }
+  recentStatusNotificationCache.delete(key);
+}
+
 const SINGLE_MENTION_SENTINEL = "__SLACK_MENTION__";
 const MULTI_MENTION_SENTINEL = "__SLACK_MENTIONS__";
 
@@ -1380,6 +1452,33 @@ module.exports = async function handler(req, res) {
     return;
   }
 
+  const dedupeKey = buildStatusNotificationCacheKey({
+    brandCode: normalizedBrandCode || rawBrandCode,
+    adGroupId,
+    status,
+    reviewUrl: reviewUrlRaw,
+    adGroupUrl: adGroupUrlRaw,
+    note,
+  });
+
+  const now = Date.now();
+  pruneRecentStatusNotifications(now);
+
+  const existingEntry = recentStatusNotificationCache.get(dedupeKey);
+  if (existingEntry && now - existingEntry.timestamp < RECENT_STATUS_NOTIFICATION_TTL_MS) {
+    res.status(200).json({
+      ok: true,
+      deduplicated: true,
+      message: "Duplicate Slack status notification suppressed.",
+    });
+    return;
+  }
+
+  recentStatusNotificationCache.set(dedupeKey, {
+    timestamp: now,
+    inFlight: true,
+  });
+
   try {
     const collection = db.collection("slackChannelMappings");
     const brandCodeQueries = [
@@ -1411,6 +1510,7 @@ module.exports = async function handler(req, res) {
     }
 
     if (!docsById.size) {
+      markStatusNotificationProcessed(dedupeKey);
       res
         .status(200)
         .json({ ok: true, message: "No Slack channel connected for this brand." });
@@ -1748,13 +1848,16 @@ module.exports = async function handler(req, res) {
 
     const failed = results.filter((r) => !r.ok);
     if (failed.length && failed.length === results.length) {
+      clearStatusNotificationEntry(dedupeKey);
       res.status(502).json({ error: "Failed to post Slack message", results });
       return;
     }
 
+    markStatusNotificationProcessed(dedupeKey);
     res.status(200).json({ ok: true, results });
   } catch (error) {
     console.error("Slack status update error", error);
+    clearStatusNotificationEntry(dedupeKey);
     res.status(500).json({ error: error.message || "Internal Server Error" });
   }
 };
