@@ -39,6 +39,10 @@ import {
 } from "react-icons/fi";
 import { Bubbles } from "lucide-react";
 import { toDateSafe } from "./utils/helpdesk";
+import {
+  isErrorStatusCode,
+  resolveIntegrationResponseStatus,
+} from "./utils/integrationStatus";
 import { FaMagic } from "react-icons/fa";
 import RecipePreview from "./RecipePreview.jsx";
 import CopyRecipePreview from "./CopyRecipePreview.jsx";
@@ -125,24 +129,6 @@ const PlaceholderIcon = ({ ext }) => {
       <Icon size={32} />
     </div>
   );
-};
-
-const toStatusCode = (value) => {
-  if (value === null || value === undefined) {
-    return null;
-  }
-  if (typeof value === "number" && Number.isFinite(value)) {
-    return value;
-  }
-  if (typeof value === "string") {
-    const trimmed = value.trim();
-    if (!trimmed) {
-      return null;
-    }
-    const parsed = Number.parseInt(trimmed, 10);
-    return Number.isNaN(parsed) ? null : parsed;
-  }
-  return null;
 };
 
 const hasOwn = (target, property) =>
@@ -1054,16 +1040,22 @@ const AdGroupDetail = () => {
           ? statusEntry.errorMessage.trim()
           : "";
 
-      const responseStatusValue = statusEntry.responseStatus;
-      const responseStatus =
-        responseStatusValue !== undefined &&
-        responseStatusValue !== null &&
-        String(responseStatusValue).trim() !== ""
-          ? String(responseStatusValue).trim()
-          : "";
-      const responseStatusCode = toStatusCode(responseStatusValue);
-      const responseStatusIsError =
-        typeof responseStatusCode === "number" && responseStatusCode >= 400;
+      const responseStatusCode = resolveIntegrationResponseStatus(statusEntry);
+      const rawResponseStatus = statusEntry.responseStatus;
+      const resolvedResponseStatusLabel = (() => {
+        if (responseStatusCode !== null && Number.isFinite(responseStatusCode)) {
+          return String(responseStatusCode);
+        }
+        if (rawResponseStatus !== undefined && rawResponseStatus !== null) {
+          const normalized = String(rawResponseStatus).trim();
+          if (normalized) {
+            return normalized;
+          }
+        }
+        return "";
+      })();
+      const responseStatus = resolvedResponseStatusLabel;
+      const responseStatusIsError = isErrorStatusCode(responseStatusCode);
       const statusSuffix = responseStatus ? ` • ${responseStatus}` : "";
 
       const isErrorState = ["error", "failed", "rejected"].includes(state);

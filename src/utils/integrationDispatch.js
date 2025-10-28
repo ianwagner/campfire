@@ -2,6 +2,7 @@ import { doc, serverTimestamp, writeBatch } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import getVersion from './getVersion';
 import parseAdFilename from './parseAdFilename';
+import { isErrorStatusCode, toStatusCode } from './integrationStatus';
 
 const normalizeKeyPart = (value) => {
   if (value === null || value === undefined) return '';
@@ -543,7 +544,8 @@ export const dispatchIntegrationForAssets = async ({
         }),
       });
 
-      responseStatusCode = response.status;
+      const workerStatusCode = response.status;
+      responseStatusCode = workerStatusCode;
       responseText = await response.text();
       if (responseText) {
         try {
@@ -563,12 +565,29 @@ export const dispatchIntegrationForAssets = async ({
       responsePayloadSnapshot = parsedResponse || responseText || null;
       responseHeadersSnapshot = headersEntry || null;
 
-      if (!response.ok) {
+      if (statusEntry && typeof statusEntry === 'object') {
+        const dispatchStatusCode = toStatusCode(
+          statusEntry.status ??
+            statusEntry.statusCode ??
+            statusEntry.response?.status ??
+            statusEntry.response?.statusCode,
+        );
+        if (dispatchStatusCode !== null) {
+          responseStatusCode = dispatchStatusCode;
+        }
+      }
+
+      const responseStatusIsError = isErrorStatusCode(responseStatusCode);
+
+      if (!response.ok || responseStatusIsError) {
         const message =
           integrationErrorMessage ||
           parsedResponse?.error ||
+          statusEntry?.message ||
           response.statusText ||
-          'Integration request failed.';
+          (responseStatusIsError
+            ? `Integration responded with status ${responseStatusCode}.`
+            : 'Integration request failed.');
         await updateIntegrationStatusForAssets(
           { groupId, integrationId, integrationName },
           group.assets,
