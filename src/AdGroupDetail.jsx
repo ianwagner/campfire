@@ -127,6 +127,24 @@ const PlaceholderIcon = ({ ext }) => {
   );
 };
 
+const toStatusCode = (value) => {
+  if (value === null || value === undefined) {
+    return null;
+  }
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed) {
+      return null;
+    }
+    const parsed = Number.parseInt(trimmed, 10);
+    return Number.isNaN(parsed) ? null : parsed;
+  }
+  return null;
+};
+
 const hasOwn = (target, property) =>
   Object.prototype.hasOwnProperty.call(target, property);
 
@@ -1043,25 +1061,25 @@ const AdGroupDetail = () => {
         String(responseStatusValue).trim() !== ""
           ? String(responseStatusValue).trim()
           : "";
+      const responseStatusCode = toStatusCode(responseStatusValue);
+      const responseStatusIsError =
+        typeof responseStatusCode === "number" && responseStatusCode >= 400;
       const statusSuffix = responseStatus ? ` • ${responseStatus}` : "";
+
+      const isErrorState = ["error", "failed", "rejected"].includes(state);
+      const isSuccessState =
+        ["received", "succeeded", "completed", "delivered"].includes(state);
+      const isPendingState =
+        ["sending", "sent", "in_progress", "queued", "pending"].includes(state);
 
       let text = "";
       let className = "";
       let tone = "info";
       let title = "";
 
-      if (["sending", "sent", "in_progress", "queued", "pending"].includes(state)) {
-        text = `Sent to ${resolvedName}${statusSuffix}`;
-        className = "bg-indigo-600 text-white";
-        tone = "info";
-      } else if (
-        ["received", "succeeded", "completed", "delivered"].includes(state)
-      ) {
-        text = `Received by ${resolvedName}${statusSuffix}`;
-        className = "bg-emerald-600 text-white";
-        tone = "success";
-      } else if (["error", "failed", "rejected"].includes(state)) {
-        const errorContext = errorMessage || `Delivery to ${resolvedName} failed.`;
+      if (isErrorState || responseStatusIsError) {
+        const errorContext =
+          errorMessage || `Delivery to ${resolvedName} failed.`;
         const statusPortion = statusSuffix ? statusSuffix : "";
         const namePortion = resolvedName ? ` from ${resolvedName}` : "";
         const separator = errorContext ? ":" : "";
@@ -1071,13 +1089,24 @@ const AdGroupDetail = () => {
         className = "bg-red-600 text-white";
         tone = "error";
         title = errorContext;
+      } else if (isSuccessState) {
+        text = `Received by ${resolvedName}${statusSuffix}`;
+        className = "bg-emerald-600 text-white";
+        tone = "success";
+      } else if (isPendingState) {
+        text = `Sent to ${resolvedName}${statusSuffix}`;
+        className = "bg-indigo-600 text-white";
+        tone = "info";
       } else {
         return null;
       }
 
+      const normalizedState =
+        responseStatusIsError && !isErrorState ? "error" : state;
+
       const normalizedEntry = {
         ...statusEntry,
-        state,
+        state: normalizedState,
         errorMessage,
       };
 
