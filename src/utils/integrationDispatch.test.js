@@ -25,6 +25,31 @@ describe('isDuplicateConflictResponse', () => {
     expect(isDuplicateConflictResponse(500, null, parsedResponse)).toBe(true);
   });
 
+  it('returns true when message only references an existing record', () => {
+    const dispatchEntry = {
+      message: 'Record already exists',
+    };
+
+    expect(isDuplicateConflictResponse(500, dispatchEntry, null)).toBe(true);
+  });
+
+  it('returns true when dispatch marks the status as duplicate', () => {
+    const dispatchEntry = {
+      status: 'duplicate',
+      message: '',
+    };
+
+    expect(isDuplicateConflictResponse(500, dispatchEntry, null)).toBe(true);
+  });
+
+  it('returns true for 409 responses that have duplicate hints', () => {
+    const dispatchEntry = {
+      message: 'Campaign has already been submitted',
+    };
+
+    expect(isDuplicateConflictResponse(409, dispatchEntry, null)).toBe(true);
+  });
+
   it('returns false when message does not indicate a duplicate', () => {
     const dispatchEntry = {
       body: {

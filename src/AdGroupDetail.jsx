@@ -1248,7 +1248,12 @@ const AdGroupDetail = () => {
         typeof statusEntry?.state === "string"
           ? statusEntry.state.trim().toLowerCase()
           : "";
-      if (state === "received" || state === "sending") {
+      if (
+        state === "received" ||
+        state === "sending" ||
+        state === "duplicate" ||
+        state === "error"
+      ) {
         return false;
       }
       return true;
