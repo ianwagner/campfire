@@ -15,6 +15,16 @@ describe('isDuplicateConflictResponse', () => {
     expect(isDuplicateConflictResponse(409, dispatchEntry, null)).toBe(true);
   });
 
+  it('returns true when a server error includes a duplicate message', () => {
+    const parsedResponse = {
+      body: {
+        error: 'Duplicate: Group "INDIANA" Recipe 2 already exists',
+      },
+    };
+
+    expect(isDuplicateConflictResponse(500, null, parsedResponse)).toBe(true);
+  });
+
   it('returns false when message does not indicate a duplicate', () => {
     const dispatchEntry = {
       body: {
@@ -33,7 +43,7 @@ describe('isDuplicateConflictResponse', () => {
     expect(isDuplicateConflictResponse(409, null, parsedResponse)).toBe(true);
   });
 
-  it('returns false for non-conflict status codes', () => {
+  it('returns false for non-error status codes', () => {
     const dispatchEntry = {
       body: {
         message: 'Duplicate: Group "INDIANA" Recipe 2 already exists',
