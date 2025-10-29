@@ -1177,6 +1177,11 @@ const AdGroupDetail = () => {
         return;
       }
 
+      const badgeDetails = getIntegrationBadgeDetails(asset);
+      if (badgeDetails?.state === "duplicate") {
+        return;
+      }
+
       const docId = getAssetDocumentId(asset);
       if (!docId) {
         return;
@@ -1209,6 +1214,7 @@ const AdGroupDetail = () => {
       assignedIntegrationId,
       assignedIntegrationName,
       dispatchIntegrationForAssets,
+      getIntegrationBadgeDetails,
       id,
     ],
   );
@@ -4563,7 +4569,9 @@ const AdGroupDetail = () => {
       integrationSummaryAssetDocId &&
       resubmittingIntegrationAssetIds.has(integrationSummaryAssetDocId);
     const canShowResubmitButton =
-      canManageIntegrations && integrationSummary?.badge?.tone === "error";
+      canManageIntegrations &&
+      integrationSummary?.badge?.tone === "error" &&
+      integrationSummary?.badge?.state !== "duplicate";
     const replacementEntries = activeAds
       .map((asset) => {
         const request = asset.replacementRequest;
@@ -6768,6 +6776,7 @@ const AdGroupDetail = () => {
           <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
             {canManageIntegrations &&
               integrationDetailBadge?.tone === "error" &&
+              integrationDetailBadge?.state !== "duplicate" &&
               integrationDetailAsset && (
                 <Button
                   type="button"
