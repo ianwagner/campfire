@@ -77,4 +77,24 @@ describe('computeIntegrationStatusSummary', () => {
       errorMessage: 'Remote validation failed',
     });
   });
+
+  it('treats duplicate states as successful when no errors are present', () => {
+    const integrationId = 'compass';
+    const baseTime = Date.now();
+    const duplicateAsset = buildAsset(integrationId, {
+      state: 'duplicate',
+      responseStatus: 409,
+      updatedAt: baseTime + 1000,
+      errorMessage: 'Already exists',
+    });
+
+    const summary = computeIntegrationStatusSummary(integrationId, 'Compass', [duplicateAsset]);
+
+    expect(summary).toMatchObject({
+      outcome: 'success',
+      wasTriggered: true,
+      latestState: 'duplicate',
+      responseStatus: 409,
+    });
+  });
 });
