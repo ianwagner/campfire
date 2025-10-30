@@ -754,4 +754,48 @@ describe("filterApprovedAdsBySelection", () => {
     expect(result).toHaveLength(1);
     expect(result[0].adId).toBe("selected-ad");
   });
+
+  it("accepts singular approvedAsset objects when selecting ads", () => {
+    const ads: IntegrationAdExport[] = [
+      buildAd({ adId: "first-ad" }),
+      buildAd({ adId: "chosen-ad" }),
+    ];
+
+    const payload = {
+      approvedAsset: {
+        id: "chosen-ad",
+      },
+    } as Record<string, unknown>;
+
+    const result = __TESTING__.filterApprovedAdsBySelection(ads, payload);
+
+    expect(result).toHaveLength(1);
+    expect(result[0].adId).toBe("chosen-ad");
+  });
+
+  it("extracts recipe identifiers from singular approvedAd records", () => {
+    const ads: IntegrationAdExport[] = [
+      buildAd({
+        adId: "review|recipe-a",
+        recipeNumber: "A",
+        recipeFields: { "Recipe Number": "A" },
+      }),
+      buildAd({
+        adId: "review|recipe-b",
+        recipeNumber: "B",
+        recipeFields: { "Recipe Number": "B" },
+      }),
+    ];
+
+    const payload = {
+      approvedAd: {
+        recipeCode: "B",
+      },
+    } as Record<string, unknown>;
+
+    const result = __TESTING__.filterApprovedAdsBySelection(ads, payload);
+
+    expect(result).toHaveLength(1);
+    expect(result[0].recipeNumber).toBe("B");
+  });
 });
