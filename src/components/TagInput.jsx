@@ -8,6 +8,9 @@ const TagInput = ({
   id = 'tag-input',
   onlySuggestions = false,
   addOnBlur = false,
+  placeholder = '',
+  className = '',
+  inputClassName = '',
 }) => {
   const [input, setInput] = useState('');
 
@@ -33,7 +36,7 @@ const TagInput = ({
   };
 
   return (
-    <div className="flex flex-wrap items-center gap-1">
+    <div className={`flex flex-wrap items-center gap-1 ${className}`.trim()}>
       {value.map((tag) => (
         <span key={tag} className="tag bg-accent-10 text-accent">
           <span>{tag}</span>
@@ -54,7 +57,8 @@ const TagInput = ({
         onChange={(e) => setInput(e.target.value)}
         onKeyDown={handleKeyDown}
         onBlur={() => addOnBlur && addTag(input)}
-        className="flex-1 p-1 border rounded"
+        placeholder={placeholder}
+        className={`flex-1 rounded border border-gray-300 bg-white p-1 text-sm focus:border-[var(--accent-color)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)] focus:ring-offset-0 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)] dark:text-gray-200 ${inputClassName}`.trim()}
       />
       {suggestions.length > 0 && (
         <datalist id={`${id}-list`}>
