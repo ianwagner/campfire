@@ -289,10 +289,10 @@ const AdGroupCard = ({
               <div className="flex items-center gap-2 self-end">
                 {shouldShowIntegrationPill && (
                   <span
-                    className="tag-pill inline-flex items-center gap-1 border border-gray-300 bg-white px-2 py-0.5 text-xs text-gray-600 max-h-[22px]"
+                    className="tag-pill inline-flex items-center gap-1 border border-gray-300 bg-white px-2 py-0.5 text-xs text-gray-600 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 max-h-[22px]"
                     title={integrationTitle}
                   >
-                    <span className="flex h-5 w-5 items-center justify-center overflow-hidden rounded-full bg-white">
+                    <span className="flex h-5 w-5 items-center justify-center overflow-hidden rounded-full bg-white dark:bg-gray-900">
                       {integrationLogoUrl ? (
                         <img
                           src={integrationLogoUrl}
@@ -300,7 +300,7 @@ const AdGroupCard = ({
                           className="h-full w-full object-contain"
                         />
                       ) : (
-                        <span className="text-[10px] font-semibold uppercase text-gray-500">
+                        <span className="text-[10px] font-semibold uppercase text-gray-500 dark:text-gray-300">
                           {integrationInitial}
                         </span>
                       )}
@@ -309,7 +309,7 @@ const AdGroupCard = ({
                       <span
                         className={`flex h-4 w-4 items-center justify-center rounded-full ${
                           integrationOutcome === 'success'
-                            ? 'bg-gray-200 text-gray-600'
+                            ? 'bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-200'
                             : 'bg-rose-500 text-white'
                         }`}
                       >
