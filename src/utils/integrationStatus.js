@@ -106,6 +106,8 @@ const AUTO_DISPATCH_SKIP_STATES = new Set([
   "error",
   "failed",
   "rejected",
+  "manual",
+  "manual_input",
 ]);
 
 export const shouldSkipAutoDispatch = (state) => {
