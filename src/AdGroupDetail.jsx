@@ -894,6 +894,7 @@ const AdGroupDetail = () => {
     [assets],
   );
   const dueDateValue = useMemo(() => resolveDate(group?.dueDate), [group?.dueDate]);
+  const [brandAgencyId, setBrandAgencyId] = useState("");
   const schedulingAgencyId = useMemo(() => {
     const direct =
       typeof group?.agencyId === "string" ? group.agencyId.trim() : "";
@@ -928,7 +929,6 @@ const AdGroupDetail = () => {
   const [copyCards, setCopyCards] = useState([]);
   const [copyAssignments, setCopyAssignments] = useState({});
   const [showScheduleModal, setShowScheduleModal] = useState(false);
-  const [brandAgencyId, setBrandAgencyId] = useState('');
   const [updatingDueDate, setUpdatingDueDate] = useState(false);
   const [copyAssignmentSaving, setCopyAssignmentSaving] = useState({});
   const [showCopyModal, setShowCopyModal] = useState(false);
