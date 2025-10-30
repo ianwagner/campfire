@@ -12,6 +12,7 @@ const defaultAgency = {
   allowedRecipeTypes: [],
   defaultIntegrationId: null,
   defaultIntegrationName: '',
+  dailyAdCapacity: null,
 };
 
 const getStoredAgency = (id) => {
