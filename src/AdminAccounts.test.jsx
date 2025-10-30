@@ -5,27 +5,26 @@ import '@testing-library/jest-dom';
 import AdminAccounts from './AdminAccounts';
 
 jest.mock('./firebase/config', () => ({ db: {}, functions: {} }));
-jest.mock('./utils/debugLog', () => jest.fn());
 
-const mockGetDocs = jest.fn();
-const mockUpdateDoc = jest.fn();
-const mockDeleteDoc = jest.fn();
-const mockDoc = jest.fn(() => ({}));
-const mockCollection = jest.fn();
+const getDocs = jest.fn();
+const updateDoc = jest.fn();
+const deleteDoc = jest.fn();
+const docMock = jest.fn(() => ({}));
+const collectionMock = jest.fn();
 
 jest.mock('firebase/firestore', () => ({
-  collection: (...args) => mockCollection(...args),
-  getDocs: (...args) => mockGetDocs(...args),
-  updateDoc: (...args) => mockUpdateDoc(...args),
-  deleteDoc: (...args) => mockDeleteDoc(...args),
-  doc: (...args) => mockDoc(...args)
+  collection: (...args) => collectionMock(...args),
+  getDocs: (...args) => getDocs(...args),
+  updateDoc: (...args) => updateDoc(...args),
+  deleteDoc: (...args) => deleteDoc(...args),
+  doc: (...args) => docMock(...args)
 }));
 
-const mockCallableFn = jest.fn();
-const mockHttpsCallable = jest.fn(() => mockCallableFn);
+const callableFn = jest.fn();
+const httpsCallable = jest.fn(() => callableFn);
 
 jest.mock('firebase/functions', () => ({
-  httpsCallable: (...args) => mockHttpsCallable(...args)
+  httpsCallable: (...args) => httpsCallable(...args)
 }));
 
 global.confirm = jest.fn(() => true);
@@ -35,13 +34,8 @@ afterEach(() => {
 });
 
 test('calls signOutUser cloud function when Sign Out clicked', async () => {
-  mockGetDocs.mockResolvedValue({
-    docs: [
-      {
-        id: 'u1',
-        data: () => ({ role: 'client', brandCodes: [], email: 'user@example.com' })
-      }
-    ]
+  getDocs.mockResolvedValue({
+    docs: [{ id: 'u1', data: () => ({ role: 'client', brandCodes: [] }) }]
   });
 
   render(
@@ -52,7 +46,7 @@ test('calls signOutUser cloud function when Sign Out clicked', async () => {
 
   await waitFor(() => expect(screen.getByText('Sign Out')).toBeInTheDocument());
   fireEvent.click(screen.getByText('Sign Out'));
-  expect(mockHttpsCallable).toHaveBeenCalled();
-  expect(mockHttpsCallable.mock.calls[0][1]).toBe('signOutUser');
-  expect(mockCallableFn).toHaveBeenCalledWith({ uid: 'u1' });
+  expect(httpsCallable).toHaveBeenCalled();
+  expect(httpsCallable.mock.calls[0][1]).toBe('signOutUser');
+  expect(callableFn).toHaveBeenCalledWith({ uid: 'u1' });
 });
