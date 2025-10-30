@@ -39,7 +39,6 @@ import generatePassword from './utils/generatePassword';
 import ShareLinkModal from './components/ShareLinkModal.jsx';
 import StatusBadge from './components/StatusBadge.jsx';
 import IconButton from './components/IconButton.jsx';
-import SortButton from './components/SortButton.jsx';
 import PageToolbar from './components/PageToolbar.jsx';
 import { normalizeReviewVersion } from './utils/reviewVersion';
 import CreateButton from './components/CreateButton.jsx';
@@ -78,7 +77,7 @@ const AdminAdGroups = () => {
     const params = new URLSearchParams(location.search);
     return params.get('brandCode') || '';
   });
-  const [sortField, setSortField] = useState('status');
+  const [sortField, setSortField] = useState('title');
   const [designers, setDesigners] = useState([]);
   const [designerFilter, setDesignerFilter] = useState('');
   const [editors, setEditors] = useState([]);
@@ -506,9 +505,35 @@ const AdminAdGroups = () => {
       return value === normalizedReviewFilter;
     })
     .sort((a, b) => {
-      if (sortField === 'name') return (a.name || '').localeCompare(b.name || '');
-      if (sortField === 'brand') return (a.brandCode || '').localeCompare(b.brandCode || '');
-      return (statusOrder[a.status] ?? 99) - (statusOrder[b.status] ?? 99);
+      switch (sortField) {
+        case 'title':
+          return (a.name || '').localeCompare(b.name || '');
+        case 'month':
+          return (parseInt(a.month, 10) || 0) - (parseInt(b.month, 10) || 0);
+        case 'dueDate': {
+          const ad = a.dueDate
+            ? typeof a.dueDate.toDate === 'function'
+              ? a.dueDate.toDate()
+              : new Date(a.dueDate)
+            : null;
+          const bd = b.dueDate
+            ? typeof b.dueDate.toDate === 'function'
+              ? b.dueDate.toDate()
+              : new Date(b.dueDate)
+            : null;
+          const adTime = ad ? ad.getTime() : Infinity;
+          const bdTime = bd ? bd.getTime() : Infinity;
+          return adTime - bdTime;
+        }
+        case 'brand':
+          return (a.brandCode || '').localeCompare(b.brandCode || '');
+        case 'status':
+        default:
+          return (
+            (statusOrder[computeKanbanStatus(a)] ?? 99) -
+            (statusOrder[computeKanbanStatus(b)] ?? 99)
+          );
+      }
     });
 
   return (
@@ -547,7 +572,7 @@ const AdminAdGroups = () => {
                 <option value="3">Brief</option>
                 <option value="1">Legacy</option>
               </select>
-              {view === 'kanban' ? (
+              {view === 'kanban' && (
                 <>
                   <select
                     value={designerFilter}
@@ -570,27 +595,27 @@ const AdminAdGroups = () => {
                     ))}
                   </select>
                 </>
-              ) : (
-                <>
-                  <SortButton
-                    value={sortField}
-                    onChange={setSortField}
-                    options={[
-                      { value: 'status', label: 'Status' },
-                      { value: 'brand', label: 'Brand' },
-                      { value: 'name', label: 'Group Name' },
-                    ]}
-                  />
-                  <TabButton
-                    type="button"
-                    active={showArchived}
-                    onClick={() => setShowArchived((p) => !p)}
-                    aria-label={showArchived ? 'Hide archived' : 'Show archived'}
-                  >
-                    <FiArchive />
-                  </TabButton>
-                </>
               )}
+              <select
+                value={sortField}
+                onChange={(e) => setSortField(e.target.value)}
+                className="p-1 border rounded"
+                aria-label="Sort by"
+              >
+                <option value="title">Title</option>
+                <option value="month">Month</option>
+                <option value="dueDate">Due Date</option>
+                <option value="brand">Brand</option>
+                <option value="status">Status</option>
+              </select>
+              <TabButton
+                type="button"
+                active={showArchived}
+                onClick={() => setShowArchived((p) => !p)}
+                aria-label={showArchived ? 'Hide archived' : 'Show archived'}
+              >
+                <FiArchive />
+              </TabButton>
               <div className="border-l h-6 mx-2" />
               <TabButton active={view === 'table'} onClick={() => setView('table')} aria-label="Table view">
                 <FiList />
