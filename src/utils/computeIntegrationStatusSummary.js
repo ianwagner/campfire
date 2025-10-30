@@ -1,4 +1,10 @@
+import {
+  isErrorStatusCode,
+  resolveIntegrationResponseStatus,
+} from './integrationStatus';
+
 const SUCCESS_STATES = new Set(['received', 'succeeded', 'completed', 'delivered']);
+const DUPLICATE_STATES = new Set(['duplicate']);
 const ERROR_STATES = new Set(['error', 'failed', 'rejected']);
 
 const toMillis = (value) => {
@@ -54,7 +60,7 @@ const computeIntegrationStatusSummary = (
   const integrationName =
     typeof assignedIntegrationName === 'string' ? assignedIntegrationName : '';
 
-  let latestSuccess = null;
+  let latestPositive = null;
   let latestError = null;
   let hasStatuses = false;
 
@@ -66,25 +72,34 @@ const computeIntegrationStatusSummary = (
     hasStatuses = true;
     const stateRaw = typeof entry.state === 'string' ? entry.state.toLowerCase() : '';
     const updatedAt = toMillis(entry.updatedAt);
+    const responseStatus = resolveIntegrationResponseStatus(entry);
+    const responseStatusIsError = isErrorStatusCode(responseStatus);
+    const normalizedState = responseStatusIsError && !stateRaw ? 'error' : stateRaw;
     const normalized = {
-      state: stateRaw,
+      state: normalizedState,
       updatedAt,
       errorMessage:
         typeof entry.errorMessage === 'string' ? entry.errorMessage.trim() : '',
+      responseStatus,
+      isDuplicate: DUPLICATE_STATES.has(normalizedState),
     };
 
-    if (SUCCESS_STATES.has(stateRaw)) {
-      if (!latestSuccess || updatedAt > latestSuccess.updatedAt) {
-        latestSuccess = normalized;
+    if (normalized.isDuplicate) {
+      if (!latestPositive || updatedAt > latestPositive.updatedAt) {
+        latestPositive = normalized;
       }
-    } else if (ERROR_STATES.has(stateRaw)) {
+    } else if (SUCCESS_STATES.has(stateRaw) && !responseStatusIsError) {
+      if (!latestPositive || updatedAt > latestPositive.updatedAt) {
+        latestPositive = normalized;
+      }
+    } else if (ERROR_STATES.has(stateRaw) || responseStatusIsError) {
       if (!latestError || updatedAt > latestError.updatedAt) {
         latestError = normalized;
       }
     }
   });
 
-  if (!latestSuccess && !latestError) {
+  if (!latestPositive && !latestError) {
     if (!hasStatuses) {
       return {
         integrationId,
@@ -94,6 +109,7 @@ const computeIntegrationStatusSummary = (
         latestState: '',
         updatedAt: null,
         errorMessage: '',
+        responseStatus: null,
       };
     }
     // statuses exist but none success/error
@@ -105,18 +121,20 @@ const computeIntegrationStatusSummary = (
       latestState: '',
       updatedAt: null,
       errorMessage: '',
+      responseStatus: null,
     };
   }
 
-  if (latestSuccess && (!latestError || latestSuccess.updatedAt >= latestError.updatedAt)) {
+  if (latestPositive && (!latestError || latestPositive.updatedAt >= latestError.updatedAt)) {
     return {
       integrationId,
       integrationName,
       wasTriggered: true,
       outcome: 'success',
-      latestState: latestSuccess.state,
-      updatedAt: latestSuccess.updatedAt,
+      latestState: latestPositive.state,
+      updatedAt: latestPositive.updatedAt,
       errorMessage: '',
+      responseStatus: latestPositive.responseStatus,
     };
   }
 
@@ -128,6 +146,7 @@ const computeIntegrationStatusSummary = (
     latestState: latestError ? latestError.state : '',
     updatedAt: latestError ? latestError.updatedAt : null,
     errorMessage: latestError ? latestError.errorMessage : '',
+    responseStatus: latestError ? latestError.responseStatus : null,
   };
 };
 

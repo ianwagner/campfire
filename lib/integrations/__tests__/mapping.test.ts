@@ -679,3 +679,79 @@ describe("renderPayload", () => {
     });
   });
 });
+
+describe("filterApprovedAdsBySelection", () => {
+  const generatedAt = "2024-01-01T00:00:00.000Z";
+
+  const buildAd = (
+    overrides: Partial<IntegrationAdExport>,
+  ): IntegrationAdExport => ({
+    reviewId: "review-1",
+    generatedAt,
+    integrationId: "integration-1",
+    integrationName: "Integration",
+    integrationSlug: "integration",
+    dryRun: false,
+    adGroupId: "review-1",
+    adGroupName: "Group",
+    adId: "ad-1",
+    brandId: "brand-1",
+    brandName: "Brand",
+    assets: {
+      "1x1": null,
+      "4x5": null,
+      "9x16": null,
+    },
+    status: "approved",
+    ...overrides,
+  });
+
+  it("prioritizes ads whose recipe matches the requested identifier", () => {
+    const ads: IntegrationAdExport[] = [
+      buildAd({
+        adId: "review-1|recipe-1",
+        recipeNumber: "1",
+        recipeFields: { "Recipe Number": "1" },
+      }),
+      buildAd({
+        adId: "review-1|recipe-18",
+        recipeNumber: "18",
+        recipeFields: { "Recipe Number": "18" },
+      }),
+    ];
+
+    const payload = {
+      recipeIdentifier: "18",
+      approvedAssetIds: ["non-matching-asset"],
+    } as Record<string, unknown>;
+
+    const result = __TESTING__.filterApprovedAdsBySelection(ads, payload);
+
+    expect(result).toHaveLength(1);
+    expect(result[0].recipeNumber).toBe("18");
+  });
+
+  it("falls back to matching ad ids when no recipe identifiers match", () => {
+    const ads: IntegrationAdExport[] = [
+      buildAd({
+        adId: "selected-ad",
+      }),
+      buildAd({
+        adId: "another-ad",
+      }),
+      buildAd({
+        adId: "pending-ad",
+        status: "pending",
+      }),
+    ];
+
+    const payload = {
+      approvedAssetIds: ["selected-ad"],
+    } as Record<string, unknown>;
+
+    const result = __TESTING__.filterApprovedAdsBySelection(ads, payload);
+
+    expect(result).toHaveLength(1);
+    expect(result[0].adId).toBe("selected-ad");
+  });
+});

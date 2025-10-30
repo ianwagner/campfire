@@ -1683,6 +1683,30 @@ function tryParseDate(value: unknown): Date | undefined {
   return undefined;
 }
 
+function normalizeAdFormat(value: string | undefined): string | undefined {
+  if (!value) {
+    return undefined;
+  }
+
+  const normalized = value.trim().toLowerCase();
+  if (!normalized) {
+    return undefined;
+  }
+
+  const aliasMap: Record<string, string> = {
+    static: "Static",
+    still: "Static",
+    image: "Static",
+    video: "Video",
+    motion: "Video",
+    animated: "Video",
+    carousel: "Carousel",
+    slideshow: "Carousel",
+  };
+
+  return aliasMap[normalized] ?? value;
+}
+
 function formatRowValue(value: unknown): string | undefined {
   if (value === undefined || value === null) {
     return undefined;
@@ -2139,8 +2163,8 @@ function buildStandardAdExports(
     const productName = formatRowValue(
       extractStandardFieldValue("product", fieldContext)
     );
-    const format = formatRowValue(
-      extractStandardFieldValue("format", fieldContext)
+    const format = normalizeAdFormat(
+      formatRowValue(extractStandardFieldValue("format", fieldContext))
     );
     const moment = formatRowValue(extractStandardFieldValue("moment", fieldContext));
     const funnel = formatRowValue(extractStandardFieldValue("funnel", fieldContext));
@@ -3904,6 +3928,112 @@ function extractApprovedAdIds(payload: Record<string, unknown>): string[] {
   return Array.from(ids);
 }
 
+function extractRequestedRecipeIdentifiers(
+  payload: Record<string, unknown>,
+): string[] {
+  const identifiers = new Set<string>();
+
+  const tryAdd = (value: unknown) => {
+    const normalized = normalizeRecipeIdentifierCandidate(value);
+    if (normalized) {
+      identifiers.add(normalized);
+    }
+  };
+
+  tryAdd(payload["recipeIdentifier"]);
+  tryAdd(payload["recipeCode"]);
+  tryAdd(payload["recipeNumber"]);
+  tryAdd(payload["recipe_no"]);
+  tryAdd(payload["recipeId"]);
+  tryAdd(payload["recipe_id"]);
+
+  const rawApprovedAssets = payload["approvedAssets"];
+  if (Array.isArray(rawApprovedAssets)) {
+    for (const entry of rawApprovedAssets) {
+      if (entry && typeof entry === "object") {
+        const record = entry as Record<string, unknown>;
+        tryAdd(record.recipeCode);
+        tryAdd(record.recipeNumber);
+        tryAdd(record.recipe_no);
+      }
+    }
+  }
+
+  const rawApprovedAds = payload["approvedAds"];
+  if (Array.isArray(rawApprovedAds)) {
+    for (const entry of rawApprovedAds) {
+      if (entry && typeof entry === "object") {
+        const record = entry as Record<string, unknown>;
+        tryAdd(record.recipeCode);
+        tryAdd(record.recipeNumber);
+        tryAdd(record.recipe_no);
+      }
+    }
+  }
+
+  return Array.from(identifiers);
+}
+
+function extractRecipeIdentifiersFromExport(
+  ad: IntegrationAdExport,
+): string[] {
+  const identifiers = new Set<string>();
+
+  const tryAdd = (value: unknown) => {
+    const normalized = normalizeRecipeIdentifierCandidate(value);
+    if (normalized) {
+      identifiers.add(normalized);
+    }
+  };
+
+  tryAdd(ad.recipeNumber);
+
+  if (isRecord(ad.recipeFields)) {
+    const recipeFields = ad.recipeFields as Record<string, unknown>;
+    tryAdd(recipeFields["Recipe Number"]);
+    tryAdd(recipeFields["recipeNumber"]);
+    tryAdd(recipeFields["recipe_no"]);
+    tryAdd(recipeFields["Recipe Code"]);
+    tryAdd(recipeFields["recipeCode"]);
+  }
+
+  return Array.from(identifiers);
+}
+
+function filterApprovedAdsBySelection(
+  ads: IntegrationAdExport[],
+  payload: Record<string, unknown>,
+): IntegrationAdExport[] {
+  let approvedAds = ads.filter((ad) => {
+    const status =
+      typeof ad.status === "string" ? ad.status.trim().toLowerCase() : "";
+    return status === "approved";
+  });
+
+  const requestedRecipeIdentifiers = extractRequestedRecipeIdentifiers(payload);
+  if (requestedRecipeIdentifiers.length > 0) {
+    const recipeSet = new Set(requestedRecipeIdentifiers);
+    const filteredByRecipe = approvedAds.filter((ad) => {
+      const identifiers = extractRecipeIdentifiersFromExport(ad);
+      return identifiers.some((identifier) => recipeSet.has(identifier));
+    });
+    if (filteredByRecipe.length > 0) {
+      approvedAds = filteredByRecipe;
+    }
+  }
+
+  const requestedAdIds = extractApprovedAdIds(payload);
+  if (requestedAdIds.length > 0) {
+    const idSet = new Set(requestedAdIds);
+    const filteredById = approvedAds.filter((ad) => idSet.has(ad.adId));
+    if (filteredById.length > 0) {
+      approvedAds = filteredById;
+    }
+  }
+
+  return approvedAds;
+}
+
 export async function createMappingContext(
   integration: Integration,
   reviewId: string,
@@ -3960,20 +4090,7 @@ export async function createMappingContext(
     dryRun,
   });
 
-  let approvedAds = standardAds.filter((ad) => {
-    const status =
-      typeof ad.status === "string" ? ad.status.trim().toLowerCase() : "";
-    return status === "approved";
-  });
-
-  const requestedAdIds = extractApprovedAdIds(payload);
-  if (requestedAdIds.length > 0) {
-    const idSet = new Set(requestedAdIds);
-    const filtered = approvedAds.filter((ad) => idSet.has(ad.adId));
-    if (filtered.length > 0) {
-      approvedAds = filtered;
-    }
-  }
+  const approvedAds = filterApprovedAdsBySelection(standardAds, payload);
 
   const firstApprovedAd = approvedAds[0] ?? null;
 
@@ -4340,6 +4457,7 @@ export const __TESTING__ = {
   groupAdsByRecipeIdentifier,
   buildStandardAdExports,
   buildAggregatedAdsFromAdGroup,
+  filterApprovedAdsBySelection,
 };
 
 export async function executeMapping(

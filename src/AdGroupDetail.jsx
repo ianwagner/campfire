@@ -39,6 +39,10 @@ import {
 } from "react-icons/fi";
 import { Bubbles } from "lucide-react";
 import { toDateSafe } from "./utils/helpdesk";
+import {
+  isErrorStatusCode,
+  resolveIntegrationResponseStatus,
+} from "./utils/integrationStatus";
 import { FaMagic } from "react-icons/fa";
 import RecipePreview from "./RecipePreview.jsx";
 import CopyRecipePreview from "./CopyRecipePreview.jsx";
@@ -143,6 +147,12 @@ const INTEGRATION_TONE_STYLES = {
     dot: "bg-emerald-500",
     accent: "text-emerald-600",
   },
+  duplicate: {
+    container:
+      "border-purple-200 bg-purple-50 text-purple-700 hover:border-purple-300 hover:bg-purple-100 focus:ring-purple-500/40",
+    dot: "bg-purple-500",
+    accent: "text-purple-600",
+  },
   error: {
     container:
       "border-rose-200 bg-rose-50 text-rose-700 hover:border-rose-300 hover:bg-rose-100 focus:ring-rose-500/40",
@@ -153,6 +163,7 @@ const INTEGRATION_TONE_STYLES = {
 
 const INTEGRATION_TONE_PRIORITY = {
   error: 3,
+  duplicate: 2.5,
   info: 2,
   success: 1,
 };
@@ -944,6 +955,8 @@ const AdGroupDetail = () => {
   const [menuRecipe, setMenuRecipe] = useState(null);
   const [inspectRecipe, setInspectRecipe] = useState(null);
   const [integrationDetail, setIntegrationDetail] = useState(null);
+  const [resubmittingIntegrationAssetIds, setResubmittingIntegrationAssetIds] =
+    useState(() => new Set());
   const menuRef = useRef(null);
   const allFeedbackLoadedRef = useRef(false);
   const autoSummaryTriggeredRef = useRef(false);
@@ -1033,35 +1046,81 @@ const AdGroupDetail = () => {
         typeof statusEntry.errorMessage === "string"
           ? statusEntry.errorMessage.trim()
           : "";
+      const statusMessage =
+        typeof statusEntry.statusMessage === "string"
+          ? statusEntry.statusMessage.trim()
+          : "";
+
+      const responseStatusCode = resolveIntegrationResponseStatus(statusEntry);
+      const rawResponseStatus = statusEntry.responseStatus;
+      const resolvedResponseStatusLabel = (() => {
+        if (responseStatusCode !== null && Number.isFinite(responseStatusCode)) {
+          return String(responseStatusCode);
+        }
+        if (rawResponseStatus !== undefined && rawResponseStatus !== null) {
+          const normalized = String(rawResponseStatus).trim();
+          if (normalized) {
+            return normalized;
+          }
+        }
+        return "";
+      })();
+      const responseStatus = resolvedResponseStatusLabel;
+      const responseStatusIsError = isErrorStatusCode(responseStatusCode);
+      const statusSuffix = responseStatus ? ` • ${responseStatus}` : "";
+
+      const isErrorState = ["error", "failed", "rejected"].includes(state);
+      const isDuplicateState = state === "duplicate";
+      const isSuccessState =
+        ["received", "succeeded", "completed", "delivered"].includes(state);
+      const isPendingState =
+        ["sending", "sent", "in_progress", "queued", "pending"].includes(state);
 
       let text = "";
       let className = "";
       let tone = "info";
       let title = "";
 
-      if (["sending", "sent", "in_progress", "queued", "pending"].includes(state)) {
-        text = `Sent to ${resolvedName}`;
-        className = "bg-indigo-600 text-white";
-        tone = "info";
-      } else if (
-        ["received", "succeeded", "completed", "delivered"].includes(state)
-      ) {
-        text = `Received by ${resolvedName}`;
-        className = "bg-emerald-600 text-white";
-        tone = "success";
-      } else if (["error", "failed", "rejected"].includes(state)) {
-        text = "Error";
+      if (isDuplicateState) {
+        const displayMessage = statusMessage || `Already Exists in ${resolvedName}`;
+        text = displayMessage;
+        className = "bg-purple-600 text-white";
+        tone = "duplicate";
+        title = errorMessage || statusMessage || displayMessage;
+      } else if (isErrorState || responseStatusIsError) {
+        const errorContext =
+          errorMessage || `Delivery to ${resolvedName} failed.`;
+        const statusPortion = statusSuffix ? statusSuffix : "";
+        const namePortion = resolvedName ? ` from ${resolvedName}` : "";
+        const separator = errorContext ? ":" : "";
+        text = `Error${namePortion}${statusPortion}${separator}${
+          errorContext ? ` ${errorContext}` : ""
+        }`.trim();
         className = "bg-red-600 text-white";
         tone = "error";
-        title = errorMessage;
+        title = errorContext;
+      } else if (isSuccessState) {
+        text = `Received by ${resolvedName}${statusSuffix}`;
+        className = "bg-emerald-600 text-white";
+        tone = "success";
+      } else if (isPendingState) {
+        text = `Sent to ${resolvedName}${statusSuffix}`;
+        className = "bg-indigo-600 text-white";
+        tone = "info";
       } else {
         return null;
       }
 
+      const normalizedState =
+        responseStatusIsError && !isErrorState && !isDuplicateState
+          ? "error"
+          : state;
+
       const normalizedEntry = {
         ...statusEntry,
-        state,
+        state: normalizedState,
         errorMessage,
+        statusMessage,
       };
 
       if (hasOwn(statusEntry, "requestPayload")) {
@@ -1105,6 +1164,60 @@ const AdGroupDetail = () => {
   const integrationDetailHeaders = formatJsonValue(
     integrationDetailStatus?.responseHeaders,
   );
+  const integrationDetailAssetDocId = integrationDetailAsset
+    ? getAssetDocumentId(integrationDetailAsset)
+    : "";
+  const integrationDetailIsResubmitting =
+    integrationDetailAssetDocId &&
+    resubmittingIntegrationAssetIds.has(integrationDetailAssetDocId);
+
+  const handleResubmitIntegration = useCallback(
+    async (asset) => {
+      if (!assignedIntegrationId || !asset) {
+        return;
+      }
+
+      const badgeDetails = getIntegrationBadgeDetails(asset);
+      if (badgeDetails?.state === "duplicate") {
+        return;
+      }
+
+      const docId = getAssetDocumentId(asset);
+      if (!docId) {
+        return;
+      }
+
+      setResubmittingIntegrationAssetIds((prev) => {
+        const next = new Set(prev);
+        next.add(docId);
+        return next;
+      });
+
+      try {
+        await dispatchIntegrationForAssets({
+          groupId: id,
+          integrationId: assignedIntegrationId,
+          integrationName: assignedIntegrationName,
+          assets: [asset],
+        });
+      } catch (error) {
+        console.error("Failed to resubmit integration delivery", error);
+      } finally {
+        setResubmittingIntegrationAssetIds((prev) => {
+          const next = new Set(prev);
+          next.delete(docId);
+          return next;
+        });
+      }
+    },
+    [
+      assignedIntegrationId,
+      assignedIntegrationName,
+      dispatchIntegrationForAssets,
+      getIntegrationBadgeDetails,
+      id,
+    ],
+  );
 
   useEffect(() => {
     autoDispatchedIntegrationAssetIdsRef.current = new Set();
@@ -1141,7 +1254,12 @@ const AdGroupDetail = () => {
         typeof statusEntry?.state === "string"
           ? statusEntry.state.trim().toLowerCase()
           : "";
-      if (state === "received" || state === "sending") {
+      if (
+        state === "received" ||
+        state === "sending" ||
+        state === "duplicate" ||
+        state === "error"
+      ) {
         return false;
       }
       return true;
@@ -4444,6 +4562,16 @@ const AdGroupDetail = () => {
       INTEGRATION_TONE_STYLES.info;
     const integrationAssetLabel =
       integrationSummary?.asset?.filename || "Unnamed asset";
+    const integrationSummaryAssetDocId = integrationSummary?.asset
+      ? getAssetDocumentId(integrationSummary.asset)
+      : "";
+    const isResubmittingIntegrationAsset =
+      integrationSummaryAssetDocId &&
+      resubmittingIntegrationAssetIds.has(integrationSummaryAssetDocId);
+    const canShowResubmitButton =
+      canManageIntegrations &&
+      integrationSummary?.badge?.tone === "error" &&
+      integrationSummary?.badge?.state !== "duplicate";
     const replacementEntries = activeAds
       .map((asset) => {
         const request = asset.replacementRequest;
@@ -4691,6 +4819,22 @@ const AdGroupDetail = () => {
                     </span>
                   </span>
                 </button>
+                {canShowResubmitButton && (
+                  <Button
+                    type="button"
+                    variant="neutral"
+                    size="sm"
+                    onClick={() =>
+                      handleResubmitIntegration(integrationSummary.asset)
+                    }
+                    disabled={isResubmittingIntegrationAsset}
+                  >
+                    <FiRefreshCw className="h-4 w-4" aria-hidden="true" />
+                    {isResubmittingIntegrationAsset
+                      ? "Resubmitting..."
+                      : "Resubmit"}
+                  </Button>
+                )}
               </div>
             ) : (
               editAsset && (
@@ -6629,7 +6773,24 @@ const AdGroupDetail = () => {
               )}
             </section>
           </div>
-          <div className="mt-4 flex justify-end">
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
+            {canManageIntegrations &&
+              integrationDetailBadge?.tone === "error" &&
+              integrationDetailBadge?.state !== "duplicate" &&
+              integrationDetailAsset && (
+                <Button
+                  type="button"
+                  variant="neutral"
+                  size="sm"
+                  onClick={() => handleResubmitIntegration(integrationDetailAsset)}
+                  disabled={integrationDetailIsResubmitting}
+                >
+                  <FiRefreshCw className="h-4 w-4" aria-hidden="true" />
+                  {integrationDetailIsResubmitting
+                    ? "Resubmitting..."
+                    : "Resubmit"}
+                </Button>
+              )}
             <IconButton onClick={() => setIntegrationDetail(null)}>Close</IconButton>
           </div>
         </Modal>

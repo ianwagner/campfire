@@ -1,5 +1,6 @@
 const { request: httpRequest } = require("http");
 const { request: httpsRequest } = require("https");
+const crypto = require("crypto");
 const {
   admin,
   db,
@@ -14,6 +15,185 @@ const SLACK_BOT_TOKEN = process.env.SLACK_BOT_TOKEN;
 const workspaceAccessTokenCache = new Map();
 const siteTemplateCache = { templates: null, expiresAt: 0 };
 const mentionLookupCache = new Map();
+const MENTION_LOOKUP_SUCCESS_TTL_MS = 6 * 60 * 60 * 1000; // 6 hours
+const MENTION_LOOKUP_FAILURE_TTL_MS = 10 * 60 * 1000; // 10 minutes
+
+const RECENT_STATUS_NOTIFICATION_TTL_MS = 15 * 1000; // 15 seconds
+const recentStatusNotificationCache = new Map();
+const STATUS_NOTIFICATION_LOCK_COLLECTION = "slackStatusNotificationLocks";
+
+function pruneRecentStatusNotifications(now = Date.now()) {
+  for (const [key, entry] of recentStatusNotificationCache.entries()) {
+    if (!entry || typeof entry.timestamp !== "number") {
+      recentStatusNotificationCache.delete(key);
+      continue;
+    }
+    if (now - entry.timestamp > RECENT_STATUS_NOTIFICATION_TTL_MS) {
+      recentStatusNotificationCache.delete(key);
+    }
+  }
+}
+
+function normalizeForCache(value, { lower = false } = {}) {
+  if (typeof value !== "string") {
+    return "";
+  }
+  let normalized = value.trim();
+  if (!normalized) {
+    return "";
+  }
+  if (lower) {
+    normalized = normalized.toLowerCase();
+  }
+  return normalized;
+}
+
+function normalizeUrlForCache(value) {
+  const normalized = normalizeForCache(value);
+  if (!normalized) {
+    return "";
+  }
+  return normalized.replace(/\/+$/, "");
+}
+
+function buildStatusNotificationCacheKey({
+  brandCode,
+  adGroupId,
+  status,
+  reviewUrl,
+  adGroupUrl,
+  note,
+}) {
+  return JSON.stringify({
+    brandCode: normalizeForCache(brandCode, { lower: true }),
+    adGroupId: normalizeForCache(adGroupId, { lower: true }),
+    status: normalizeForCache(status, { lower: true }),
+    reviewUrl: normalizeUrlForCache(reviewUrl),
+    adGroupUrl: normalizeUrlForCache(adGroupUrl),
+    note: normalizeForCache(note),
+  });
+}
+
+function markStatusNotificationProcessed(key) {
+  if (!key) {
+    return;
+  }
+  recentStatusNotificationCache.set(key, {
+    timestamp: Date.now(),
+    inFlight: false,
+  });
+}
+
+function clearStatusNotificationEntry(key) {
+  if (!key) {
+    return;
+  }
+  recentStatusNotificationCache.delete(key);
+}
+
+function getTimestampMillis(value) {
+  if (!value) {
+    return 0;
+  }
+
+  if (typeof value === "number") {
+    return value;
+  }
+
+  if (typeof value === "string") {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+
+  if (typeof value.toMillis === "function") {
+    try {
+      return value.toMillis();
+    } catch (error) {
+      console.error("Failed to convert Firestore timestamp", error);
+      return 0;
+    }
+  }
+
+  return 0;
+}
+
+function getStatusNotificationLockRef(dedupeKey) {
+  if (!dedupeKey) {
+    return null;
+  }
+
+  const hash = crypto.createHash("sha256").update(dedupeKey).digest("hex");
+  return db.collection(STATUS_NOTIFICATION_LOCK_COLLECTION).doc(hash);
+}
+
+async function acquireStatusNotificationLock(dedupeKey, now = Date.now()) {
+  const docRef = getStatusNotificationLockRef(dedupeKey);
+  if (!docRef) {
+    return { allowed: true, docRef: null };
+  }
+
+  try {
+    const result = await db.runTransaction(async (tx) => {
+      const snap = await tx.get(docRef);
+      const data = snap.exists ? snap.data() || {} : {};
+      const pendingSinceMs = getTimestampMillis(data.pendingSince);
+      if (pendingSinceMs && now - pendingSinceMs < RECENT_STATUS_NOTIFICATION_TTL_MS) {
+        return { allowed: false, reason: "pending" };
+      }
+
+      const lastSuccessMs = getTimestampMillis(data.lastSuccess);
+      if (lastSuccessMs && now - lastSuccessMs < RECENT_STATUS_NOTIFICATION_TTL_MS) {
+        return { allowed: false, reason: "recent" };
+      }
+
+      tx.set(
+        docRef,
+        {
+          key: dedupeKey,
+          pending: true,
+          pendingSince: admin.firestore.Timestamp.fromMillis(now),
+          updatedAt: admin.firestore.Timestamp.fromMillis(now),
+          expiresAt: admin.firestore.Timestamp.fromMillis(
+            now + RECENT_STATUS_NOTIFICATION_TTL_MS * 10,
+          ),
+        },
+        { merge: true },
+      );
+
+      return { allowed: true };
+    });
+
+    return { ...result, docRef };
+  } catch (error) {
+    console.error("Failed to acquire Slack notification dedupe lock", error);
+    return { allowed: true, docRef };
+  }
+}
+
+async function releaseStatusNotificationLock(docRef, { success = false, now = Date.now() } = {}) {
+  if (!docRef) {
+    return;
+  }
+
+  const update = {
+    pending: false,
+    updatedAt: admin.firestore.Timestamp.fromMillis(now),
+    expiresAt: admin.firestore.Timestamp.fromMillis(
+      now + RECENT_STATUS_NOTIFICATION_TTL_MS * 10,
+    ),
+    pendingSince: admin.firestore.FieldValue.delete(),
+  };
+
+  if (success) {
+    update.lastSuccess = admin.firestore.Timestamp.fromMillis(now);
+  }
+
+  try {
+    await docRef.set(update, { merge: true });
+  } catch (error) {
+    console.error("Failed to release Slack notification dedupe lock", error);
+  }
+}
 
 const SINGLE_MENTION_SENTINEL = "__SLACK_MENTION__";
 const MULTI_MENTION_SENTINEL = "__SLACK_MENTIONS__";
@@ -799,67 +979,338 @@ async function getSiteSlackTemplates() {
   }
 }
 
-function normalizeMentionEmails(entry) {
+const EMAIL_REGEX = /.+@.+\..+/i;
+const SLACK_MENTION_PATTERN = /^<[@!][^>]+>$/;
+const SLACK_MAILTO_PATTERN = /^<mailto:([^>|]+)(?:\|[^>]+)?>$/i;
+
+function hasEmailMentionEntries(map) {
+  if (!map) {
+    return false;
+  }
+
+  if (map instanceof Map) {
+    return map.size > 0;
+  }
+
+  if (typeof map === "object") {
+    return Object.keys(map).length > 0;
+  }
+
+  return false;
+}
+
+function getMentionUserIdForEmail(map, email) {
+  if (!map || !email) {
+    return null;
+  }
+
+  const normalized = email.toLowerCase();
+
+  if (map instanceof Map) {
+    return map.get(normalized) || map.get(email) || null;
+  }
+
+  if (typeof map === "object") {
+    return map[normalized] || map[email] || null;
+  }
+
+  return null;
+}
+
+function sanitizeEmailValue(value) {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  let trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  const mailtoMatch = trimmed.match(SLACK_MAILTO_PATTERN);
+  if (mailtoMatch) {
+    return mailtoMatch[1].trim().toLowerCase();
+  }
+
+  if (trimmed.startsWith("<") && trimmed.endsWith(">")) {
+    trimmed = trimmed.slice(1, -1).trim();
+  }
+
+  if (/^mailto:/i.test(trimmed)) {
+    trimmed = trimmed.replace(/^mailto:/i, "").trim();
+  }
+
+  trimmed = trimmed.replace(/^[<\s]+/, "").replace(/[>\s]+$/, "");
+  trimmed = trimmed.replace(/[;,]+$/, "");
+
+  if (EMAIL_REGEX.test(trimmed)) {
+    return trimmed.toLowerCase();
+  }
+
+  return null;
+}
+
+function formatMentionString(value) {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  if (SLACK_MENTION_PATTERN.test(trimmed)) {
+    if (trimmed.startsWith('<@')) {
+      const separatorIndex = trimmed.indexOf('|');
+      if (separatorIndex !== -1) {
+        return `${trimmed.slice(0, separatorIndex)}>`;
+      }
+    }
+    return trimmed;
+  }
+
+  const lower = trimmed.toLowerCase();
+  if (lower === "@channel" || lower === "@here" || lower === "@everyone") {
+    return `<!${lower.slice(1)}>`;
+  }
+
+  const memberIdMatch = trimmed.match(/^@?([UW][A-Z0-9]{8,})$/);
+  if (memberIdMatch) {
+    return `<@${memberIdMatch[1]}>`;
+  }
+
+  if (/^<!subteam\^[A-Z0-9]+(\|[^>]+)?>$/i.test(trimmed)) {
+    return trimmed;
+  }
+
+  return null;
+}
+
+function normalizeMentionEntries(entry) {
   const emails = new Set();
+  const mentions = new Set();
+
   const addEmail = (value) => {
-    if (typeof value !== "string") {
+    const sanitized = sanitizeEmailValue(value);
+    if (!sanitized) {
+      return false;
+    }
+    emails.add(sanitized);
+    return true;
+  };
+
+  const addMention = (value) => {
+    const formatted = formatMentionString(value);
+    if (!formatted) {
+      return false;
+    }
+    mentions.add(formatted);
+    return true;
+  };
+
+  const processString = (raw) => {
+    if (typeof raw !== "string") {
       return;
     }
-    const trimmed = value.trim().toLowerCase();
-    if (!trimmed) {
-      return;
-    }
-    if (!/.+@.+\..+/.test(trimmed)) {
-      return;
-    }
-    emails.add(trimmed);
+    raw
+      .split(/[\s,;]+/)
+      .map((part) => part.trim())
+      .filter(Boolean)
+      .forEach((part) => {
+        if (!addEmail(part)) {
+          addMention(part);
+        }
+      });
   };
 
   if (Array.isArray(entry)) {
-    entry.forEach(addEmail);
+    entry.forEach((value) => {
+      if (!addEmail(value)) {
+        addMention(value);
+      }
+    });
   } else if (typeof entry === "string") {
-    entry
-      .split(/[\s,;]+/)
-      .map((part) => part.trim())
-      .forEach(addEmail);
+    processString(entry);
   } else if (entry && typeof entry === "object") {
     if (Array.isArray(entry.emails)) {
       entry.emails.forEach(addEmail);
-    } else if (typeof entry.email === "string") {
+    }
+    if (Array.isArray(entry.mentions)) {
+      entry.mentions.forEach(addMention);
+    }
+    if (typeof entry.email === "string") {
       addEmail(entry.email);
+    }
+    if (typeof entry.mention === "string") {
+      addMention(entry.mention);
     }
   }
 
-  return Array.from(emails);
+  return {
+    emails: Array.from(emails),
+    mentions: Array.from(mentions),
+  };
 }
 
-function getMentionEmailsForStatus(config, status) {
+function getMentionsForStatus(config, status) {
+  const empty = { emails: [], mentions: [] };
   if (!config || typeof config !== "object") {
-    return [];
+    return empty;
   }
 
-  const direct = normalizeMentionEmails(config[status]);
-  if (direct.length) {
+  const direct = normalizeMentionEntries(config[status]);
+  if (direct.emails.length || direct.mentions.length) {
     return direct;
   }
 
   const normalizedKey = status.replace(/[-\s]+/g, "");
   if (normalizedKey && normalizedKey !== status) {
-    const alternate = normalizeMentionEmails(config[normalizedKey]);
-    if (alternate.length) {
+    const alternate = normalizeMentionEntries(config[normalizedKey]);
+    if (alternate.emails.length || alternate.mentions.length) {
       return alternate;
     }
   }
 
   const fallbackKeys = ["default", "all", "any"];
   for (const key of fallbackKeys) {
-    const fallback = normalizeMentionEmails(config[key]);
-    if (fallback.length) {
+    const fallback = normalizeMentionEntries(config[key]);
+    if (fallback.emails.length || fallback.mentions.length) {
       return fallback;
     }
   }
 
-  return [];
+  return empty;
+}
+
+function replaceMailtoMentionsInString(input, emailMentionsMap) {
+  if (typeof input !== "string" || !hasEmailMentionEntries(emailMentionsMap)) {
+    return input;
+  }
+
+  let changed = false;
+
+  const replaceMatch = (match) => {
+    const normalizedEmail = sanitizeEmailValue(match);
+    if (!normalizedEmail) {
+      return match;
+    }
+
+    const userId = getMentionUserIdForEmail(emailMentionsMap, normalizedEmail);
+    if (!userId) {
+      return match;
+    }
+
+    changed = true;
+    return `<@${userId}>`;
+  };
+
+  let output = input.replace(/<mailto:[^>]+>/gi, replaceMatch);
+  output = output.replace(/mailto:[^\s>]+/gi, replaceMatch);
+
+  return changed ? output : input;
+}
+
+function replaceMailtoMentionsInPayload(payload, emailMentionsMap) {
+  if (!hasEmailMentionEntries(emailMentionsMap)) {
+    return payload;
+  }
+
+  if (typeof payload === "string") {
+    return replaceMailtoMentionsInString(payload, emailMentionsMap);
+  }
+
+  if (!payload || typeof payload !== "object") {
+    return payload;
+  }
+
+  let textChanged = false;
+  let updatedText = payload.text;
+  if (typeof payload.text === "string") {
+    const replacedText = replaceMailtoMentionsInString(payload.text, emailMentionsMap);
+    if (replacedText !== payload.text) {
+      textChanged = true;
+      updatedText = replacedText;
+    }
+  }
+
+  let blocksChanged = false;
+  let updatedBlocks = payload.blocks;
+  if (Array.isArray(payload.blocks)) {
+    const newBlocks = [];
+
+    payload.blocks.forEach((block) => {
+      if (
+        block &&
+        block.type === "section" &&
+        block.text &&
+        typeof block.text.text === "string"
+      ) {
+        const replacedBlockText = replaceMailtoMentionsInString(
+          block.text.text,
+          emailMentionsMap,
+        );
+
+        if (replacedBlockText !== block.text.text) {
+          blocksChanged = true;
+          newBlocks.push({
+            ...block,
+            text: { ...block.text, text: replacedBlockText },
+          });
+          return;
+        }
+      }
+
+      newBlocks.push(block);
+    });
+
+    if (blocksChanged) {
+      updatedBlocks = newBlocks;
+    }
+  }
+
+  if (!textChanged && !blocksChanged) {
+    return payload;
+  }
+
+  const updated = { ...payload };
+  if (textChanged) {
+    updated.text = updatedText;
+  }
+
+  if (blocksChanged) {
+    updated.blocks = updatedBlocks;
+  }
+
+  return updated;
+}
+
+function getCachedMentionLookup(cacheKey) {
+  if (!mentionLookupCache.has(cacheKey)) {
+    return undefined;
+  }
+
+  const cached = mentionLookupCache.get(cacheKey);
+  if (!cached || typeof cached !== "object") {
+    mentionLookupCache.delete(cacheKey);
+    return undefined;
+  }
+
+  const expiresAt = typeof cached.expiresAt === "number" ? cached.expiresAt : 0;
+  if (expiresAt && expiresAt <= Date.now()) {
+    mentionLookupCache.delete(cacheKey);
+    return undefined;
+  }
+
+  return cached.value;
+}
+
+function setCachedMentionLookup(cacheKey, value, ttlMs) {
+  const ttl = Number(ttlMs) || 0;
+  mentionLookupCache.set(cacheKey, {
+    value,
+    expiresAt: ttl > 0 ? Date.now() + ttl : 0,
+  });
 }
 
 async function lookupSlackUserIdByEmail(email, token) {
@@ -868,8 +1319,9 @@ async function lookupSlackUserIdByEmail(email, token) {
   }
 
   const cacheKey = `${token}:${email}`;
-  if (mentionLookupCache.has(cacheKey)) {
-    return mentionLookupCache.get(cacheKey);
+  const cachedResult = getCachedMentionLookup(cacheKey);
+  if (cachedResult !== undefined) {
+    return cachedResult;
   }
 
   try {
@@ -886,23 +1338,33 @@ async function lookupSlackUserIdByEmail(email, token) {
     if (!response.ok) {
       const body = await response.text();
       console.error("Slack lookup failed", response.status, body);
-      mentionLookupCache.set(cacheKey, null);
+      setCachedMentionLookup(cacheKey, null, MENTION_LOOKUP_FAILURE_TTL_MS);
       return null;
     }
 
     const body = await response.json();
     if (body.ok && body.user && body.user.id) {
-      const userId = body.user.id;
-      mentionLookupCache.set(cacheKey, userId);
-      return userId;
+      const profile = body.user.profile || {};
+      const displayName =
+        (typeof profile.display_name === "string" && profile.display_name.trim()) ||
+        (typeof profile.display_name_normalized === "string" &&
+          profile.display_name_normalized.trim()) ||
+        (typeof profile.real_name === "string" && profile.real_name.trim()) ||
+        null;
+      const result = {
+        id: body.user.id,
+        displayName,
+      };
+      setCachedMentionLookup(cacheKey, result, MENTION_LOOKUP_SUCCESS_TTL_MS);
+      return result;
     }
 
     console.warn("Slack lookup returned no user", email, body.error);
-    mentionLookupCache.set(cacheKey, null);
+    setCachedMentionLookup(cacheKey, null, MENTION_LOOKUP_FAILURE_TTL_MS);
     return null;
   } catch (error) {
     console.error("Slack lookup error", email, error);
-    mentionLookupCache.set(cacheKey, null);
+    setCachedMentionLookup(cacheKey, null, MENTION_LOOKUP_FAILURE_TTL_MS);
     return null;
   }
 }
@@ -912,8 +1374,19 @@ function appendMentionsToPayload(payload, mentionText) {
     return payload;
   }
 
+  const appendToText = (existingText = "") => {
+    const combined = existingText
+      ? `${mentionText}\n${existingText}`
+      : mentionText;
+    return cleanupSlackText(combined);
+  };
+
   if (!payload) {
-    return { text: mentionText };
+    return { text: appendToText() };
+  }
+
+  if (typeof payload === "string") {
+    return { text: appendToText(payload) };
   }
 
   const updated = { ...payload };
@@ -928,8 +1401,9 @@ function appendMentionsToPayload(payload, mentionText) {
     ];
   }
 
-  if (typeof payload.text === "string" && payload.text.trim()) {
-    updated.text = `${mentionText}\n${payload.text}`.trim();
+  if (typeof payload.text === "string") {
+    const existingText = payload.text.trim();
+    updated.text = appendToText(existingText);
   } else {
     updated.text = mentionText;
   }
@@ -1084,6 +1558,48 @@ module.exports = async function handler(req, res) {
     return;
   }
 
+  const dedupeKey = buildStatusNotificationCacheKey({
+    brandCode: normalizedBrandCode || rawBrandCode,
+    adGroupId,
+    status,
+    reviewUrl: reviewUrlRaw,
+    adGroupUrl: adGroupUrlRaw,
+    note,
+  });
+
+  const now = Date.now();
+  pruneRecentStatusNotifications(now);
+
+  const existingEntry = recentStatusNotificationCache.get(dedupeKey);
+  if (existingEntry && now - existingEntry.timestamp < RECENT_STATUS_NOTIFICATION_TTL_MS) {
+    res.status(200).json({
+      ok: true,
+      deduplicated: true,
+      message: "Duplicate Slack status notification suppressed.",
+    });
+    return;
+  }
+
+  const { allowed: lockAllowed, docRef: dedupeLockRef } =
+    await acquireStatusNotificationLock(dedupeKey, now);
+
+  if (!lockAllowed) {
+    markStatusNotificationProcessed(dedupeKey);
+    res.status(200).json({
+      ok: true,
+      deduplicated: true,
+      message: "Duplicate Slack status notification suppressed.",
+    });
+    return;
+  }
+
+  let lockRefForCleanup = dedupeLockRef || null;
+
+  recentStatusNotificationCache.set(dedupeKey, {
+    timestamp: now,
+    inFlight: true,
+  });
+
   try {
     const collection = db.collection("slackChannelMappings");
     const brandCodeQueries = [
@@ -1115,6 +1631,11 @@ module.exports = async function handler(req, res) {
     }
 
     if (!docsById.size) {
+      await releaseStatusNotificationLock(lockRefForCleanup, {
+        success: true,
+        now: Date.now(),
+      });
+      markStatusNotificationProcessed(dedupeKey);
       res
         .status(200)
         .json({ ok: true, message: "No Slack channel connected for this brand." });
@@ -1328,8 +1849,8 @@ module.exports = async function handler(req, res) {
     }, siteTemplates);
 
     const externalPayload = externalText ? { text: externalText } : null;
-    const mentionEmails = getMentionEmailsForStatus(brandSlackMentions, status);
-    const mentionInfoByToken = new Map();
+    const mentionConfig = getMentionsForStatus(brandSlackMentions, status);
+    const mentionInfoCache = new Map();
 
     const results = [];
     for (const doc of docsById.values()) {
@@ -1378,25 +1899,45 @@ module.exports = async function handler(req, res) {
 
         let payloadToSend = basePayload;
         let mentionInfo = null;
-        if (mentionEmails.length) {
-          mentionInfo = mentionInfoByToken.get(token);
-          if (mentionInfo === undefined) {
-            const resolvedMentions = [];
-            for (const email of mentionEmails) {
-              const userId = await lookupSlackUserIdByEmail(email, token);
-              if (userId) {
-                const formatted = `<@${userId}>`;
-                if (!resolvedMentions.includes(formatted)) {
-                  resolvedMentions.push(formatted);
-                }
+        if (mentionConfig.emails.length || mentionConfig.mentions.length) {
+          const cacheKey = `${token}:${mentionConfig.emails.join(",")}:${mentionConfig.mentions.join(",")}`;
+          mentionInfo = mentionInfoCache.get(cacheKey);
+
+          if (!mentionInfo) {
+            const mentionSet = new Set();
+            const mentionOrder = [];
+            const emailMentionMap = new Map();
+            const addMention = (value) => {
+              if (!value || mentionSet.has(value)) {
+                return;
+              }
+              mentionSet.add(value);
+              mentionOrder.push(value);
+            };
+
+            mentionConfig.mentions.forEach(addMention);
+
+            for (const email of mentionConfig.emails) {
+              const userInfo = await lookupSlackUserIdByEmail(email, token);
+              if (userInfo && userInfo.id) {
+                emailMentionMap.set(email, userInfo.id);
+                addMention(`<@${userInfo.id}>`);
+              } else {
+                const label =
+                  (userInfo && userInfo.displayName) ||
+                  (typeof email === "string" && email.includes("@")
+                    ? `@${email.split("@")[0]}`
+                    : email);
+                addMention(`<mailto:${email}|${label || email}>`);
               }
             }
 
             mentionInfo = {
-              mentions: resolvedMentions,
-              text: resolvedMentions.join(" "),
+              mentions: mentionOrder,
+              text: mentionOrder.join(" "),
+              emailMentions: emailMentionMap,
             };
-            mentionInfoByToken.set(token, mentionInfo);
+            mentionInfoCache.set(cacheKey, mentionInfo);
           }
         }
 
@@ -1415,6 +1956,13 @@ module.exports = async function handler(req, res) {
           }
         }
 
+        if (mentionInfo && hasEmailMentionEntries(mentionInfo.emailMentions)) {
+          payloadToSend = replaceMailtoMentionsInPayload(
+            payloadToSend,
+            mentionInfo.emailMentions,
+          );
+        }
+
         const response = await postSlackMessage(doc.id, payloadToSend, token);
         results.push({ channel: doc.id, ok: true, ts: response.ts });
       } catch (error) {
@@ -1425,13 +1973,28 @@ module.exports = async function handler(req, res) {
 
     const failed = results.filter((r) => !r.ok);
     if (failed.length && failed.length === results.length) {
+      await releaseStatusNotificationLock(lockRefForCleanup, {
+        success: false,
+        now: Date.now(),
+      });
+      clearStatusNotificationEntry(dedupeKey);
       res.status(502).json({ error: "Failed to post Slack message", results });
       return;
     }
 
+    await releaseStatusNotificationLock(lockRefForCleanup, {
+      success: true,
+      now: Date.now(),
+    });
+    markStatusNotificationProcessed(dedupeKey);
     res.status(200).json({ ok: true, results });
   } catch (error) {
     console.error("Slack status update error", error);
+    await releaseStatusNotificationLock(lockRefForCleanup, {
+      success: false,
+      now: Date.now(),
+    });
+    clearStatusNotificationEntry(dedupeKey);
     res.status(500).json({ error: error.message || "Internal Server Error" });
   }
 };

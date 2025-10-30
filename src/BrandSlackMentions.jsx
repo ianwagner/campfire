@@ -22,40 +22,140 @@ const createEmptyState = () =>
     return acc;
   }, {});
 
-const formatEmailsForInput = (value) => {
+const EMAIL_REGEX = /.+@.+\..+/i;
+const SLACK_MENTION_REGEX = /^<[@!][^>]+>$/;
+const SLACK_MAILTO_REGEX = /^<mailto:([^>|]+)(?:\|[^>]+)?>$/i;
+
+const sanitizeEmailInput = (value) => {
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  let trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  const mailtoMatch = trimmed.match(SLACK_MAILTO_REGEX);
+  if (mailtoMatch) {
+    return mailtoMatch[1].trim().toLowerCase();
+  }
+
+  if (trimmed.startsWith('<') && trimmed.endsWith('>')) {
+    trimmed = trimmed.slice(1, -1).trim();
+  }
+
+  if (/^mailto:/i.test(trimmed)) {
+    trimmed = trimmed.replace(/^mailto:/i, '').trim();
+  }
+
+  trimmed = trimmed.replace(/^[<\s]+/, '').replace(/[>\s]+$/, '');
+  trimmed = trimmed.replace(/[;,]+$/, '');
+
+  if (EMAIL_REGEX.test(trimmed)) {
+    return trimmed.toLowerCase();
+  }
+
+  return null;
+};
+
+const normalizeMentionEntry = (entry) => {
+  if (typeof entry !== 'string') {
+    return null;
+  }
+
+  const trimmed = entry.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  const sanitizedEmail = sanitizeEmailInput(trimmed);
+  if (sanitizedEmail) {
+    return sanitizedEmail;
+  }
+
+  if (SLACK_MENTION_REGEX.test(trimmed)) {
+    if (trimmed.startsWith('<@')) {
+      const separatorIndex = trimmed.indexOf('|');
+      if (separatorIndex !== -1) {
+        return `${trimmed.slice(0, separatorIndex)}>`;
+      }
+    }
+    return trimmed;
+  }
+
+  const lower = trimmed.toLowerCase();
+  if (lower === '@channel' || lower === '@here' || lower === '@everyone') {
+    return `<!${lower.slice(1)}>`;
+  }
+
+  const idMatch = trimmed.match(/^@?([UW][A-Z0-9]{8,})$/);
+  if (idMatch) {
+    return `<@${idMatch[1]}>`;
+  }
+
+  if (/^<!subteam\^[A-Z0-9]+(\|[^>]+)?>$/i.test(trimmed)) {
+    return trimmed;
+  }
+
+  return null;
+};
+
+const formatMentionsForInput = (value) => {
   if (Array.isArray(value)) {
-    return value.filter((email) => typeof email === 'string' && email.trim()).join('\n');
+    return value
+      .filter((entry) => typeof entry === 'string' && entry.trim())
+      .join('\n');
   }
   if (typeof value === 'string') {
     return value;
   }
   if (value && Array.isArray(value.emails)) {
-    return formatEmailsForInput(value.emails);
+    return formatMentionsForInput(value.emails);
+  }
+  if (value && Array.isArray(value.mentions)) {
+    return formatMentionsForInput(value.mentions);
   }
   return '';
 };
 
-const parseEmails = (value) => {
+const parseMentionEntries = (value) => {
   if (typeof value !== 'string') {
     return [];
   }
+
   const normalized = value.replace(/\r\n/g, '\n');
-  const candidates = normalized
+  const segments = normalized
     .split(/[\n,;]+/)
-    .map((entry) => entry.trim().toLowerCase())
+    .map((entry) => entry.trim())
     .filter(Boolean);
-  const unique = Array.from(new Set(candidates));
-  return unique.filter((email) => /.+@.+\..+/.test(email));
+
+  const seen = new Set();
+  const results = [];
+
+  segments.forEach((segment) => {
+    const normalizedEntry = normalizeMentionEntry(segment);
+    if (!normalizedEntry) {
+      return;
+    }
+    if (!seen.has(normalizedEntry)) {
+      seen.add(normalizedEntry);
+      results.push(normalizedEntry);
+    }
+  });
+
+  return results;
 };
 
 const normalizeForComparison = (value) => {
   if (typeof value !== 'string') {
     return '';
   }
+
   return value
     .replace(/\r\n/g, '\n')
     .split('\n')
-    .map((line) => line.trim().toLowerCase())
+    .map((line) => normalizeMentionEntry(line) || '')
     .filter(Boolean)
     .join('\n');
 };
@@ -119,7 +219,7 @@ const BrandSlackMentions = ({ brandId: propId = null, brandCode: propCode = '' }
           const nextValues = createEmptyState();
           EXTERNAL_MESSAGE_TYPES.forEach((type) => {
             if (Object.prototype.hasOwnProperty.call(config, type.key)) {
-              nextValues[type.key] = formatEmailsForInput(config[type.key]);
+              nextValues[type.key] = formatMentionsForInput(config[type.key]);
             }
           });
           setFormValues(nextValues);
@@ -194,8 +294,8 @@ const BrandSlackMentions = ({ brandId: propId = null, brandCode: propCode = '' }
     try {
       const payload = { ...existingMentions };
       EXTERNAL_MESSAGE_TYPES.forEach((type) => {
-        const emails = parseEmails(formValues[type.key]);
-        payload[type.key] = emails;
+        const mentions = parseMentionEntries(formValues[type.key]);
+        payload[type.key] = mentions;
       });
 
       await setDoc(
@@ -206,7 +306,7 @@ const BrandSlackMentions = ({ brandId: propId = null, brandCode: propCode = '' }
 
       const normalized = createEmptyState();
       EXTERNAL_MESSAGE_TYPES.forEach((type) => {
-        normalized[type.key] = formatEmailsForInput(payload[type.key]);
+        normalized[type.key] = formatMentionsForInput(payload[type.key]);
       });
 
       setInitialValues(normalized);
@@ -238,8 +338,9 @@ const BrandSlackMentions = ({ brandId: propId = null, brandCode: propCode = '' }
           </h2>
           <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">
             Choose who should be tagged when Slack status messages send for this brand.
-            Add email addresses separated by commas or new lines. We look up Slack
-            users by email when notifications fire.
+            Add email addresses or Slack member IDs separated by commas or new lines.
+            We'll look up Slack users by email when notifications fire, and you can
+            also paste values like <code>&lt;@U12345678&gt;</code> or <code>@channel</code> to mention them directly.
           </p>
           {resolvedBrandCode && (
             <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">

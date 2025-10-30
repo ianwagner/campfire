@@ -49,6 +49,7 @@ import { DEFAULT_LOGO_URL } from './constants';
 import OptimizedImage from './components/OptimizedImage.jsx';
 import VideoPlayer from './components/VideoPlayer.jsx';
 import GalleryModal from './components/GalleryModal.jsx';
+import Modal from './components/Modal.jsx';
 import VersionModal from './components/VersionModal.jsx';
 import EditRequestModal from './components/EditRequestModal.jsx';
 import CopyRecipePreview from './CopyRecipePreview.jsx';
