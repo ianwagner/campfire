@@ -903,6 +903,5 @@ export {
   cacheProductImages,
   copyAssetToDrive,
   cleanupDriveFile,
-  applyPublicReviewUpdate,
   openaiProxy,
 };
