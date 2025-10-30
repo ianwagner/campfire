@@ -10,6 +10,7 @@ import {
 } from 'firebase/firestore';
 import PageWrapper from './components/PageWrapper.jsx';
 import { db } from './firebase/config';
+import useAgencies from './useAgencies';
 
 const DAYS_PER_WEEK = 7;
 const WEEKS_TO_RENDER = 8;
@@ -52,6 +53,26 @@ const AdminCapacityPlanner = () => {
   const [groupsByDay, setGroupsByDay] = useState({});
   const [loading, setLoading] = useState(true);
   const scrollRef = useRef(null);
+  const { agencies } = useAgencies();
+
+  const agenciesById = useMemo(() => {
+    const map = new Map();
+    agencies.forEach((agency) => {
+      if (agency?.id) {
+        map.set(agency.id, agency);
+      }
+    });
+    return map;
+  }, [agencies]);
+
+  const getAgencyDisplayName = (agencyId) => {
+    if (agencyId) {
+      const agency = agenciesById.get(agencyId);
+      if (agency?.name) return agency.name;
+      return agencyId;
+    }
+    return 'Unassigned agency';
+  };
 
   const weeks = useMemo(() => {
     const base = new Date(startWeekMs);
@@ -97,21 +118,25 @@ const AdminCapacityPlanner = () => {
               : new Date(data.dueDate);
             if (Number.isNaN(dueDate?.getTime())) return null;
 
-            let adsCount = 0;
+            let recipesCount = 0;
             try {
               const countSnap = await getCountFromServer(
-                collection(db, 'adGroups', docSnap.id, 'assets')
+                collection(db, 'adGroups', docSnap.id, 'recipes')
               );
-              adsCount = countSnap.data().count || 0;
+              recipesCount = countSnap.data().count || 0;
             } catch (err) {
-              console.error('Failed to count ads for ad group', docSnap.id, err);
+              console.error('Failed to count recipes for ad group', docSnap.id, err);
             }
 
             return {
               id: docSnap.id,
               name: data.name || data.projectName || docSnap.id,
-              adsCount,
+              recipesCount,
               dueDate,
+              agencyId:
+                typeof data.agencyId === 'string' && data.agencyId.trim()
+                  ? data.agencyId.trim()
+                  : null,
             };
           })
         );
@@ -123,13 +148,24 @@ const AdminCapacityPlanner = () => {
           .filter(Boolean)
           .forEach((group) => {
             const key = dayKey(group.dueDate);
-            if (!mapped[key]) mapped[key] = [];
-            mapped[key].push(group);
+            if (!mapped[key]) mapped[key] = {};
+            const agencyKey = group.agencyId || '__unassigned__';
+            if (!mapped[key][agencyKey]) {
+              mapped[key][agencyKey] = {
+                agencyId: group.agencyId,
+                groups: [],
+                totalRecipes: 0,
+              };
+            }
+            mapped[key][agencyKey].groups.push(group);
+            mapped[key][agencyKey].totalRecipes += group.recipesCount || 0;
           });
 
-        Object.values(mapped).forEach((list) =>
-          list.sort((a, b) => a.name.localeCompare(b.name))
-        );
+        Object.values(mapped).forEach((agencyMap) => {
+          Object.values(agencyMap).forEach((entry) => {
+            entry.groups.sort((a, b) => a.name.localeCompare(b.name));
+          });
+        });
 
         setGroupsByDay(mapped);
       } catch (err) {
@@ -222,34 +258,96 @@ const AdminCapacityPlanner = () => {
               <div className="grid grid-cols-5 gap-3 px-4 py-4">
                 {weekDays.map((day) => {
                   const key = dayKey(day);
-                  const dayGroups = groupsByDay[key] || [];
-                  const totalAds = dayGroups.reduce((sum, group) => sum + (group.adsCount || 0), 0);
+                  const dayAgencies = Object.entries(groupsByDay[key] || {}).map(
+                    ([agencyKey, entry]) => ({ ...entry, agencyKey })
+                  );
+                  dayAgencies.sort((a, b) => {
+                    const nameA = getAgencyDisplayName(a.agencyId);
+                    const nameB = getAgencyDisplayName(b.agencyId);
+                    return nameA.localeCompare(nameB);
+                  });
                   return (
                     <div
                       key={`${weekKey}-${key}`}
                       className="flex min-h-[220px] flex-col rounded-lg border border-gray-200 bg-gray-50 p-2 dark:border-[var(--dark-sidebar-hover)] dark:bg-[var(--dark-sidebar-bg)]"
                     >
-                      <div className="flex-1 space-y-2 overflow-auto">
-                        {dayGroups.length === 0 ? (
+                      <div className="flex-1 space-y-3 overflow-auto">
+                        {dayAgencies.length === 0 ? (
                           <div className="text-xs text-gray-500 dark:text-gray-400">No ad groups due</div>
                         ) : (
-                          dayGroups.map((group) => (
-                            <div
-                              key={group.id}
-                              className="rounded border border-blue-200 bg-blue-50 p-2 text-xs shadow-sm dark:border-blue-600 dark:bg-blue-950/50"
-                            >
-                              <div className="font-semibold text-gray-800 dark:text-blue-100">
-                                {group.name}
+                          dayAgencies.map((entry) => {
+                            const agencyInfo = entry.agencyId
+                              ? agenciesById.get(entry.agencyId)
+                              : null;
+                            const rawCapacity = agencyInfo?.dailyAdCapacity;
+                            const hasCapacity =
+                              typeof rawCapacity === 'number' &&
+                              Number.isFinite(rawCapacity) &&
+                              rawCapacity >= 0;
+                            const capacityValue = hasCapacity
+                              ? Math.max(0, Math.round(rawCapacity))
+                              : null;
+                            const overCapacity =
+                              capacityValue != null && entry.totalRecipes > capacityValue;
+                            const cardColorClass =
+                              capacityValue == null
+                                ? 'border-gray-200 bg-white dark:border-[var(--dark-sidebar-hover)] dark:bg-[var(--dark-sidebar-bg)]'
+                                : overCapacity
+                                ? 'border-red-300 bg-red-50 dark:border-red-600 dark:bg-red-950/40'
+                                : 'border-green-300 bg-green-50 dark:border-green-600 dark:bg-green-950/40';
+
+                            return (
+                              <div
+                                key={`${weekKey}-${key}-${entry.agencyKey}`}
+                                className={`rounded border p-3 text-xs shadow-sm transition-colors ${cardColorClass}`}
+                              >
+                                <div className="flex items-center justify-between gap-2">
+                                  <div className="text-sm font-semibold text-gray-800 dark:text-gray-100">
+                                    {getAgencyDisplayName(entry.agencyId)}
+                                  </div>
+                                  {capacityValue != null ? (
+                                    <div
+                                      className={`text-xs font-semibold ${
+                                        overCapacity
+                                          ? 'text-red-700 dark:text-red-300'
+                                          : 'text-green-700 dark:text-green-300'
+                                      }`}
+                                    >
+                                      {entry.totalRecipes} / {capacityValue} recipes
+                                    </div>
+                                  ) : (
+                                    <div className="text-xs font-semibold text-gray-700 dark:text-gray-200">
+                                      {entry.totalRecipes}{' '}
+                                      {entry.totalRecipes === 1 ? 'recipe' : 'recipes'}
+                                    </div>
+                                  )}
+                                </div>
+                                {capacityValue != null && (
+                                  <div className="mt-1 text-[0.65rem] uppercase tracking-wide text-gray-600 dark:text-gray-300">
+                                    Daily capacity {capacityValue}{' '}
+                                    {capacityValue === 1 ? 'recipe' : 'recipes'}
+                                  </div>
+                                )}
+                                <div className="mt-3 space-y-2">
+                                  {entry.groups.map((group) => (
+                                    <div
+                                      key={group.id}
+                                      className="rounded border border-white/60 bg-white/80 p-2 text-xs shadow-sm dark:border-white/10 dark:bg-slate-900/50"
+                                    >
+                                      <div className="font-semibold text-gray-800 dark:text-gray-100">
+                                        {group.name}
+                                      </div>
+                                      <div className="mt-1 text-[0.7rem] uppercase tracking-wide text-gray-600 dark:text-gray-300">
+                                        {group.recipesCount}{' '}
+                                        {group.recipesCount === 1 ? 'recipe' : 'recipes'}
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
                               </div>
-                              <div className="mt-1 text-[0.7rem] uppercase tracking-wide text-blue-700 dark:text-blue-300">
-                                {group.adsCount} {group.adsCount === 1 ? 'ad' : 'ads'}
-                              </div>
-                            </div>
-                          ))
+                            );
+                          })
                         )}
-                      </div>
-                      <div className="pt-2 text-right text-xs font-semibold text-gray-700 dark:text-gray-200">
-                        {totalAds} total {totalAds === 1 ? 'ad' : 'ads'}
                       </div>
                     </div>
                   );
