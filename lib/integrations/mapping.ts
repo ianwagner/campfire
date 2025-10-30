@@ -3880,18 +3880,50 @@ async function loadReviewDataFromAdGroup(
 function extractApprovedAdIds(payload: Record<string, unknown>): string[] {
   const ids = new Set<string>();
 
-  const normalizeId = (value: unknown): string | null => {
+  const normalizePrimitiveId = (value: unknown): string | null => {
     if (typeof value === "string") {
       const trimmed = value.trim();
-      if (trimmed) {
-        return trimmed;
+      return trimmed ? trimmed : null;
+    }
+
+    if (typeof value === "number") {
+      return Number.isFinite(value) ? String(value) : null;
+    }
+
+    return null;
+  };
+
+  const normalizeIdCandidate = (value: unknown): string | null => {
+    const primitive = normalizePrimitiveId(value);
+    if (primitive) {
+      return primitive;
+    }
+
+    if (value && typeof value === "object" && !Array.isArray(value)) {
+      const record = value as Record<string, unknown>;
+      const candidateKeys = [
+        "id",
+        "assetId",
+        "asset_id",
+        "adId",
+        "ad_id",
+        "externalId",
+        "external_id",
+      ];
+
+      for (const key of candidateKeys) {
+        const resolved = normalizePrimitiveId(record[key]);
+        if (resolved) {
+          return resolved;
+        }
       }
     }
+
     return null;
   };
 
   const tryAdd = (value: unknown) => {
-    const normalized = normalizeId(value);
+    const normalized = normalizeIdCandidate(value);
     if (normalized) {
       ids.add(normalized);
     }
@@ -3910,20 +3942,23 @@ function extractApprovedAdIds(payload: Record<string, unknown>): string[] {
   const rawApprovedAssets = payload["approvedAssets"];
   if (Array.isArray(rawApprovedAssets)) {
     for (const entry of rawApprovedAssets) {
-      if (entry && typeof entry === "object") {
-        tryAdd((entry as Record<string, unknown>).id);
-      }
+      tryAdd(entry);
     }
+  } else if (rawApprovedAssets) {
+    tryAdd(rawApprovedAssets);
   }
 
   const rawApprovedAds = payload["approvedAds"];
   if (Array.isArray(rawApprovedAds)) {
     for (const entry of rawApprovedAds) {
-      if (entry && typeof entry === "object") {
-        tryAdd((entry as Record<string, unknown>).id);
-      }
+      tryAdd(entry);
     }
+  } else if (rawApprovedAds) {
+    tryAdd(rawApprovedAds);
   }
+
+  tryAdd(payload["approvedAsset"]);
+  tryAdd(payload["approvedAd"]);
 
   return Array.from(ids);
 }
@@ -3940,6 +3975,17 @@ function extractRequestedRecipeIdentifiers(
     }
   };
 
+  const tryAddFromRecord = (value: unknown) => {
+    if (value && typeof value === "object" && !Array.isArray(value)) {
+      const record = value as Record<string, unknown>;
+      tryAdd(record.recipeCode);
+      tryAdd(record.recipeNumber);
+      tryAdd(record.recipe_no);
+    } else {
+      tryAdd(value);
+    }
+  };
+
   tryAdd(payload["recipeIdentifier"]);
   tryAdd(payload["recipeCode"]);
   tryAdd(payload["recipeNumber"]);
@@ -3950,26 +3996,23 @@ function extractRequestedRecipeIdentifiers(
   const rawApprovedAssets = payload["approvedAssets"];
   if (Array.isArray(rawApprovedAssets)) {
     for (const entry of rawApprovedAssets) {
-      if (entry && typeof entry === "object") {
-        const record = entry as Record<string, unknown>;
-        tryAdd(record.recipeCode);
-        tryAdd(record.recipeNumber);
-        tryAdd(record.recipe_no);
-      }
+      tryAddFromRecord(entry);
     }
+  } else if (rawApprovedAssets) {
+    tryAddFromRecord(rawApprovedAssets);
   }
 
   const rawApprovedAds = payload["approvedAds"];
   if (Array.isArray(rawApprovedAds)) {
     for (const entry of rawApprovedAds) {
-      if (entry && typeof entry === "object") {
-        const record = entry as Record<string, unknown>;
-        tryAdd(record.recipeCode);
-        tryAdd(record.recipeNumber);
-        tryAdd(record.recipe_no);
-      }
+      tryAddFromRecord(entry);
     }
+  } else if (rawApprovedAds) {
+    tryAddFromRecord(rawApprovedAds);
   }
+
+  tryAddFromRecord(payload["approvedAsset"]);
+  tryAddFromRecord(payload["approvedAd"]);
 
   return Array.from(identifiers);
 }

@@ -693,6 +693,131 @@ export const deleteProjectOnRequestDelete = onDocumentDeleted('requests/{request
   return null;
 });
 
+const PUBLIC_REVIEW_ALLOWED_FIELDS = new Set([
+  'status',
+  'lockedBy',
+  'lockedByUid',
+  'reviewProgress',
+  'reviewComment',
+  'lastReviewedAt',
+  'reviewedCount',
+  'approvedCount',
+  'rejectedCount',
+  'editCount',
+  'archivedCount',
+  'lastUpdated',
+  'thumbnailUrl',
+  'clientNote',
+  'clientNoteTimestamp',
+  'hasClientNote',
+  'completedAt',
+  'brandCode',
+]);
+
+const PUBLIC_REVIEW_DELTA_FIELDS = new Map([
+  ['reviewedCountDelta', 'reviewedCount'],
+  ['approvedCountDelta', 'approvedCount'],
+  ['rejectedCountDelta', 'rejectedCount'],
+  ['editCountDelta', 'editCount'],
+  ['archivedCountDelta', 'archivedCount'],
+]);
+
+const PUBLIC_REVIEW_TIMESTAMP_FIELDS = new Map([
+  ['lastUpdated', 'lastUpdated'],
+  ['lastReviewedAt', 'lastReviewedAt'],
+  ['clientNoteTimestamp', 'clientNoteTimestamp'],
+  ['completedAt', 'completedAt'],
+]);
+
+function normalizeTimestampInput(value) {
+  if (!value) {
+    return admin.firestore.FieldValue.serverTimestamp();
+  }
+
+  if (value instanceof admin.firestore.Timestamp) {
+    return value;
+  }
+
+  if (value instanceof Date) {
+    return admin.firestore.Timestamp.fromDate(value);
+  }
+
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return admin.firestore.Timestamp.fromMillis(value);
+  }
+
+  if (typeof value === 'string') {
+    const parsed = Date.parse(value);
+    if (!Number.isNaN(parsed)) {
+      return admin.firestore.Timestamp.fromMillis(parsed);
+    }
+  }
+
+  return admin.firestore.FieldValue.serverTimestamp();
+}
+
+export const applyPublicReviewUpdate = onDocumentCreated(
+  'adGroups/{groupId}/publicUpdates/{updateId}',
+  async (event) => {
+    const envelope = event.data.data() || {};
+    if (envelope.source !== 'public-review') return null;
+
+    const type = typeof envelope.type === 'string' ? envelope.type.toLowerCase().trim() : '';
+    if (type && type !== 'status' && type !== 'note') return null;
+
+    const update = envelope.update;
+    if (!update || typeof update !== 'object') return null;
+
+    const groupId = event.params.groupId;
+    const updateRef = db.collection('adGroups').doc(groupId);
+
+    const payload = {};
+
+    PUBLIC_REVIEW_ALLOWED_FIELDS.forEach((field) => {
+      if (!Object.prototype.hasOwnProperty.call(update, field)) return;
+      const value = update[field];
+      if (value === undefined) return;
+      payload[field] = value;
+    });
+
+    PUBLIC_REVIEW_TIMESTAMP_FIELDS.forEach((targetField, sourceField) => {
+      if (Object.prototype.hasOwnProperty.call(update, sourceField)) {
+        const rawValue = update[sourceField];
+        if (rawValue === undefined) return;
+        if (rawValue === null) {
+          payload[targetField] = admin.firestore.FieldValue.delete();
+          return;
+        }
+        payload[targetField] = normalizeTimestampInput(rawValue);
+      }
+    });
+
+    const deltaUpdates = {};
+    PUBLIC_REVIEW_DELTA_FIELDS.forEach((targetField, sourceField) => {
+      const value = update[sourceField];
+      if (typeof value === 'number' && value !== 0) {
+        deltaUpdates[targetField] = admin.firestore.FieldValue.increment(value);
+      }
+    });
+
+    const mergeUpdate = { ...payload, ...deltaUpdates };
+
+    if (!Object.keys(mergeUpdate).length) return null;
+
+    try {
+      await updateRef.set(mergeUpdate, { merge: true });
+    } catch (err) {
+      console.error('Failed to apply public review update', {
+        groupId,
+        updateId: event.params.updateId,
+        error: err?.message || err?.toString?.() || err,
+      });
+    }
+
+    return null;
+  },
+);
+
 export const archiveProjectOnGroupArchived = onDocumentUpdated('adGroups/{groupId}', async (event) => {
   const before = event.data.before.data() || {};
   const after = event.data.after.data() || {};

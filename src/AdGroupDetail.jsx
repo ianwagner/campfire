@@ -9,6 +9,7 @@ import React, {
 } from "react";
 import {
   FiEye,
+  FiCalendar,
   FiClock,
   FiTrash,
   FiRefreshCw,
@@ -42,6 +43,7 @@ import { toDateSafe } from "./utils/helpdesk";
 import {
   isErrorStatusCode,
   resolveIntegrationResponseStatus,
+  shouldSkipAutoDispatch,
 } from "./utils/integrationStatus";
 import { FaMagic } from "react-icons/fa";
 import RecipePreview from "./RecipePreview.jsx";
@@ -113,6 +115,7 @@ import {
   REPLACEMENT_META_TEXT_CLASS,
   REPLACEMENT_NOTE_CLASS,
 } from "./utils/replacementStyles";
+import AdGroupScheduleModal from "./components/AdGroupScheduleModal.jsx";
 
 const fileExt = (name) => {
   const idx = name.lastIndexOf(".");
@@ -147,6 +150,12 @@ const INTEGRATION_TONE_STYLES = {
     dot: "bg-emerald-500",
     accent: "text-emerald-600",
   },
+  manual: {
+    container:
+      "border-purple-200 bg-purple-50 text-purple-700 hover:border-purple-300 hover:bg-purple-100 focus:ring-purple-500/40",
+    dot: "bg-purple-500",
+    accent: "text-purple-600",
+  },
   duplicate: {
     container:
       "border-purple-200 bg-purple-50 text-purple-700 hover:border-purple-300 hover:bg-purple-100 focus:ring-purple-500/40",
@@ -164,6 +173,7 @@ const INTEGRATION_TONE_STYLES = {
 const INTEGRATION_TONE_PRIORITY = {
   error: 3,
   duplicate: 2.5,
+  manual: 2,
   info: 2,
   success: 1,
 };
@@ -890,6 +900,14 @@ const AdGroupDetail = () => {
     () => assets.some((a) => a.scrubbedFrom),
     [assets],
   );
+  const dueDateValue = useMemo(() => resolveDate(group?.dueDate), [group?.dueDate]);
+  const [brandAgencyId, setBrandAgencyId] = useState("");
+  const schedulingAgencyId = useMemo(() => {
+    const direct =
+      typeof group?.agencyId === "string" ? group.agencyId.trim() : "";
+    if (direct) return direct;
+    return brandAgencyId;
+  }, [group?.agencyId, brandAgencyId]);
   const { integrations } = useIntegrations();
   const integrationById = useMemo(() => {
     const map = {};
@@ -917,6 +935,8 @@ const AdGroupDetail = () => {
   const [showRecipesTable, setShowRecipesTable] = useState(false);
   const [copyCards, setCopyCards] = useState([]);
   const [copyAssignments, setCopyAssignments] = useState({});
+  const [showScheduleModal, setShowScheduleModal] = useState(false);
+  const [updatingDueDate, setUpdatingDueDate] = useState(false);
   const [copyAssignmentSaving, setCopyAssignmentSaving] = useState({});
   const [showCopyModal, setShowCopyModal] = useState(false);
   const [modalCopies, setModalCopies] = useState([]);
@@ -1070,6 +1090,7 @@ const AdGroupDetail = () => {
       const statusSuffix = responseStatus ? ` • ${responseStatus}` : "";
 
       const isErrorState = ["error", "failed", "rejected"].includes(state);
+      const isManualState = ["manual", "manual_input"].includes(state);
       const isDuplicateState = state === "duplicate";
       const isSuccessState =
         ["received", "succeeded", "completed", "delivered"].includes(state);
@@ -1081,7 +1102,13 @@ const AdGroupDetail = () => {
       let tone = "info";
       let title = "";
 
-      if (isDuplicateState) {
+      if (isManualState) {
+        const displayMessage = statusMessage || "Manually Input";
+        text = displayMessage;
+        className = "bg-purple-600 text-white";
+        tone = "manual";
+        title = errorMessage || statusMessage || displayMessage;
+      } else if (isDuplicateState) {
         const displayMessage = statusMessage || `Already Exists in ${resolvedName}`;
         text = displayMessage;
         className = "bg-purple-600 text-white";
@@ -1182,6 +1209,10 @@ const AdGroupDetail = () => {
         return;
       }
 
+      if (["manual", "manual_input"].includes(badgeDetails?.state || "")) {
+        return;
+      }
+
       const docId = getAssetDocumentId(asset);
       if (!docId) {
         return;
@@ -1219,6 +1250,115 @@ const AdGroupDetail = () => {
     ],
   );
 
+  const handleConfirmManualIntegration = useCallback(
+    async (asset) => {
+      if (!assignedIntegrationId || !asset) {
+        return;
+      }
+
+      const docId = getAssetDocumentId(asset);
+      if (!docId) {
+        return;
+      }
+
+      const localTimestamp = Timestamp.now();
+      const manualEntry = {
+        state: "manual",
+        statusMessage: "Manually Input",
+        integrationId: assignedIntegrationId,
+        integrationName: assignedIntegrationName || "",
+        updatedAt: localTimestamp,
+        errorMessage: "",
+        responseStatus: "manual",
+      };
+
+      const manualPayload = {
+        ...manualEntry,
+        updatedAt: serverTimestamp(),
+      };
+
+      try {
+        await updateDoc(doc(db, "adGroups", id, "assets", docId), {
+          [`integrationStatuses.${assignedIntegrationId}`]: manualPayload,
+        });
+
+        setAssets((prev) =>
+          prev.map((item) => {
+            if (!item || item.id !== asset.id) {
+              return item;
+            }
+
+            const existingStatuses =
+              (item.integrationStatuses && typeof item.integrationStatuses === "object"
+                ? item.integrationStatuses
+                : null) ||
+              (item.integrationStatus && typeof item.integrationStatus === "object"
+                ? item.integrationStatus
+                : null) ||
+              {};
+
+            const nextEntry = {
+              ...(existingStatuses[assignedIntegrationId] || {}),
+              ...manualEntry,
+            };
+
+            const nextStatuses = {
+              ...existingStatuses,
+              [assignedIntegrationId]: nextEntry,
+            };
+
+            return {
+              ...item,
+              integrationStatuses: nextStatuses,
+              integrationStatus: nextStatuses,
+            };
+          }),
+        );
+
+        setIntegrationDetail((prev) => {
+          if (!prev) {
+            return prev;
+          }
+
+          const prevBadge = prev.badge || null;
+          const nextStatusEntry = {
+            ...(prevBadge?.statusEntry || {}),
+            ...manualEntry,
+          };
+
+          return {
+            asset: prev.asset,
+            badge: prevBadge
+              ? {
+                  ...prevBadge,
+                  text: "Manually Input",
+                  className: "bg-purple-600 text-white",
+                  tone: "manual",
+                  title: "Marked as manually input",
+                  statusEntry: nextStatusEntry,
+                }
+              : {
+                  text: "Manually Input",
+                  className: "bg-purple-600 text-white",
+                  tone: "manual",
+                  title: "Marked as manually input",
+                  statusEntry: nextStatusEntry,
+                },
+          };
+        });
+      } catch (error) {
+        console.error("Failed to confirm manual integration input", error);
+      }
+    },
+    [
+      assignedIntegrationId,
+      assignedIntegrationName,
+      id,
+      setAssets,
+      setIntegrationDetail,
+    ],
+  );
+
   useEffect(() => {
     autoDispatchedIntegrationAssetIdsRef.current = new Set();
   }, [assignedIntegrationId, id]);
@@ -1250,16 +1390,19 @@ const AdGroupDetail = () => {
           ? asset.integrationStatus
           : null;
       const statusEntry = (statuses || fallbackStatuses)?.[assignedIntegrationId];
-      const state =
-        typeof statusEntry?.state === "string"
-          ? statusEntry.state.trim().toLowerCase()
-          : "";
-      if (
-        state === "received" ||
-        state === "sending" ||
-        state === "duplicate" ||
-        state === "error"
-      ) {
+      const stateCandidates = [];
+
+      if (typeof statusEntry === "string") {
+        stateCandidates.push(statusEntry);
+      } else if (statusEntry && typeof statusEntry === "object") {
+        stateCandidates.push(
+          statusEntry.state,
+          statusEntry.latestState,
+          statusEntry.status,
+        );
+      }
+
+      if (stateCandidates.some((candidate) => shouldSkipAutoDispatch(candidate))) {
         return false;
       }
       return true;
@@ -2031,6 +2174,8 @@ const AdGroupDetail = () => {
       if (!group?.brandCode) {
         setBrandProducts([]);
         setBrandTone(createEmptyBrandTone());
+        setBrandHasAgency(false);
+        setBrandAgencyId("");
         return;
       }
       try {
@@ -2045,7 +2190,10 @@ const AdGroupDetail = () => {
           setBrandName(data.name || group.brandCode);
           setBrandGuidelines(data.guidelinesUrl || "");
           setBrandProducts(Array.isArray(data.products) ? data.products : []);
-          setBrandHasAgency(Boolean(data.agencyId));
+          const agencyIdValue =
+            typeof data.agencyId === "string" ? data.agencyId.trim() : "";
+          setBrandHasAgency(Boolean(agencyIdValue));
+          setBrandAgencyId(agencyIdValue);
           setBrandId(brandDoc.id);
           setBrandTone({
             voice: data.voice || "",
@@ -2061,6 +2209,7 @@ const AdGroupDetail = () => {
           setBrandGuidelines("");
           setBrandProducts([]);
           setBrandHasAgency(false);
+          setBrandAgencyId("");
           setBrandId("");
           setBrandTone(createEmptyBrandTone());
         }
@@ -2070,6 +2219,7 @@ const AdGroupDetail = () => {
         setBrandGuidelines("");
         setBrandProducts([]);
         setBrandHasAgency(false);
+        setBrandAgencyId("");
         setBrandId("");
         setBrandTone(createEmptyBrandTone());
       }
@@ -4228,6 +4378,35 @@ const AdGroupDetail = () => {
   const canEditStatus =
     isAdmin || isEditor || isDesigner || (isOps && statusOptions.length > 1);
 
+  const handleDueDateSelection = useCallback(
+    async (date) => {
+      if (!id || updatingDueDate) return;
+      setUpdatingDueDate(true);
+      const requestId = group?.requestId;
+      try {
+        const nextValue =
+          date && !Number.isNaN(date.getTime()) ? Timestamp.fromDate(date) : null;
+        await updateDoc(doc(db, 'adGroups', id), { dueDate: nextValue });
+        setGroup((prev) => (prev ? { ...prev, dueDate: nextValue } : prev));
+        if (requestId) {
+          try {
+            await updateDoc(doc(db, 'requests', requestId), {
+              dueDate: nextValue,
+            });
+          } catch (err) {
+            console.error('Failed to sync ticket due date', err);
+          }
+        }
+        setShowScheduleModal(false);
+      } catch (err) {
+        console.error('Failed to update due date', err);
+      } finally {
+        setUpdatingDueDate(false);
+      }
+    },
+    [group?.requestId, id, updatingDueDate],
+  );
+
   const handleStatusChange = async (e) => {
     if (!id) return;
     const newStatus = e.target.value;
@@ -4571,7 +4750,10 @@ const AdGroupDetail = () => {
     const canShowResubmitButton =
       canManageIntegrations &&
       integrationSummary?.badge?.tone === "error" &&
-      integrationSummary?.badge?.state !== "duplicate";
+      integrationSummary?.badge?.state !== "duplicate" &&
+      !["manual", "manual_input"].includes(
+        integrationSummary?.badge?.state || "",
+      );
     const replacementEntries = activeAds
       .map((asset) => {
         const request = asset.replacementRequest;
@@ -5444,35 +5626,22 @@ const AdGroupDetail = () => {
                               Due Date
                             </span>
                             {userRole === 'admin' || userRole === 'agency' ? (
-                              <input
-                                type="date"
-                                value={
-                                  group.dueDate
-                                    ? group.dueDate.toDate().toISOString().slice(0, 10)
-                                    : ''
-                                }
-                                onChange={async (e) => {
-                                  const date = e.target.value
-                                    ? Timestamp.fromDate(new Date(e.target.value))
-                                    : null;
-                                  try {
-                                    await updateDoc(doc(db, 'adGroups', id), { dueDate: date });
-                                    setGroup((p) => ({ ...p, dueDate: date }));
-                                    if (group.requestId) {
-                                      try {
-                                        await updateDoc(doc(db, 'requests', group.requestId), {
-                                          dueDate: date,
-                                        });
-                                      } catch (err) {
-                                        console.error('Failed to sync ticket due date', err);
-                                      }
-                                    }
-                                  } catch (err) {
-                                    console.error('Failed to update due date', err);
-                                  }
-                                }}
-                                className="border tag-pill px-2 py-1 text-sm"
-                              />
+                              <button
+                                type="button"
+                                className="border tag-pill flex items-center gap-2 px-3 py-1 text-sm text-left"
+                                onClick={() => setShowScheduleModal(true)}
+                                disabled={updatingDueDate}
+                                aria-label="Schedule due date"
+                              >
+                                <FiCalendar className="text-gray-500" />
+                                <span>
+                                  {updatingDueDate
+                                    ? 'Saving…'
+                                    : dueDateValue
+                                      ? dueDateValue.toLocaleDateString()
+                                      : 'Select due date'}
+                                </span>
+                              </button>
                             ) : (
                               <span>
                                 {group.dueDate
@@ -6776,7 +6945,25 @@ const AdGroupDetail = () => {
           <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
             {canManageIntegrations &&
               integrationDetailBadge?.tone === "error" &&
+              integrationDetailAsset && (
+                <Button
+                  type="button"
+                  variant="neutral"
+                  size="sm"
+                  onClick={() =>
+                    handleConfirmManualIntegration(integrationDetailAsset)
+                  }
+                  disabled={integrationDetailIsResubmitting}
+                >
+                  Confirm manual input
+                </Button>
+              )}
+            {canManageIntegrations &&
+              integrationDetailBadge?.tone === "error" &&
               integrationDetailBadge?.state !== "duplicate" &&
+              !["manual", "manual_input"].includes(
+                integrationDetailBadge?.state || "",
+              ) &&
               integrationDetailAsset && (
                 <Button
                   type="button"
@@ -7032,6 +7219,17 @@ const AdGroupDetail = () => {
             showBriefExtras
           />
         </Modal>
+      )}
+
+      {showScheduleModal && (
+        <AdGroupScheduleModal
+          agencyId={schedulingAgencyId}
+          currentDate={dueDateValue}
+          currentGroupId={group?.id || id}
+          onClose={() => setShowScheduleModal(false)}
+          onSelectDate={handleDueDateSelection}
+          onClearDate={() => handleDueDateSelection(null)}
+        />
       )}
 
       {showCopyModal && (

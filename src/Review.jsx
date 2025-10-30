@@ -75,6 +75,7 @@ import getVersion from './utils/getVersion';
 import stripVersion from './utils/stripVersion';
 import { isRealtimeReviewerEligible } from './utils/realtimeEligibility';
 import notifySlackStatusChange from './utils/notifySlackStatusChange';
+import { shouldSkipAutoDispatch } from './utils/integrationStatus';
 import { toDateSafe, countUnreadHelpdeskTickets } from './utils/helpdesk';
 import {
   REPLACEMENT_BADGE_CLASS,
@@ -4516,9 +4517,24 @@ useEffect(() => {
         asset.integrationStatuses && typeof asset.integrationStatuses === 'object'
           ? asset.integrationStatuses
           : null;
-      const statusEntry = statuses ? statuses[assignedIntegrationId] : null;
-      const state = normalizeKeyPart(statusEntry?.state).toLowerCase();
-      if (state === 'received' || state === 'sending') {
+      const fallbackStatuses =
+        asset.integrationStatus && typeof asset.integrationStatus === 'object'
+          ? asset.integrationStatus
+          : null;
+      const statusEntry = (statuses || fallbackStatuses)?.[assignedIntegrationId];
+      const stateCandidates = [];
+
+      if (typeof statusEntry === 'string') {
+        stateCandidates.push(statusEntry);
+      } else if (statusEntry && typeof statusEntry === 'object') {
+        stateCandidates.push(
+          statusEntry.state,
+          statusEntry.latestState,
+          statusEntry.status,
+        );
+      }
+
+      if (stateCandidates.some((candidate) => shouldSkipAutoDispatch(candidate))) {
         return false;
       }
       return true;

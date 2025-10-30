@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { collection, doc, getDocs, query, updateDoc, where } from 'firebase/firestore';
-import { FiDownload, FiEdit2, FiSave, FiCopy } from 'react-icons/fi';
+import { collection, getDocs, query, where } from 'firebase/firestore';
+import { FiDownload, FiCopy } from 'react-icons/fi';
 import { db } from './firebase/config';
 import Table from './components/common/Table';
 import Button from './components/Button.jsx';
@@ -308,19 +308,7 @@ const ClientData = ({ brandCodes = [] }) => {
   const [brand, setBrand] = useState('');
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [editMode, setEditMode] = useState(false);
-  const [editedRows, setEditedRows] = useState({});
   const [showApprovedOnly, setShowApprovedOnly] = useState(false);
-  const nonEditable = new Set([
-    'recipeNo',
-    '1x1',
-    '4x5',
-    '9x16',
-    'storeId',
-    'groupName',
-    'product',
-    'status',
-  ]);
   const displayedRows = showApprovedOnly
     ? rows.filter((r) => (r.status || '').toLowerCase() === 'approved')
     : rows;
@@ -704,50 +692,6 @@ const ClientData = ({ brandCodes = [] }) => {
     fetchRows();
   }, [brand, month, dueMonth, brandCodes]);
 
-  const handleCellChange = (rowId, key, value) => {
-    setEditedRows((prev) => ({
-      ...prev,
-      [rowId]: { ...(prev[rowId] || {}), [key]: value },
-    }));
-  };
-
-  const handleSave = async () => {
-    const sanitizedEditedRows = {};
-    const updates = [];
-    Object.entries(editedRows).forEach(([rowId, changes]) => {
-      const filteredChanges = Object.fromEntries(
-        Object.entries(changes).filter(([k]) => !nonEditable.has(k)),
-      );
-      if (!Object.keys(filteredChanges).length) {
-        return;
-      }
-
-      sanitizedEditedRows[rowId] = filteredChanges;
-
-      const [groupId, recipeId] = rowId.split('|');
-      if (!groupId || !recipeId) return;
-      const payload = {};
-      Object.entries(filteredChanges).forEach(([k, v]) => {
-        payload[`metadata.${k}`] = v;
-      });
-      updates.push(updateDoc(doc(db, 'adGroups', groupId, 'recipes', recipeId), payload));
-    });
-
-    setEditedRows(sanitizedEditedRows);
-    try {
-      await Promise.all(updates);
-      setRows((prev) =>
-        prev.map((r) =>
-          sanitizedEditedRows[r.id] ? { ...r, ...sanitizedEditedRows[r.id] } : r,
-        ),
-      );
-      setEditMode(false);
-      setEditedRows({});
-    } catch (err) {
-      console.error('Failed to save edits', err);
-    }
-  };
-
   const buildCsv = () => {
     if (!displayedRows.length) return '';
     const headers = allColumnDefs.map((c) => c.label);
@@ -868,16 +812,6 @@ const ClientData = ({ brandCodes = [] }) => {
         </div>
         <div className="flex space-x-2">
           <IconButton
-            onClick={editMode ? handleSave : () => setEditMode(true)}
-            aria-label={editMode ? 'Save' : 'Edit'}
-            disabled={displayedRows.length === 0}
-            className={`text-xl ${
-              displayedRows.length === 0 ? 'opacity-50 cursor-not-allowed' : ''
-            }`}
-          >
-            {editMode ? <FiSave /> : <FiEdit2 />}
-          </IconButton>
-          <IconButton
             onClick={handleCopy}
             aria-label="Copy CSV"
             disabled={displayedRows.length === 0}
@@ -943,29 +877,17 @@ const ClientData = ({ brandCodes = [] }) => {
                           ) : (
                             '-'
                           )}
-                        </td>
-                      );
-                    default:
-                      const original = r[c.key] ?? '';
-                      const value = editedRows[r.id]?.[c.key] ?? original;
-                      const editable = editMode && !nonEditable.has(c.key);
-                      return (
-                        <td key={c.key} className={c.cellClass || ''}>
-                          {editable ? (
-                            <input
-                              className="w-full p-1 border rounded"
-                              value={value}
-                              onChange={(e) =>
-                                handleCellChange(r.id, c.key, e.target.value)
-                              }
-                            />
-                          ) : (
-                            value || '-'
-                          )}
-                        </td>
-                      );
-                  }
-                })}
+                </td>
+              );
+            default:
+              const value = r[c.key] ?? '';
+              return (
+                <td key={c.key} className={c.cellClass || ''}>
+                  {value || '-'}
+                </td>
+              );
+          }
+        })}
               </tr>
             ))}
           </tbody>

@@ -14,6 +14,7 @@ const AgencySettings = ({ agencyId }) => {
   const [message, setMessage] = useState('');
   const [messageType, setMessageType] = useState('success');
   const [loading, setLoading] = useState(false);
+  const [dailyCapacity, setDailyCapacity] = useState('');
   const [selectedIntegrationId, setSelectedIntegrationId] = useState('none');
   const { integrations, loading: integrationsLoading } = useIntegrations();
 
@@ -44,6 +45,11 @@ const AgencySettings = ({ agencyId }) => {
         ? agency.defaultIntegrationId.trim()
         : '';
     setSelectedIntegrationId(defaultId || 'none');
+    if (typeof agency.dailyAdCapacity === 'number' && Number.isFinite(agency.dailyAdCapacity)) {
+      setDailyCapacity(String(Math.max(0, Math.round(agency.dailyAdCapacity))));
+    } else {
+      setDailyCapacity('');
+    }
   }, [agency]);
 
   useEffect(() => {
@@ -72,6 +78,18 @@ const AgencySettings = ({ agencyId }) => {
     setLoading(true);
     setMessage('');
     setMessageType('success');
+    const trimmedCapacity = dailyCapacity.trim();
+    let capacityValue = null;
+    if (trimmedCapacity) {
+      const parsedCapacity = Number(trimmedCapacity);
+      if (!Number.isFinite(parsedCapacity) || parsedCapacity < 0) {
+        setMessage('Daily capacity must be a non-negative number.');
+        setMessageType('error');
+        setLoading(false);
+        return;
+      }
+      capacityValue = Math.round(parsedCapacity);
+    }
     const integrationId =
       selectedIntegrationId && selectedIntegrationId !== 'none'
         ? selectedIntegrationId
@@ -86,6 +104,7 @@ const AgencySettings = ({ agencyId }) => {
         allowedRecipeTypes: selectedTypes,
         defaultIntegrationId: integrationId,
         defaultIntegrationName: integrationName,
+        dailyAdCapacity: capacityValue,
       });
       if (agencyId) {
         await applyIntegrationSelection(agencyId, integrationId, integrationName);
@@ -193,6 +212,31 @@ const AgencySettings = ({ agencyId }) => {
                 </p>
               </div>
             </label>
+          </div>
+          <div className="space-y-3">
+            <div>
+              <p className="text-sm font-medium text-gray-900 dark:text-gray-100">Daily capacity</p>
+              <p className="text-xs text-gray-600 dark:text-gray-400">
+                Set how many ad recipes the agency can request per day. The capacity planner highlights days that exceed this
+                limit.
+              </p>
+            </div>
+            <div className="max-w-xs space-y-1">
+              <input
+                type="number"
+                min="0"
+                step="1"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                className="w-full rounded border border-gray-300 bg-white px-2 py-2 text-sm text-gray-700 focus:border-[var(--accent-color)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)] dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar)] dark:text-gray-200"
+                value={dailyCapacity}
+                onChange={(event) => setDailyCapacity(event.target.value)}
+                placeholder="e.g. 20"
+              />
+              <p className="text-[0.7rem] text-gray-500 dark:text-gray-400">
+                Leave blank if there is no defined daily capacity for this agency.
+              </p>
+            </div>
           </div>
           <div className="space-y-3">
             <div>

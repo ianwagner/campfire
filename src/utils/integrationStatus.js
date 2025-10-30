@@ -95,6 +95,32 @@ const extractStatusFromPayload = (payload) => {
   return candidates[0];
 };
 
+const AUTO_DISPATCH_SKIP_STATES = new Set([
+  "sending",
+  "received",
+  "success",
+  "succeeded",
+  "completed",
+  "delivered",
+  "duplicate",
+  "error",
+  "failed",
+  "rejected",
+]);
+
+export const shouldSkipAutoDispatch = (state) => {
+  if (typeof state !== "string") {
+    return false;
+  }
+
+  const normalized = state.trim().toLowerCase();
+  if (!normalized) {
+    return false;
+  }
+
+  return AUTO_DISPATCH_SKIP_STATES.has(normalized);
+};
+
 export const isErrorStatusCode = (status) =>
   typeof status === "number" && status >= 400;
 
