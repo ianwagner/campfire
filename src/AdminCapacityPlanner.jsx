@@ -15,6 +15,13 @@ import useAgencies from './useAgencies';
 const DAYS_PER_WEEK = 7;
 const WEEKS_TO_RENDER = 8;
 const WEEKDAY_INDICES = [0, 1, 2, 3, 4];
+const AGENCY_FILTER_ALL = '__all__';
+const AGENCY_FILTER_UNASSIGNED = '__unassigned__';
+
+const normalizeBrandCode = (value) => {
+  if (typeof value !== 'string') return '';
+  return value.trim();
+};
 
 const dayKey = (date) => date.toISOString().slice(0, 10);
 
@@ -52,6 +59,7 @@ const AdminCapacityPlanner = () => {
   const [startWeekMs, setStartWeekMs] = useState(() => startOfWeek(new Date()).getTime());
   const [groupsByDay, setGroupsByDay] = useState({});
   const [loading, setLoading] = useState(true);
+  const [selectedAgencyId, setSelectedAgencyId] = useState(AGENCY_FILTER_ALL);
   const scrollRef = useRef(null);
   const { agencies } = useAgencies();
 
@@ -73,6 +81,12 @@ const AdminCapacityPlanner = () => {
     }
     return 'Unassigned agency';
   };
+
+  const sortedAgencies = useMemo(() => {
+    return [...agencies]
+      .filter((agency) => agency?.id)
+      .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+  }, [agencies]);
 
   const weeks = useMemo(() => {
     const base = new Date(startWeekMs);
@@ -128,28 +142,73 @@ const AdminCapacityPlanner = () => {
               console.error('Failed to count recipes for ad group', docSnap.id, err);
             }
 
+            const rawAgencyId = typeof data.agencyId === 'string' ? data.agencyId.trim() : '';
+            const rawBrandCode = normalizeBrandCode(data.brandCode);
+
             return {
               id: docSnap.id,
               name: data.name || data.projectName || docSnap.id,
               recipesCount,
               dueDate,
-              agencyId:
-                typeof data.agencyId === 'string' && data.agencyId.trim()
-                  ? data.agencyId.trim()
-                  : null,
+              agencyId: rawAgencyId || null,
+              brandCode: rawBrandCode || null,
             };
           })
         );
 
         if (cancelled) return;
 
-        const mapped = {};
+        const brandAgencyMap = new Map();
+        const brandCodesToLookup = new Set();
         groups
-          .filter(Boolean)
+          .filter((group) => group && !group.agencyId && group.brandCode)
           .forEach((group) => {
+            brandCodesToLookup.add(group.brandCode);
+          });
+
+        if (brandCodesToLookup.size > 0) {
+          const codes = Array.from(brandCodesToLookup);
+          const chunkSize = 10;
+          const brandCollection = collection(db, 'brands');
+          for (let i = 0; i < codes.length; i += chunkSize) {
+            const chunk = codes.slice(i, i + chunkSize);
+            try {
+              const brandQuery = query(brandCollection, where('code', 'in', chunk));
+              const brandSnap = await getDocs(brandQuery);
+              brandSnap.docs.forEach((brandDoc) => {
+                const brandData = brandDoc.data();
+                const codeRaw = normalizeBrandCode(brandData.code);
+                if (!codeRaw) return;
+                const agencyIdRaw =
+                  typeof brandData.agencyId === 'string' ? brandData.agencyId.trim() : '';
+                if (agencyIdRaw) {
+                  brandAgencyMap.set(codeRaw, agencyIdRaw);
+                }
+              });
+            } catch (err) {
+              console.error('Failed to load brand agency mapping for capacity planner', err);
+            }
+          }
+        }
+
+        if (cancelled) return;
+
+        const resolvedGroups = groups
+          .filter(Boolean)
+          .map((group) => {
+            if (group.agencyId || !group.brandCode) return group;
+            const mappedAgencyId = brandAgencyMap.get(group.brandCode);
+            if (typeof mappedAgencyId === 'string' && mappedAgencyId) {
+              return { ...group, agencyId: mappedAgencyId };
+            }
+            return group;
+          });
+
+        const mapped = {};
+        resolvedGroups.forEach((group) => {
             const key = dayKey(group.dueDate);
             if (!mapped[key]) mapped[key] = {};
-            const agencyKey = group.agencyId || '__unassigned__';
+            const agencyKey = group.agencyId || AGENCY_FILTER_UNASSIGNED;
             if (!mapped[key][agencyKey]) {
               mapped[key][agencyKey] = {
                 agencyId: group.agencyId,
@@ -222,6 +281,25 @@ const AdminCapacityPlanner = () => {
             Jump to Current Week
           </button>
         </div>
+        <div className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200">
+          <label htmlFor="agency-filter" className="font-medium">
+            Agency
+          </label>
+          <select
+            id="agency-filter"
+            value={selectedAgencyId}
+            onChange={(event) => setSelectedAgencyId(event.target.value)}
+            className="rounded border border-gray-300 bg-white px-2 py-1 text-sm text-gray-700 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-[var(--dark-sidebar-hover)] dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]"
+          >
+            <option value={AGENCY_FILTER_ALL}>All agencies</option>
+            {sortedAgencies.map((agency) => (
+              <option key={agency.id} value={agency.id}>
+                {agency.name || agency.id}
+              </option>
+            ))}
+            <option value={AGENCY_FILTER_UNASSIGNED}>Unassigned</option>
+          </select>
+        </div>
       </div>
       {loading && (
         <div className="mb-4 text-sm text-gray-500 dark:text-gray-400">Loading capacity data…</div>
@@ -266,16 +344,25 @@ const AdminCapacityPlanner = () => {
                     const nameB = getAgencyDisplayName(b.agencyId);
                     return nameA.localeCompare(nameB);
                   });
+                  const filteredAgencies =
+                    selectedAgencyId === AGENCY_FILTER_ALL
+                      ? dayAgencies
+                      : dayAgencies.filter((entry) => {
+                          if (selectedAgencyId === AGENCY_FILTER_UNASSIGNED) {
+                            return !entry.agencyId;
+                          }
+                          return entry.agencyId === selectedAgencyId;
+                        });
                   return (
                     <div
                       key={`${weekKey}-${key}`}
                       className="flex min-h-[220px] flex-col rounded-lg border border-gray-200 bg-gray-50 p-2 dark:border-[var(--dark-sidebar-hover)] dark:bg-[var(--dark-sidebar-bg)]"
                     >
                       <div className="flex-1 space-y-3 overflow-auto">
-                        {dayAgencies.length === 0 ? (
+                        {filteredAgencies.length === 0 ? (
                           <div className="text-xs text-gray-500 dark:text-gray-400">No ad groups due</div>
                         ) : (
-                          dayAgencies.map((entry) => {
+                          filteredAgencies.map((entry) => {
                             const agencyInfo = entry.agencyId
                               ? agenciesById.get(entry.agencyId)
                               : null;
