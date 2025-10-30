@@ -1209,6 +1209,10 @@ const AdGroupDetail = () => {
         return;
       }
 
+      if (["manual", "manual_input"].includes(badgeDetails?.state || "")) {
+        return;
+      }
+
       const docId = getAssetDocumentId(asset);
       if (!docId) {
         return;
@@ -4746,7 +4750,10 @@ const AdGroupDetail = () => {
     const canShowResubmitButton =
       canManageIntegrations &&
       integrationSummary?.badge?.tone === "error" &&
-      integrationSummary?.badge?.state !== "duplicate";
+      integrationSummary?.badge?.state !== "duplicate" &&
+      !["manual", "manual_input"].includes(
+        integrationSummary?.badge?.state || "",
+      );
     const replacementEntries = activeAds
       .map((asset) => {
         const request = asset.replacementRequest;
@@ -6954,6 +6961,9 @@ const AdGroupDetail = () => {
             {canManageIntegrations &&
               integrationDetailBadge?.tone === "error" &&
               integrationDetailBadge?.state !== "duplicate" &&
+              !["manual", "manual_input"].includes(
+                integrationDetailBadge?.state || "",
+              ) &&
               integrationDetailAsset && (
                 <Button
                   type="button"
