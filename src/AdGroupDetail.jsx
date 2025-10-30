@@ -42,6 +42,7 @@ import { toDateSafe } from "./utils/helpdesk";
 import {
   isErrorStatusCode,
   resolveIntegrationResponseStatus,
+  shouldSkipAutoDispatch,
 } from "./utils/integrationStatus";
 import { FaMagic } from "react-icons/fa";
 import RecipePreview from "./RecipePreview.jsx";
@@ -1250,16 +1251,19 @@ const AdGroupDetail = () => {
           ? asset.integrationStatus
           : null;
       const statusEntry = (statuses || fallbackStatuses)?.[assignedIntegrationId];
-      const state =
-        typeof statusEntry?.state === "string"
-          ? statusEntry.state.trim().toLowerCase()
-          : "";
-      if (
-        state === "received" ||
-        state === "sending" ||
-        state === "duplicate" ||
-        state === "error"
-      ) {
+      const stateCandidates = [];
+
+      if (typeof statusEntry === "string") {
+        stateCandidates.push(statusEntry);
+      } else if (statusEntry && typeof statusEntry === "object") {
+        stateCandidates.push(
+          statusEntry.state,
+          statusEntry.latestState,
+          statusEntry.status,
+        );
+      }
+
+      if (stateCandidates.some((candidate) => shouldSkipAutoDispatch(candidate))) {
         return false;
       }
       return true;
