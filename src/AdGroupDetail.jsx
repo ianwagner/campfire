@@ -150,6 +150,12 @@ const INTEGRATION_TONE_STYLES = {
     dot: "bg-emerald-500",
     accent: "text-emerald-600",
   },
+  manual: {
+    container:
+      "border-purple-200 bg-purple-50 text-purple-700 hover:border-purple-300 hover:bg-purple-100 focus:ring-purple-500/40",
+    dot: "bg-purple-500",
+    accent: "text-purple-600",
+  },
   duplicate: {
     container:
       "border-purple-200 bg-purple-50 text-purple-700 hover:border-purple-300 hover:bg-purple-100 focus:ring-purple-500/40",
@@ -167,6 +173,7 @@ const INTEGRATION_TONE_STYLES = {
 const INTEGRATION_TONE_PRIORITY = {
   error: 3,
   duplicate: 2.5,
+  manual: 2,
   info: 2,
   success: 1,
 };
@@ -1083,6 +1090,7 @@ const AdGroupDetail = () => {
       const statusSuffix = responseStatus ? ` • ${responseStatus}` : "";
 
       const isErrorState = ["error", "failed", "rejected"].includes(state);
+      const isManualState = ["manual", "manual_input"].includes(state);
       const isDuplicateState = state === "duplicate";
       const isSuccessState =
         ["received", "succeeded", "completed", "delivered"].includes(state);
@@ -1094,7 +1102,13 @@ const AdGroupDetail = () => {
       let tone = "info";
       let title = "";
 
-      if (isDuplicateState) {
+      if (isManualState) {
+        const displayMessage = statusMessage || "Manually Input";
+        text = displayMessage;
+        className = "bg-purple-600 text-white";
+        tone = "manual";
+        title = errorMessage || statusMessage || displayMessage;
+      } else if (isDuplicateState) {
         const displayMessage = statusMessage || `Already Exists in ${resolvedName}`;
         text = displayMessage;
         className = "bg-purple-600 text-white";
@@ -1229,6 +1243,115 @@ const AdGroupDetail = () => {
       dispatchIntegrationForAssets,
       getIntegrationBadgeDetails,
       id,
+    ],
+  );
+
+  const handleConfirmManualIntegration = useCallback(
+    async (asset) => {
+      if (!assignedIntegrationId || !asset) {
+        return;
+      }
+
+      const docId = getAssetDocumentId(asset);
+      if (!docId) {
+        return;
+      }
+
+      const localTimestamp = Timestamp.now();
+      const manualEntry = {
+        state: "manual",
+        statusMessage: "Manually Input",
+        integrationId: assignedIntegrationId,
+        integrationName: assignedIntegrationName || "",
+        updatedAt: localTimestamp,
+        errorMessage: "",
+        responseStatus: "manual",
+      };
+
+      const manualPayload = {
+        ...manualEntry,
+        updatedAt: serverTimestamp(),
+      };
+
+      try {
+        await updateDoc(doc(db, "adGroups", id, "assets", docId), {
+          [`integrationStatuses.${assignedIntegrationId}`]: manualPayload,
+        });
+
+        setAssets((prev) =>
+          prev.map((item) => {
+            if (!item || item.id !== asset.id) {
+              return item;
+            }
+
+            const existingStatuses =
+              (item.integrationStatuses && typeof item.integrationStatuses === "object"
+                ? item.integrationStatuses
+                : null) ||
+              (item.integrationStatus && typeof item.integrationStatus === "object"
+                ? item.integrationStatus
+                : null) ||
+              {};
+
+            const nextEntry = {
+              ...(existingStatuses[assignedIntegrationId] || {}),
+              ...manualEntry,
+            };
+
+            const nextStatuses = {
+              ...existingStatuses,
+              [assignedIntegrationId]: nextEntry,
+            };
+
+            return {
+              ...item,
+              integrationStatuses: nextStatuses,
+              integrationStatus: nextStatuses,
+            };
+          }),
+        );
+
+        setIntegrationDetail((prev) => {
+          if (!prev) {
+            return prev;
+          }
+
+          const prevBadge = prev.badge || null;
+          const nextStatusEntry = {
+            ...(prevBadge?.statusEntry || {}),
+            ...manualEntry,
+          };
+
+          return {
+            asset: prev.asset,
+            badge: prevBadge
+              ? {
+                  ...prevBadge,
+                  text: "Manually Input",
+                  className: "bg-purple-600 text-white",
+                  tone: "manual",
+                  title: "Marked as manually input",
+                  statusEntry: nextStatusEntry,
+                }
+              : {
+                  text: "Manually Input",
+                  className: "bg-purple-600 text-white",
+                  tone: "manual",
+                  title: "Marked as manually input",
+                  statusEntry: nextStatusEntry,
+                },
+          };
+        });
+      } catch (error) {
+        console.error("Failed to confirm manual integration input", error);
+      }
+    },
+    [
+      assignedIntegrationId,
+      assignedIntegrationName,
+      id,
+      setAssets,
+      setIntegrationDetail,
     ],
   );
 
@@ -6813,6 +6936,21 @@ const AdGroupDetail = () => {
             </section>
           </div>
           <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
+            {canManageIntegrations &&
+              integrationDetailBadge?.tone === "error" &&
+              integrationDetailAsset && (
+                <Button
+                  type="button"
+                  variant="neutral"
+                  size="sm"
+                  onClick={() =>
+                    handleConfirmManualIntegration(integrationDetailAsset)
+                  }
+                  disabled={integrationDetailIsResubmitting}
+                >
+                  Confirm manual input
+                </Button>
+              )}
             {canManageIntegrations &&
               integrationDetailBadge?.tone === "error" &&
               integrationDetailBadge?.state !== "duplicate" &&
