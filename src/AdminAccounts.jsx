@@ -1,11 +1,10 @@
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { FiEye, FiEdit2, FiTrash, FiLogOut, FiUserCheck, FiUserX } from 'react-icons/fi';
+import { FiEye, FiEdit2, FiTrash, FiLogOut, FiUserCheck, FiUserX, FiX, FiCheck } from 'react-icons/fi';
 import { collection, getDocs, updateDoc, deleteDoc, doc } from 'firebase/firestore';
 import { db, functions } from './firebase/config';
 import { httpsCallable } from 'firebase/functions';
 import debugLog from './utils/debugLog';
-import TagInput from './components/TagInput.jsx';
 import Table from './components/common/Table';
 import IconButton from './components/IconButton.jsx';
 import SortButton from './components/SortButton.jsx';
@@ -14,6 +13,162 @@ import CreateButton from './components/CreateButton.jsx';
 import Button from './components/Button.jsx';
 import useAgencies from './useAgencies';
 import TabButton from './components/TabButton.jsx';
+import Modal from './components/Modal.jsx';
+
+const BrandSelectionModal = ({
+  open,
+  brands,
+  selected,
+  onApply,
+  onClose,
+}) => {
+  const [search, setSearch] = useState('');
+  const [sortOrder, setSortOrder] = useState('asc');
+  const [localSelection, setLocalSelection] = useState(new Set(selected));
+
+  useEffect(() => {
+    if (!open) return;
+    setSearch('');
+    setSortOrder('asc');
+    setLocalSelection(new Set(selected));
+  }, [open, selected]);
+
+  const filteredBrands = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    const list = brands
+      .filter((code) => code && (!term || code.toLowerCase().includes(term)))
+      .sort((a, b) => (sortOrder === 'asc' ? a.localeCompare(b) : b.localeCompare(a)));
+    return list;
+  }, [brands, search, sortOrder]);
+
+  const toggleBrand = (code) => {
+    setLocalSelection((prev) => {
+      const next = new Set(prev);
+      if (next.has(code)) next.delete(code);
+      else next.add(code);
+      return next;
+    });
+  };
+
+  const handleApply = () => {
+    onApply(Array.from(localSelection).sort((a, b) => a.localeCompare(b)));
+  };
+
+  const handleSelectVisible = () => {
+    setLocalSelection((prev) => {
+      const next = new Set(prev);
+      filteredBrands.forEach((code) => next.add(code));
+      return next;
+    });
+  };
+
+  const handleClearAll = () => {
+    setLocalSelection(new Set());
+  };
+
+  if (!open) return null;
+
+  return (
+    <Modal sizeClass="max-w-2xl w-full">
+      <div className="flex flex-col gap-4">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Manage brand access</h2>
+            <p className="text-sm text-gray-500 dark:text-gray-300">
+              Search, sort, and select which brand codes this account can access.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="inline-flex h-8 w-8 items-center justify-center rounded-full text-gray-500 hover:bg-gray-100 hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)] dark:hover:bg-[var(--dark-sidebar-hover)]"
+            aria-label="Close brand selection"
+          >
+            <FiX />
+          </button>
+        </div>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <input
+            type="search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search brand codes"
+            className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-[var(--accent-color)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)] focus:ring-offset-0 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-bg)] dark:text-gray-200"
+          />
+          <div className="flex items-center gap-2">
+            <label htmlFor="brand-sort" className="text-sm text-gray-600 dark:text-gray-300">
+              Sort
+            </label>
+            <select
+              id="brand-sort"
+              value={sortOrder}
+              onChange={(e) => setSortOrder(e.target.value)}
+              className="rounded-lg border border-gray-300 bg-white px-2 py-1 text-sm focus:border-[var(--accent-color)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)] focus:ring-offset-0 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-bg)] dark:text-gray-200"
+            >
+              <option value="asc">A → Z</option>
+              <option value="desc">Z → A</option>
+            </select>
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-2 text-xs font-medium text-gray-600 dark:text-gray-300">
+          <button
+            type="button"
+            onClick={handleSelectVisible}
+            className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-3 py-1 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)] dark:bg-[var(--dark-sidebar-hover)] dark:hover:bg-[var(--dark-sidebar)]"
+          >
+            Select visible
+          </button>
+          <button
+            type="button"
+            onClick={handleClearAll}
+            className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-3 py-1 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)] dark:bg-[var(--dark-sidebar-hover)] dark:hover:bg-[var(--dark-sidebar)]"
+          >
+            Clear all
+          </button>
+          <span className="ml-auto text-xs text-gray-500 dark:text-gray-400">
+            {localSelection.size} selected
+          </span>
+        </div>
+        <div className="max-h-64 overflow-y-auto rounded-xl border border-gray-200 bg-gray-50 p-3 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)]">
+          {filteredBrands.length === 0 ? (
+            <p className="text-sm text-gray-500 dark:text-gray-300">No brand codes match your search.</p>
+          ) : (
+            <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              {filteredBrands.map((code) => {
+                const active = localSelection.has(code);
+                return (
+                  <li key={code}>
+                    <button
+                      type="button"
+                      onClick={() => toggleBrand(code)}
+                      className={`flex w-full items-center justify-between rounded-lg border px-3 py-2 text-sm transition hover:shadow focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)] ${
+                        active
+                          ? 'border-[var(--accent-color)] bg-white text-[var(--accent-color)] dark:bg-[var(--dark-sidebar)]'
+                          : 'border-gray-200 bg-white text-gray-700 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar)] dark:text-gray-200'
+                      }`}
+                      aria-pressed={active}
+                    >
+                      <span>{code}</span>
+                      {active && <FiCheck className="text-base" />}
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
+        <div className="flex justify-end gap-2">
+          <Button variant="neutral" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button variant="accent" onClick={handleApply}>
+            Apply selection
+          </Button>
+        </div>
+      </div>
+    </Modal>
+  );
+};
 
 const AdminAccounts = () => {
   const [accounts, setAccounts] = useState([]);
@@ -25,6 +180,7 @@ const AdminAccounts = () => {
   const [form, setForm] = useState({ role: 'client', brandCodes: [], audience: '', agencyId: '' });
   const [brands, setBrands] = useState([]);
   const [viewAcct, setViewAcct] = useState(null);
+  const [brandModalOpen, setBrandModalOpen] = useState(false);
   const { agencies } = useAgencies();
   const agencyMap = useMemo(
     () => Object.fromEntries(agencies.map((a) => [a.id, a.name])),
@@ -74,6 +230,7 @@ const AdminAccounts = () => {
 
   const startEdit = (acct) => {
     setEditId(acct.id);
+    setBrandModalOpen(false);
     setForm({
       role: acct.role || 'client',
       brandCodes: Array.isArray(acct.brandCodes) ? acct.brandCodes : [],
@@ -82,20 +239,9 @@ const AdminAccounts = () => {
     });
   };
 
-  const cancelEdit = () => setEditId(null);
-
-  const handleAddAllBrandCodes = () => {
-    setForm((f) => ({
-      ...f,
-      brandCodes: Array.from(new Set(brands.filter(Boolean))),
-    }));
-  };
-
-  const handleClearBrandCodes = () => {
-    setForm((f) => ({
-      ...f,
-      brandCodes: [],
-    }));
+  const cancelEdit = () => {
+    setEditId(null);
+    setBrandModalOpen(false);
   };
 
   const handleSave = async (id) => {
@@ -120,6 +266,7 @@ const AdminAccounts = () => {
         )
       );
       setEditId(null);
+      setBrandModalOpen(false);
     } catch (err) {
       console.error('Failed to update account', err);
     }
@@ -179,7 +326,116 @@ const AdminAccounts = () => {
   const handleToggleType = (type) => {
     setUserType(type);
     setEditId(null);
+    setBrandModalOpen(false);
   };
+
+  const brandDisplay = (codes) => {
+    const list = (Array.isArray(codes) ? codes.filter(Boolean) : []).sort((a, b) => a.localeCompare(b));
+    const visible = list.slice(0, 6);
+    const remainder = list.length - visible.length;
+    if (list.length === 0) {
+      return <span className="text-sm text-gray-400 dark:text-gray-500">No brand codes</span>;
+    }
+    return (
+      <div className="flex flex-wrap items-center gap-1">
+        {visible.map((code) => (
+          <span
+            key={code}
+            className="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700 dark:bg-[var(--dark-sidebar-hover)] dark:text-gray-200"
+          >
+            {code}
+          </span>
+        ))}
+        {remainder > 0 && (
+          <span className="text-xs font-medium text-gray-500 dark:text-gray-300">+{remainder} more</span>
+        )}
+      </div>
+    );
+  };
+
+  const extractAnonymousDetails = (acct) => {
+    const details = {
+      providedNames: [],
+      lastBrand: null,
+      visitedBrands: [],
+    };
+
+    const nameKeys = [
+      'providedName',
+      'guestName',
+      'submittedName',
+      'tempName',
+      'temporaryName',
+      'anonName',
+      'anonymousName',
+      'displayName',
+      'name',
+    ];
+    const brandKeys = [
+      'brandCode',
+      'brand',
+      'lastBrand',
+      'lastBrandCode',
+      'recentBrandCodes',
+      'recentBrands',
+      'brandHistory',
+      'accessedBrand',
+      'accessedBrands',
+    ];
+
+    const visitedSet = new Set();
+    const providedNameSet = new Set();
+
+    const inspectObject = (obj) => {
+      if (!obj || typeof obj !== 'object') return;
+      nameKeys.forEach((key) => {
+        const value = obj[key];
+        if (typeof value === 'string' && value.trim()) {
+          providedNameSet.add(value.trim());
+        }
+      });
+      brandKeys.forEach((key) => {
+        const value = obj[key];
+        if (!value) return;
+        if (Array.isArray(value)) {
+          value
+            .map((v) => (typeof v === 'string' ? v.trim() : null))
+            .filter(Boolean)
+            .forEach((v) => visitedSet.add(v));
+        } else if (typeof value === 'string') {
+          const trimmed = value.trim();
+          if (!trimmed) return;
+          if (!details.lastBrand) details.lastBrand = trimmed;
+          visitedSet.add(trimmed);
+        }
+      });
+    };
+
+    inspectObject(acct);
+    inspectObject(acct?.anonymousMetadata);
+    inspectObject(acct?.metadata);
+    inspectObject(acct?.profile);
+
+    details.providedNames = Array.from(providedNameSet).filter((name) => name !== acct.fullName);
+    details.visitedBrands = Array.from(visitedSet);
+    if (!details.lastBrand && details.visitedBrands.length > 0) {
+      details.lastBrand = details.visitedBrands[0];
+    }
+
+    return details;
+  };
+
+  const openBrandModal = () => setBrandModalOpen(true);
+  const closeBrandModal = () => setBrandModalOpen(false);
+  const applyBrandSelection = (codes) => {
+    setForm((f) => ({
+      ...f,
+      brandCodes: codes,
+    }));
+    closeBrandModal();
+  };
+
+  const viewAnonymousDetails = viewAcct && isAnonymousAccount(viewAcct) ? extractAnonymousDetails(viewAcct) : null;
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-[var(--dark-bg)]">
@@ -261,12 +517,11 @@ const AdminAccounts = () => {
                   )}
                 </div>
               ) : (
-                <Table columns={["2.2fr", "1.2fr", "1.4fr", "1.6fr", "2.5fr", "140px"]}>
+                <Table columns={["2.6fr", "1.3fr", "1.8fr", "2.6fr", "140px"]}>
                   <thead>
                     <tr>
                       <th className="text-left">Account</th>
                       <th className="text-left">Role</th>
-                      <th className="text-left">Audience</th>
                       <th className="text-left">Agency</th>
                       <th className="text-left">Brand Codes</th>
                       <th className="text-center">Actions</th>
@@ -276,7 +531,7 @@ const AdminAccounts = () => {
                     {displayAccounts.map((acct) => {
                       const isAnon = isAnonymousAccount(acct);
                       const isEditing = editId === acct.id;
-                      const brandList = Array.isArray(acct.brandCodes) ? acct.brandCodes.filter(Boolean) : [];
+                      const anonymousDetails = extractAnonymousDetails(acct);
                       return (
                         <tr key={acct.id} className="align-top">
                           <td>
@@ -292,7 +547,43 @@ const AdminAccounts = () => {
                                 )}
                               </div>
                               <p className="text-xs text-gray-500 dark:text-gray-400">{acct.email || 'No email on file'}</p>
+                              {acct.audience && (
+                                <p className="text-xs text-gray-500 dark:text-gray-400">Audience: {acct.audience}</p>
+                              )}
+                              {isAnon && (
+                                <div className="space-y-0.5">
+                                  {anonymousDetails.providedNames.length > 0 && (
+                                    <p className="text-xs text-amber-600 dark:text-amber-300">
+                                      Provided name: {anonymousDetails.providedNames.join(', ')}
+                                    </p>
+                                  )}
+                                  {anonymousDetails.lastBrand && (
+                                    <p className="text-xs text-amber-600 dark:text-amber-300">
+                                      Last visited brand: {anonymousDetails.lastBrand}
+                                    </p>
+                                  )}
+                                  {anonymousDetails.visitedBrands.length > 1 && (
+                                    <p className="text-xs text-amber-600 dark:text-amber-300">
+                                      Other visits: {anonymousDetails.visitedBrands.slice(1).join(', ')}
+                                    </p>
+                                  )}
+                                </div>
+                              )}
                             </div>
+                            {isEditing && (
+                              <div className="mt-3 space-y-1">
+                                <label htmlFor={`audience-${acct.id}`} className="text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300">
+                                  Audience
+                                </label>
+                                <input
+                                  id={`audience-${acct.id}`}
+                                  type="text"
+                                  value={form.audience}
+                                  onChange={(e) => setForm((f) => ({ ...f, audience: e.target.value }))}
+                                  className="w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm focus:border-[var(--accent-color)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)] focus:ring-offset-0 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)] dark:text-gray-200"
+                                />
+                              </div>
+                            )}
                           </td>
                           <td>
                             {isEditing ? (
@@ -311,18 +602,6 @@ const AdminAccounts = () => {
                               </select>
                             ) : (
                               <span className="text-sm text-gray-700 dark:text-gray-200">{acct.role || '—'}</span>
-                            )}
-                          </td>
-                          <td>
-                            {isEditing ? (
-                              <input
-                                type="text"
-                                value={form.audience}
-                                onChange={(e) => setForm((f) => ({ ...f, audience: e.target.value }))}
-                                className="w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm focus:border-[var(--accent-color)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)] focus:ring-offset-0 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)] dark:text-gray-200"
-                              />
-                            ) : (
-                              <span className="text-sm text-gray-700 dark:text-gray-200">{acct.audience || '—'}</span>
                             )}
                           </td>
                           <td>
@@ -347,55 +626,19 @@ const AdminAccounts = () => {
                           </td>
                           <td>
                             {isEditing ? (
-                              <div className="space-y-3">
+                              <div className="space-y-2">
                                 <div className="flex items-center justify-between gap-2">
                                   <span className="text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300">
-                                    Brand Access
+                                    Brand access
                                   </span>
-                                  <div className="flex gap-2">
-                                    <Button
-                                      type="button"
-                                      variant="neutral"
-                                      size="sm"
-                                      onClick={handleClearBrandCodes}
-                                    >
-                                      Clear
-                                    </Button>
-                                    <Button
-                                      type="button"
-                                      variant="accent"
-                                      size="sm"
-                                      onClick={handleAddAllBrandCodes}
-                                    >
-                                      Add all
-                                    </Button>
-                                  </div>
+                                  <Button type="button" variant="neutral" size="sm" onClick={openBrandModal}>
+                                    Manage brands
+                                  </Button>
                                 </div>
-                                <TagInput
-                                  value={form.brandCodes}
-                                  onChange={(codes) => setForm((f) => ({ ...f, brandCodes: codes }))}
-                                  suggestions={brands}
-                                  id={`brand-${acct.id}`}
-                                  placeholder="Type a brand code and press enter"
-                                  className="w-full"
-                                />
-                                <p className="text-xs text-gray-500 dark:text-gray-400">
-                                  Start typing to search suggestions or paste multiple codes separated by commas.
-                                </p>
-                              </div>
-                            ) : brandList.length ? (
-                              <div className="flex flex-wrap gap-1">
-                                {brandList.map((code) => (
-                                  <span
-                                    key={code}
-                                    className="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700 dark:bg-[var(--dark-sidebar-hover)] dark:text-gray-200"
-                                  >
-                                    {code}
-                                  </span>
-                                ))}
+                                {brandDisplay(form.brandCodes)}
                               </div>
                             ) : (
-                              <span className="text-sm text-gray-400 dark:text-gray-500">No brand codes</span>
+                              brandDisplay(acct.brandCodes)
                             )}
                           </td>
                           <td className="text-center">
@@ -440,14 +683,34 @@ const AdminAccounts = () => {
           </section>
         </div>
       </div>
+      <BrandSelectionModal
+        open={brandModalOpen}
+        brands={brands}
+        selected={form.brandCodes}
+        onApply={applyBrandSelection}
+        onClose={closeBrandModal}
+      />
       {viewAcct && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
           <div className="max-w-sm rounded-xl bg-white p-4 shadow dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]">
             <h3 className="mb-2 font-semibold">{viewAcct.fullName || viewAcct.email || viewAcct.id}</h3>
             <p className="mb-1 text-sm">Email: {viewAcct.email || 'N/A'}</p>
             <p className="mb-1 text-sm">Role: {viewAcct.role || '—'}</p>
-            {isAnonymousAccount(viewAcct) && (
-              <p className="mb-1 text-sm text-amber-600 dark:text-amber-300">Anonymous session</p>
+            {isAnonymousAccount(viewAcct) && viewAnonymousDetails && (
+              <div className="mb-1 space-y-1 text-sm text-amber-600 dark:text-amber-300">
+                <p className="mb-0">Anonymous session</p>
+                {viewAnonymousDetails.providedNames.length > 0 && (
+                  <p className="mb-0">Provided name: {viewAnonymousDetails.providedNames.join(', ')}</p>
+                )}
+                {viewAnonymousDetails.lastBrand && (
+                  <p className="mb-0">Last visited brand: {viewAnonymousDetails.lastBrand}</p>
+                )}
+                {viewAnonymousDetails.visitedBrands.length > 1 && (
+                  <p className="mb-0">
+                    Other visits: {viewAnonymousDetails.visitedBrands.slice(1).join(', ')}
+                  </p>
+                )}
+              </div>
             )}
             {viewAcct.audience && (
               <p className="mb-1 text-sm">Audience: {viewAcct.audience}</p>
@@ -456,7 +719,9 @@ const AdminAccounts = () => {
               <p className="mb-1 text-sm">Agency: {agencyMap[viewAcct.agencyId] || viewAcct.agencyId}</p>
             )}
             {Array.isArray(viewAcct.brandCodes) && viewAcct.brandCodes.length > 0 && (
-              <p className="mb-1 text-sm">Brands: {viewAcct.brandCodes.join(', ')}</p>
+              <p className="mb-1 text-sm">
+                Brands: {viewAcct.brandCodes.filter(Boolean).sort((a, b) => a.localeCompare(b)).join(', ')}
+              </p>
             )}
             <div className="mt-2 flex gap-2">
               <button
