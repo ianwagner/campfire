@@ -314,14 +314,14 @@ const AdminCapacityPlanner = () => {
           return (
             <div
               key={weekKey}
-              className="flex min-w-[640px] flex-col rounded-lg border border-gray-200 bg-white shadow-sm snap-start dark:border-[var(--dark-sidebar-hover)] dark:bg-[var(--dark-sidebar-bg)]"
+              className="flex min-w-full flex-col rounded-lg border border-gray-200 bg-white shadow-sm snap-start dark:border-[var(--dark-sidebar-hover)] dark:bg-[var(--dark-sidebar-bg)] md:min-w-[720px] xl:min-w-[960px]"
             >
               <div className="border-b px-4 py-2">
                 <h2 className="text-sm font-semibold text-gray-700 dark:text-[var(--dark-text)]">
                   {formatWeekTitle(weekStart)}
                 </h2>
               </div>
-              <div className="grid grid-cols-5 gap-2 border-b bg-gray-50 px-4 py-3 dark:border-[var(--dark-sidebar-hover)] dark:bg-[var(--dark-sidebar-hover)]">
+              <div className="grid grid-cols-1 gap-3 border-b bg-gray-50 px-4 py-3 dark:border-[var(--dark-sidebar-hover)] dark:bg-[var(--dark-sidebar-hover)] sm:grid-cols-3 lg:grid-cols-5">
                 {weekDays.map((day) => (
                   <div key={`${weekKey}-${day.getDate()}`} className="text-center">
                     <div className="text-sm font-semibold text-gray-700 dark:text-[var(--dark-text)]">
@@ -333,7 +333,7 @@ const AdminCapacityPlanner = () => {
                   </div>
                 ))}
               </div>
-              <div className="grid grid-cols-5 gap-3 px-4 py-4">
+              <div className="grid grid-cols-1 gap-4 px-4 py-4 sm:grid-cols-3 lg:grid-cols-5">
                 {weekDays.map((day) => {
                   const key = dayKey(day);
                   const dayAgencies = Object.entries(groupsByDay[key] || {}).map(
@@ -356,7 +356,7 @@ const AdminCapacityPlanner = () => {
                   return (
                     <div
                       key={`${weekKey}-${key}`}
-                      className="flex min-h-[220px] flex-col rounded-lg border border-gray-200 bg-gray-50 p-2 dark:border-[var(--dark-sidebar-hover)] dark:bg-[var(--dark-sidebar-bg)]"
+                      className="flex min-h-[240px] flex-col rounded-lg border border-gray-200 bg-gray-50 p-3 dark:border-[var(--dark-sidebar-hover)] dark:bg-[var(--dark-sidebar-bg)]"
                     >
                       <div className="flex-1 space-y-3 overflow-auto">
                         {filteredAgencies.length === 0 ? (
