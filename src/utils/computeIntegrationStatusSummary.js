@@ -3,7 +3,14 @@ import {
   resolveIntegrationResponseStatus,
 } from './integrationStatus';
 
-const SUCCESS_STATES = new Set(['received', 'succeeded', 'completed', 'delivered']);
+const SUCCESS_STATES = new Set([
+  'received',
+  'succeeded',
+  'completed',
+  'delivered',
+  'manual',
+  'manual_input',
+]);
 const DUPLICATE_STATES = new Set(['duplicate']);
 const ERROR_STATES = new Set(['error', 'failed', 'rejected']);
 

@@ -97,4 +97,20 @@ describe('computeIntegrationStatusSummary', () => {
       responseStatus: 409,
     });
   });
+
+  it('treats manual states as successful outcomes', () => {
+    const integrationId = 'compass';
+    const manualAsset = buildAsset(integrationId, {
+      state: 'manual',
+      statusMessage: 'Manually Input',
+    });
+
+    const summary = computeIntegrationStatusSummary(integrationId, 'Compass', [manualAsset]);
+
+    expect(summary).toMatchObject({
+      outcome: 'success',
+      wasTriggered: true,
+      latestState: 'manual',
+    });
+  });
 });
