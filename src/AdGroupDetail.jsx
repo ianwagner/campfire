@@ -9,6 +9,7 @@ import React, {
 } from "react";
 import {
   FiEye,
+  FiCalendar,
   FiClock,
   FiTrash,
   FiRefreshCw,
@@ -114,6 +115,7 @@ import {
   REPLACEMENT_META_TEXT_CLASS,
   REPLACEMENT_NOTE_CLASS,
 } from "./utils/replacementStyles";
+import AdGroupScheduleModal from "./components/AdGroupScheduleModal.jsx";
 
 const fileExt = (name) => {
   const idx = name.lastIndexOf(".");
@@ -891,6 +893,13 @@ const AdGroupDetail = () => {
     () => assets.some((a) => a.scrubbedFrom),
     [assets],
   );
+  const dueDateValue = useMemo(() => resolveDate(group?.dueDate), [group?.dueDate]);
+  const schedulingAgencyId = useMemo(() => {
+    const direct =
+      typeof group?.agencyId === "string" ? group.agencyId.trim() : "";
+    if (direct) return direct;
+    return brandAgencyId;
+  }, [group?.agencyId, brandAgencyId]);
   const { integrations } = useIntegrations();
   const integrationById = useMemo(() => {
     const map = {};
@@ -918,6 +927,9 @@ const AdGroupDetail = () => {
   const [showRecipesTable, setShowRecipesTable] = useState(false);
   const [copyCards, setCopyCards] = useState([]);
   const [copyAssignments, setCopyAssignments] = useState({});
+  const [showScheduleModal, setShowScheduleModal] = useState(false);
+  const [brandAgencyId, setBrandAgencyId] = useState('');
+  const [updatingDueDate, setUpdatingDueDate] = useState(false);
   const [copyAssignmentSaving, setCopyAssignmentSaving] = useState({});
   const [showCopyModal, setShowCopyModal] = useState(false);
   const [modalCopies, setModalCopies] = useState([]);
@@ -2035,6 +2047,8 @@ const AdGroupDetail = () => {
       if (!group?.brandCode) {
         setBrandProducts([]);
         setBrandTone(createEmptyBrandTone());
+        setBrandHasAgency(false);
+        setBrandAgencyId("");
         return;
       }
       try {
@@ -2049,7 +2063,10 @@ const AdGroupDetail = () => {
           setBrandName(data.name || group.brandCode);
           setBrandGuidelines(data.guidelinesUrl || "");
           setBrandProducts(Array.isArray(data.products) ? data.products : []);
-          setBrandHasAgency(Boolean(data.agencyId));
+          const agencyIdValue =
+            typeof data.agencyId === "string" ? data.agencyId.trim() : "";
+          setBrandHasAgency(Boolean(agencyIdValue));
+          setBrandAgencyId(agencyIdValue);
           setBrandId(brandDoc.id);
           setBrandTone({
             voice: data.voice || "",
@@ -2065,6 +2082,7 @@ const AdGroupDetail = () => {
           setBrandGuidelines("");
           setBrandProducts([]);
           setBrandHasAgency(false);
+          setBrandAgencyId("");
           setBrandId("");
           setBrandTone(createEmptyBrandTone());
         }
@@ -2074,6 +2092,7 @@ const AdGroupDetail = () => {
         setBrandGuidelines("");
         setBrandProducts([]);
         setBrandHasAgency(false);
+        setBrandAgencyId("");
         setBrandId("");
         setBrandTone(createEmptyBrandTone());
       }
@@ -4232,6 +4251,35 @@ const AdGroupDetail = () => {
   const canEditStatus =
     isAdmin || isEditor || isDesigner || (isOps && statusOptions.length > 1);
 
+  const handleDueDateSelection = useCallback(
+    async (date) => {
+      if (!id || updatingDueDate) return;
+      setUpdatingDueDate(true);
+      const requestId = group?.requestId;
+      try {
+        const nextValue =
+          date && !Number.isNaN(date.getTime()) ? Timestamp.fromDate(date) : null;
+        await updateDoc(doc(db, 'adGroups', id), { dueDate: nextValue });
+        setGroup((prev) => (prev ? { ...prev, dueDate: nextValue } : prev));
+        if (requestId) {
+          try {
+            await updateDoc(doc(db, 'requests', requestId), {
+              dueDate: nextValue,
+            });
+          } catch (err) {
+            console.error('Failed to sync ticket due date', err);
+          }
+        }
+        setShowScheduleModal(false);
+      } catch (err) {
+        console.error('Failed to update due date', err);
+      } finally {
+        setUpdatingDueDate(false);
+      }
+    },
+    [group?.requestId, id, updatingDueDate],
+  );
+
   const handleStatusChange = async (e) => {
     if (!id) return;
     const newStatus = e.target.value;
@@ -5448,35 +5496,22 @@ const AdGroupDetail = () => {
                               Due Date
                             </span>
                             {userRole === 'admin' || userRole === 'agency' ? (
-                              <input
-                                type="date"
-                                value={
-                                  group.dueDate
-                                    ? group.dueDate.toDate().toISOString().slice(0, 10)
-                                    : ''
-                                }
-                                onChange={async (e) => {
-                                  const date = e.target.value
-                                    ? Timestamp.fromDate(new Date(e.target.value))
-                                    : null;
-                                  try {
-                                    await updateDoc(doc(db, 'adGroups', id), { dueDate: date });
-                                    setGroup((p) => ({ ...p, dueDate: date }));
-                                    if (group.requestId) {
-                                      try {
-                                        await updateDoc(doc(db, 'requests', group.requestId), {
-                                          dueDate: date,
-                                        });
-                                      } catch (err) {
-                                        console.error('Failed to sync ticket due date', err);
-                                      }
-                                    }
-                                  } catch (err) {
-                                    console.error('Failed to update due date', err);
-                                  }
-                                }}
-                                className="border tag-pill px-2 py-1 text-sm"
-                              />
+                              <button
+                                type="button"
+                                className="border tag-pill flex items-center gap-2 px-3 py-1 text-sm text-left"
+                                onClick={() => setShowScheduleModal(true)}
+                                disabled={updatingDueDate}
+                                aria-label="Schedule due date"
+                              >
+                                <FiCalendar className="text-gray-500" />
+                                <span>
+                                  {updatingDueDate
+                                    ? 'Saving…'
+                                    : dueDateValue
+                                      ? dueDateValue.toLocaleDateString()
+                                      : 'Select due date'}
+                                </span>
+                              </button>
                             ) : (
                               <span>
                                 {group.dueDate
@@ -7036,6 +7071,17 @@ const AdGroupDetail = () => {
             showBriefExtras
           />
         </Modal>
+      )}
+
+      {showScheduleModal && (
+        <AdGroupScheduleModal
+          agencyId={schedulingAgencyId}
+          currentDate={dueDateValue}
+          currentGroupId={group?.id || id}
+          onClose={() => setShowScheduleModal(false)}
+          onSelectDate={handleDueDateSelection}
+          onClearDate={() => handleDueDateSelection(null)}
+        />
       )}
 
       {showCopyModal && (
