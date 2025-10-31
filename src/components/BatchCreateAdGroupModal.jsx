@@ -9,6 +9,11 @@ import Modal from './Modal.jsx';
 import Button from './Button.jsx';
 import selectRandomOption from '../utils/selectRandomOption.js';
 
+const escapeRegExp = (value) => {
+  if (typeof value !== 'string') return '';
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+};
+
 const normalizeValueForDisplay = (value) => {
   if (value === null || value === undefined) return '';
   if (typeof value === 'string') return value;
@@ -397,8 +402,16 @@ const BatchCreateAdGroupModal = ({ onClose, onCreated }) => {
   const [productModalError, setProductModalError] = useState('');
   const [savingProduct, setSavingProduct] = useState(false);
   const [attributeModal, setAttributeModal] = useState(null);
+  const [instanceModal, setInstanceModal] = useState(null);
 
   const components = useComponentTypes();
+
+  const OPENAI_PROXY_URL = useMemo(() => {
+    const projectId = import.meta.env.VITE_FIREBASE_PROJECT_ID || '';
+    return projectId
+      ? `https://us-central1-${projectId}.cloudfunctions.net/openaiProxy`
+      : '';
+  }, []);
 
   const stepCardClass =
     'space-y-4 rounded-xl border border-gray-100 bg-gray-50 p-5 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-hover)]';
@@ -1036,6 +1049,207 @@ const BatchCreateAdGroupModal = ({ onClose, onCreated }) => {
     return componentsData;
   };
 
+  const buildPromptFromComponents = (row, componentsData) => {
+    if (!selectedRecipeType?.gptPrompt) return '';
+    let prompt = selectedRecipeType.gptPrompt || '';
+    const replacements = {};
+    if (row?.brand) {
+      const brandName = typeof row.brand.name === 'string' ? row.brand.name : '';
+      const tone = typeof row.brand.toneOfVoice === 'string' ? row.brand.toneOfVoice : '';
+      const offering = typeof row.brand.offering === 'string' ? row.brand.offering : '';
+      replacements['brand.name'] = brandName;
+      replacements['brand.toneOfVoice'] = tone;
+      replacements['brand.offering'] = offering;
+    }
+    replacements.brandCode = row?.brandCode || row?.brand?.code || '';
+    Object.entries(componentsData).forEach(([key, value]) => {
+      if (value === undefined || value === null) return;
+      const normalized = Array.isArray(value) ? value.join(', ') : String(value);
+      replacements[key] = normalized;
+    });
+    Object.entries(replacements).forEach(([key, value]) => {
+      const regex = new RegExp(`{{${escapeRegExp(key)}}}`, 'g');
+      prompt = prompt.replace(regex, value || '');
+    });
+    return prompt;
+  };
+
+  const buildFallbackCopy = (row, componentsData) => {
+    const brandName = row?.brand?.name || row?.brandCode || 'your brand';
+    const productName = componentsData['product.name'] || componentsData['campaign.name'] || 'this product';
+    const tone = row?.brand?.toneOfVoice ? ` Tone: ${row.brand.toneOfVoice}.` : '';
+    return `Introducing ${productName} from ${brandName}.` + tone;
+  };
+
+  const generateCopyForRow = async (row, componentsData) => {
+    const prompt = buildPromptFromComponents(row, componentsData);
+    if (prompt && OPENAI_PROXY_URL) {
+      try {
+        const response = await fetch(OPENAI_PROXY_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            model: 'gpt-3.5-turbo',
+            messages: [{ role: 'user', content: prompt }],
+            temperature: 0.7,
+          }),
+        });
+        if (response.ok) {
+          const data = await response.json();
+          const text = data?.choices?.[0]?.message?.content?.trim();
+          if (text) {
+            return text;
+          }
+        }
+      } catch (err) {
+        console.error('Failed to generate copy for batch recipe', err);
+      }
+    }
+    return buildFallbackCopy(row, componentsData);
+  };
+
+  const gatherAssetCandidates = (row, componentsData) => {
+    const candidates = [];
+    const seen = new Set();
+    const pushCandidate = (candidate) => {
+      if (!candidate?.adUrl) return;
+      const key = candidate.adUrl;
+      if (seen.has(key)) return;
+      seen.add(key);
+      candidates.push({
+        id: candidate.id || candidate.adUrl,
+        adUrl: candidate.adUrl,
+        assetType: candidate.assetType || '',
+        thumbnailUrl: candidate.thumbnailUrl || '',
+      });
+    };
+
+    const assetRows = Array.isArray(row?.brand?.assetLibrary?.rows)
+      ? row.brand.assetLibrary.rows
+      : [];
+    assetRows.forEach((asset, index) => {
+      const url = asset?.adUrl || asset?.imageUrl || asset?.url || '';
+      if (!url) return;
+      pushCandidate({
+        id: asset?.id || asset?.imageName || asset?.filename || `asset-${index}`,
+        adUrl: url,
+        assetType: asset?.assetType || asset?.type || '',
+        thumbnailUrl: asset?.thumbnailUrl || asset?.thumbnail || '',
+      });
+    });
+
+    const brandAssets = Array.isArray(row?.brand?.assets) ? row.brand.assets : [];
+    brandAssets.forEach((asset, index) => {
+      if (!asset) return;
+      if (typeof asset === 'string') {
+        const trimmed = asset.trim();
+        if (/^https?:\/\//i.test(trimmed)) {
+          pushCandidate({
+            id: trimmed,
+            adUrl: trimmed,
+            thumbnailUrl: trimmed,
+            assetType: '',
+          });
+        }
+        return;
+      }
+      const url = asset.adUrl || asset.imageUrl || asset.url || '';
+      if (!url) return;
+      pushCandidate({
+        id: asset.id || asset.imageName || asset.filename || `brand-asset-${index}`,
+        adUrl: url,
+        assetType: asset.assetType || asset.type || '',
+        thumbnailUrl: asset.thumbnailUrl || asset.thumbnail || '',
+      });
+    });
+
+    Object.values(componentsData).forEach((value) => {
+      const addUrl = (val) => {
+        if (typeof val !== 'string') return;
+        const trimmed = val.trim();
+        if (!/^https?:\/\//i.test(trimmed)) return;
+        pushCandidate({ id: trimmed, adUrl: trimmed, thumbnailUrl: trimmed, assetType: '' });
+      };
+      if (Array.isArray(value)) {
+        value.forEach(addUrl);
+      } else {
+        addUrl(value);
+      }
+    });
+
+    return candidates;
+  };
+
+  const determineAssetCount = (componentsData, candidates) => {
+    const sectionCounts = {};
+    Object.keys(componentsData).forEach((key) => {
+      const match = key.match(/^(.+)\.(assetCount|assetNo)$/);
+      if (!match) return;
+      const [, sectionKey, modifier] = match;
+      const rawValue = componentsData[key];
+      const parsed = Number.parseInt(rawValue, 10);
+      if (Number.isNaN(parsed) || parsed <= 0) return;
+      if (modifier === 'assetCount') {
+        sectionCounts[sectionKey] = parsed;
+      } else {
+        sectionCounts[sectionKey] = Math.max(sectionCounts[sectionKey] || 0, parsed);
+      }
+    });
+
+    let assetCount = Object.keys(sectionCounts).length
+      ? Object.values(sectionCounts).reduce((sum, cnt) => sum + cnt, 0)
+      : 0;
+
+    if (!assetCount) {
+      const direct = Number.parseInt(componentsData.assetCount, 10);
+      if (!Number.isNaN(direct) && direct > 0) {
+        assetCount = direct;
+      }
+    }
+
+    if (!assetCount && selectedRecipeType?.assetCount) {
+      const normalized = Number.parseInt(selectedRecipeType.assetCount, 10);
+      if (!Number.isNaN(normalized) && normalized > 0) {
+        assetCount = normalized;
+      }
+    }
+
+    if (!assetCount && selectedRecipeType?.defaultAssetCount) {
+      const normalized = Number.parseInt(selectedRecipeType.defaultAssetCount, 10);
+      if (!Number.isNaN(normalized) && normalized > 0) {
+        assetCount = normalized;
+      }
+    }
+
+    if (!assetCount && candidates.length > 0) {
+      assetCount = Math.min(candidates.length, 1);
+    }
+
+    return assetCount;
+  };
+
+  const selectAssetsForRow = (row, componentsData) => {
+    const candidates = gatherAssetCandidates(row, componentsData);
+    const assetCount = determineAssetCount(componentsData, candidates);
+    if (assetCount <= 0) return [];
+    if (candidates.length === 0) {
+      return Array.from({ length: assetCount }, () => ({ needAsset: true }));
+    }
+    const assets = [];
+    for (let index = 0; index < assetCount; index += 1) {
+      const candidate = candidates[index % candidates.length];
+      assets.push({ ...candidate });
+    }
+    return assets;
+  };
+
+  const generateRecipePayloadForRow = async (row) => {
+    const components = generateRandomComponentsForRow(row);
+    const assets = selectAssetsForRow(row, components);
+    const copy = await generateCopyForRow(row, components);
+    return { components, assets, copy };
+  };
+
   const handleBatchCreate = async () => {
     if (!selectedRecipeType) {
       setError('Select a recipe type before creating ad groups.');
@@ -1086,11 +1300,11 @@ const BatchCreateAdGroupModal = ({ onClose, onCreated }) => {
 
         const batch = writeBatch(db);
         for (let i = 1; i <= parsedRecipeCount; i += 1) {
-          const components = generateRandomComponentsForRow(row);
+          const { components, assets, copy } = await generateRecipePayloadForRow(row);
           batch.set(doc(db, 'adGroups', groupRef.id, 'recipes', String(i)), {
             components,
-            copy: '',
-            assets: [],
+            copy,
+            assets,
             type: selectedRecipeType.id,
             brandCode: brand.code || '',
             selected: false,
@@ -1380,6 +1594,8 @@ const BatchCreateAdGroupModal = ({ onClose, onCreated }) => {
                         const datalistId = `instance-options-${sanitizedBrandCode}-${componentKey}`;
                         const searchValue = getInstanceSearchValue(brandCodeKey, componentKey);
 
+                        const visibleInstanceOptions = selectedOptions.slice(0, 6);
+                        const hiddenInstanceOptions = selectedOptions.slice(6);
                         return (
                           <td
                             key={col.key}
@@ -1392,12 +1608,13 @@ const BatchCreateAdGroupModal = ({ onClose, onCreated }) => {
                                     No instances selected.
                                   </span>
                                 ) : (
-                                  selectedOptions.map((option) => (
-                                    <span
-                                      key={option.id}
-                                      className="inline-flex items-center gap-1 rounded-full bg-gray-200 px-3 py-1 text-xs text-gray-800 dark:bg-gray-700 dark:text-gray-100"
-                                    >
-                                      {option.label || 'Unnamed instance'}
+                                  <>
+                                    {visibleInstanceOptions.map((option) => (
+                                      <span
+                                        key={option.id}
+                                        className="inline-flex items-center gap-1 rounded-full bg-gray-200 px-3 py-1 text-xs text-gray-800 dark:bg-gray-700 dark:text-gray-100"
+                                      >
+                                        {option.label || 'Unnamed instance'}
                                       <button
                                         type="button"
                                         onClick={() =>
@@ -1409,7 +1626,25 @@ const BatchCreateAdGroupModal = ({ onClose, onCreated }) => {
                                         <FiX />
                                       </button>
                                     </span>
-                                  ))
+                                    ))}
+                                    {hiddenInstanceOptions.length > 0 && (
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          setInstanceModal({
+                                            brandCode: brandCodeKey,
+                                            componentKey,
+                                            brandLabel: row.brand?.name || row.brandCode || 'Brand',
+                                            componentLabel: col.label || componentKey,
+                                            options: selectedOptions,
+                                          })
+                                        }
+                                        className="inline-flex items-center rounded-full border border-gray-300 bg-white px-3 py-1 text-xs text-gray-700 shadow-sm transition hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-color)] dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]"
+                                      >
+                                        See {hiddenInstanceOptions.length} more
+                                      </button>
+                                    )}
+                                  </>
                                 )}
                               </div>
                               {instanceOptions.length > 0 ? (
@@ -1573,6 +1808,74 @@ const BatchCreateAdGroupModal = ({ onClose, onCreated }) => {
             </div>
             <div className="flex justify-end">
               <Button type="button" variant="neutral" onClick={() => setAttributeModal(null)}>
+                Close
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {instanceModal && (
+        <Modal sizeClass="max-w-lg w-full">
+          <div className="space-y-4">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                  Instances for {instanceModal.componentLabel} • {instanceModal.brandLabel}
+                </h3>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  Review the full list of selected instances for this brand.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setInstanceModal(null)}
+                className="inline-flex h-8 w-8 items-center justify-center rounded-full text-gray-500 hover:bg-gray-100 hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)] dark:hover:bg-[var(--dark-sidebar-hover)]"
+                aria-label="Close instance list"
+              >
+                <FiX />
+              </button>
+            </div>
+            <div className="max-h-64 overflow-y-auto pr-1">
+              <div className="space-y-2">
+                {(Array.isArray(instanceModal.options) ? instanceModal.options : []).map((option) => (
+                  <div
+                    key={option.id}
+                    className="flex items-center justify-between rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm dark:border-gray-700 dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]"
+                  >
+                    <span>{option.label || 'Unnamed instance'}</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        handleRemoveInstanceSelection(
+                          instanceModal.brandCode,
+                          instanceModal.componentKey,
+                          option.id,
+                        );
+                        setInstanceModal((prev) => {
+                          if (!prev) return prev;
+                          return {
+                            ...prev,
+                            options: Array.isArray(prev.options)
+                              ? prev.options.filter((opt) => opt.id !== option.id)
+                              : [],
+                          };
+                        });
+                      }}
+                      className="inline-flex h-6 w-6 items-center justify-center rounded-full text-gray-500 hover:bg-gray-200 hover:text-gray-800 focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)]"
+                      aria-label={`Remove ${option.label || 'instance'} from ${instanceModal.brandLabel}`}
+                    >
+                      <FiX />
+                    </button>
+                  </div>
+                ))}
+                {(!Array.isArray(instanceModal.options) || instanceModal.options.length === 0) && (
+                  <p className="text-sm text-gray-600 dark:text-gray-400">No instances selected.</p>
+                )}
+              </div>
+            </div>
+            <div className="flex justify-end">
+              <Button type="button" variant="neutral" onClick={() => setInstanceModal(null)}>
                 Close
               </Button>
             </div>
