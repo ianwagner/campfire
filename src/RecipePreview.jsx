@@ -957,18 +957,6 @@ const RecipePreview = forwardRef(({
   const [assetPicker, setAssetPicker] = useState(null); // { rowIdx, key, assetIdx, product }
   const copyRef = useRef(null);
 
-  const tableColumnCount = useMemo(() => {
-    let count = 0;
-    if (visibleColumns.recipeNo) count += 1;
-    if (visibleColumns.copy) count += 1;
-    count += columnMeta.reduce(
-      (total, col) => (visibleColumns[col.key] ? total + 1 : total),
-      0,
-    );
-    if (!hideActions) count += 1;
-    return count || 1;
-  }, [visibleColumns, columnMeta, hideActions]);
-
   useEffect(() => {
     if (editing !== null && copyRef.current) {
       copyRef.current.style.height = 'auto';
@@ -1380,6 +1368,18 @@ const RecipePreview = forwardRef(({
     externalOnly,
     showColumnButton,
   ]);
+
+  const tableColumnCount = useMemo(() => {
+    let count = 0;
+    if (visibleColumns.recipeNo) count += 1;
+    if (visibleColumns.copy) count += 1;
+    count += columnMeta.reduce(
+      (total, col) => (visibleColumns[col.key] ? total + 1 : total),
+      0,
+    );
+    if (!hideActions) count += 1;
+    return count || 1;
+  }, [visibleColumns, columnMeta, hideActions]);
 
   useEffect(() => {
     setVisibleColumns((prev) => {
