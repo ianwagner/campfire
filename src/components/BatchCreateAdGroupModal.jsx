@@ -1,10 +1,11 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { collection, getDocs, addDoc, writeBatch, doc, serverTimestamp } from 'firebase/firestore';
-import { FiLayers } from 'react-icons/fi';
+import { collection, getDocs, addDoc, writeBatch, doc, serverTimestamp, setDoc } from 'firebase/firestore';
+import { FiLayers, FiPlus, FiX } from 'react-icons/fi';
 import BriefStepSelect from './BriefStepSelect.jsx';
-import TagInput from './TagInput.jsx';
 import useComponentTypes from '../useComponentTypes.js';
 import { db, auth } from '../firebase/config';
+import BrandCodeSelectionModal from './BrandCodeSelectionModal.jsx';
+import Modal from './Modal.jsx';
 
 const normalizeValueForDisplay = (value) => {
   if (value === null || value === undefined) return '';
@@ -36,20 +37,79 @@ const normalizeValueForDisplay = (value) => {
   return String(value);
 };
 
-const mergeComponentValues = (componentKey, attributes, sourceValues) => {
-  const result = {};
-  if (!Array.isArray(attributes)) return result;
-  attributes.forEach((attr) => {
-    const raw = sourceValues[attr.key];
-    const formatted = normalizeValueForDisplay(raw);
-    result[`${componentKey}.${attr.key}`] = formatted;
-  });
-  return result;
+const normalizeTextList = (value) => {
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => (typeof item === 'string' ? item.trim() : normalizeValueForDisplay(item)))
+      .filter((item) => item.length > 0);
+  }
+  if (typeof value === 'string') {
+    return value
+      .split(/[;\n]+/)
+      .map((item) => item.trim())
+      .filter((item) => item.length > 0);
+  }
+  return [];
 };
 
-const buildComponentData = (component, brand, instances) => {
+const normalizeProductValues = (product) => {
+  if (!product) return {};
+  const source = product.values ? product.values : product;
+  return {
+    ...source,
+    description: normalizeTextList(source.description),
+    benefits: normalizeTextList(source.benefits),
+  };
+};
+
+const gatherProductOptions = (component, brand, instances) => {
+  const options = [];
+  if (!component) return options;
+
+  const relevant = Array.isArray(instances)
+    ? instances.filter((inst) => inst.componentKey === component.key)
+    : [];
+  const brandSpecific = relevant.filter(
+    (inst) => inst.relationships?.brandCode && inst.relationships.brandCode === brand.code,
+  );
+  const general = relevant.filter((inst) => !inst.relationships?.brandCode);
+  const baseInstances = brandSpecific.length > 0 ? brandSpecific : general;
+
+  baseInstances.forEach((inst, index) => {
+    const values = normalizeProductValues(inst.values || {});
+    const label = values.name || inst.values?.name || inst.label || `Product ${options.length + 1}`;
+    options.push({
+      id: inst.id ? `instance:${inst.id}` : `instance:${index}`,
+      label,
+      values,
+      source: 'instance',
+    });
+  });
+
+  const brandProducts = Array.isArray(brand?.products) ? brand.products : [];
+  brandProducts.forEach((prod, index) => {
+    if (prod?.archived) return;
+    const values = normalizeProductValues(prod);
+    const label = values.name || prod.name || `Product ${index + 1}`;
+    options.push({
+      id: `brand:${index}`,
+      label,
+      values,
+      source: 'brand',
+    });
+  });
+
+  return options;
+};
+
+const joinEntries = (entries) => {
+  if (!entries || entries.size === 0) return '';
+  return Array.from(entries).join('\n');
+};
+
+const buildComponentData = (component, brand, instances, overrides = {}) => {
   if (!component) {
-    return { display: '—', values: {} };
+    return { display: '—', values: {}, meta: {} };
   }
 
   const attributes = Array.isArray(component.attributes) ? component.attributes : [];
@@ -65,52 +125,104 @@ const buildComponentData = (component, brand, instances) => {
     return {
       display: displayParts.length > 0 ? displayParts.join('\n') : '—',
       values,
+      meta: { type: 'brand' },
     };
   }
 
-  const relevant = instances.filter((inst) => inst.componentKey === component.key);
+  if (component.key === 'product') {
+    const options = overrides.productOptions || gatherProductOptions(component, brand, instances);
+    if (options.length === 0) {
+      return {
+        display: '—',
+        values: {},
+        meta: { type: 'product', options: [], selectedId: '' },
+      };
+    }
+
+    let selectedId = overrides.selectedProductId || '';
+    if (!options.some((opt) => opt.id === selectedId)) {
+      selectedId = options[0].id;
+    }
+    const selectedOption = options.find((opt) => opt.id === selectedId) || options[0];
+
+    const aggregatedValues = {};
+    options.forEach((option) => {
+      attributes.forEach((attr) => {
+        const formatted = normalizeValueForDisplay(option.values?.[attr.key]);
+        if (!formatted) return;
+        if (!aggregatedValues[attr.key]) aggregatedValues[attr.key] = new Set();
+        aggregatedValues[attr.key].add(formatted);
+      });
+    });
+
+    const values = {};
+    attributes.forEach((attr) => {
+      values[`${component.key}.${attr.key}`] = normalizeValueForDisplay(
+        selectedOption.values?.[attr.key],
+      );
+    });
+
+    const displayParts = attributes
+      .map((attr) => {
+        const joined = joinEntries(aggregatedValues[attr.key]);
+        return joined ? `${attr.label}: ${joined}` : '';
+      })
+      .filter(Boolean);
+
+    return {
+      display: displayParts.length > 0 ? displayParts.join('\n\n') : '—',
+      values,
+      meta: { type: 'product', options, selectedId },
+    };
+  }
+
+  const relevant = Array.isArray(instances)
+    ? instances.filter((inst) => inst.componentKey === component.key)
+    : [];
   const brandSpecific = relevant.filter(
     (inst) => inst.relationships?.brandCode && inst.relationships.brandCode === brand.code,
   );
-  const effectiveInstances = brandSpecific.length > 0 ? brandSpecific : relevant.filter((inst) => !inst.relationships?.brandCode);
+  const effectiveInstances =
+    brandSpecific.length > 0
+      ? brandSpecific
+      : relevant.filter((inst) => !inst.relationships?.brandCode);
 
   if (effectiveInstances.length === 0) {
-    if (component.key === 'product' && Array.isArray(brand?.products) && brand.products.length > 0) {
-      const product = brand.products[0];
-      const values = mergeComponentValues(component.key, attributes, product.values || product);
-      const displayParts = attributes
-        .map((attr) => {
-          const value = normalizeValueForDisplay((product.values || product)[attr.key]);
-          return value ? `${attr.label}: ${value}` : '';
-        })
-        .filter(Boolean);
-      return {
-        display: displayParts.length > 0 ? displayParts.join('\n') : '—',
-        values,
-      };
-    }
     if (component.key === 'campaign' && Array.isArray(brand?.campaigns) && brand.campaigns.length > 0) {
-      const campaign = brand.campaigns[0];
-      const values = mergeComponentValues(component.key, attributes, campaign.values || campaign);
+      const aggregatedValues = {};
+      brand.campaigns.forEach((campaign) => {
+        const source = campaign.values ? campaign.values : campaign;
+        attributes.forEach((attr) => {
+          const formatted = normalizeValueForDisplay(source[attr.key]);
+          if (!formatted) return;
+          if (!aggregatedValues[attr.key]) aggregatedValues[attr.key] = new Set();
+          aggregatedValues[attr.key].add(formatted);
+        });
+      });
+
+      const values = {};
       const displayParts = attributes
         .map((attr) => {
-          const value = normalizeValueForDisplay((campaign.values || campaign)[attr.key]);
-          return value ? `${attr.label}: ${value}` : '';
+          const joined = joinEntries(aggregatedValues[attr.key]);
+          values[`${component.key}.${attr.key}`] = joined;
+          return joined ? `${attr.label}: ${joined}` : '';
         })
         .filter(Boolean);
+
       return {
-        display: displayParts.length > 0 ? displayParts.join('\n') : '—',
+        display: displayParts.length > 0 ? displayParts.join('\n\n') : '—',
         values,
+        meta: { type: component.key },
       };
     }
-    return { display: '—', values: {} };
+
+    return { display: '—', values: {}, meta: { type: component.key } };
   }
 
   const aggregatedValues = {};
   effectiveInstances.forEach((inst) => {
     attributes.forEach((attr) => {
-      const raw = inst.values?.[attr.key];
-      const formatted = normalizeValueForDisplay(raw);
+      const formatted = normalizeValueForDisplay(inst.values?.[attr.key]);
       if (!formatted) return;
       if (!aggregatedValues[attr.key]) aggregatedValues[attr.key] = new Set();
       aggregatedValues[attr.key].add(formatted);
@@ -118,17 +230,18 @@ const buildComponentData = (component, brand, instances) => {
   });
 
   const values = {};
-  const displayParts = [];
-  attributes.forEach((attr) => {
-    const entries = aggregatedValues[attr.key];
-    const joined = entries ? Array.from(entries).join(', ') : '';
-    values[`${component.key}.${attr.key}`] = joined;
-    if (joined) displayParts.push(`${attr.label}: ${joined}`);
-  });
+  const displayParts = attributes
+    .map((attr) => {
+      const joined = joinEntries(aggregatedValues[attr.key]);
+      values[`${component.key}.${attr.key}`] = joined;
+      return joined ? `${attr.label}: ${joined}` : '';
+    })
+    .filter(Boolean);
 
   return {
-    display: displayParts.length > 0 ? displayParts.join('\n') : '—',
+    display: displayParts.length > 0 ? displayParts.join('\n\n') : '—',
     values,
+    meta: { type: component.key },
   };
 };
 
@@ -148,6 +261,17 @@ const BatchCreateAdGroupModal = ({ onClose, onCreated }) => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [creating, setCreating] = useState(false);
+  const [brandModalOpen, setBrandModalOpen] = useState(false);
+  const [productSelections, setProductSelections] = useState({});
+  const [productModalBrand, setProductModalBrand] = useState(null);
+  const [newProductForm, setNewProductForm] = useState({
+    name: '',
+    url: '',
+    description: '',
+    benefits: '',
+  });
+  const [productModalError, setProductModalError] = useState('');
+  const [savingProduct, setSavingProduct] = useState(false);
 
   const components = useComponentTypes();
 
@@ -237,52 +361,42 @@ const BatchCreateAdGroupModal = ({ onClose, onCreated }) => {
     [recipeTypes, selectedRecipeTypeId],
   );
 
-  const brandSuggestions = useMemo(() => {
-    const suggestions = new Set();
-    brands.forEach((brand) => {
-      if (brand.code) suggestions.add(brand.code);
-      if (brand.name) suggestions.add(brand.name);
-      if (brand.code && brand.name) suggestions.add(`${brand.code} - ${brand.name}`);
-      if (brand.name && brand.code) suggestions.add(`${brand.name} (${brand.code})`);
-    });
-    return Array.from(suggestions);
-  }, [brands]);
+  const availableBrandCodes = useMemo(
+    () =>
+      brands
+        .map((brand) => {
+          if (typeof brand.code !== 'string') return '';
+          return brand.code.trim();
+        })
+        .filter((code) => code.length > 0)
+        .sort((a, b) => a.localeCompare(b)),
+    [brands],
+  );
 
-  const handleBrandCodesChange = (tags) => {
-    const normalized = [];
-    const lowerMap = new Map();
-    brands.forEach((brand) => {
-      if (brand.code) lowerMap.set(brand.code.toLowerCase(), brand.code);
-    });
-    const nameMap = new Map();
-    brands.forEach((brand) => {
-      if (brand.name) nameMap.set(brand.name.toLowerCase(), brand.code);
-    });
-    tags.forEach((tag) => {
-      const trimmed = (tag || '').trim();
-      if (!trimmed) return;
-      const candidates = [trimmed];
-      const hyphenIndex = trimmed.indexOf('-');
-      if (hyphenIndex >= 0) candidates.push(trimmed.slice(0, hyphenIndex).trim());
-      const parenMatch = trimmed.match(/\(([^)]+)\)$/);
-      if (parenMatch) candidates.push(parenMatch[1].trim());
-      let matchedCode = '';
-      for (const candidate of candidates) {
-        const lower = candidate.toLowerCase();
-        if (lowerMap.has(lower)) {
-          matchedCode = lowerMap.get(lower);
-          break;
-        }
-        if (nameMap.has(lower)) {
-          matchedCode = nameMap.get(lower);
-          break;
-        }
-      }
-      if (matchedCode && !normalized.includes(matchedCode)) {
-        normalized.push(matchedCode);
-      }
-    });
+  const selectedBrandSummaries = useMemo(
+    () =>
+      brandCodes.map((code) => {
+        const brand = brands.find((b) => (b.code || '').toLowerCase() === code.toLowerCase());
+        return {
+          code,
+          name: brand?.name || '',
+        };
+      }),
+    [brandCodes, brands],
+  );
+
+  const handleBrandSelectionApply = (codes) => {
+    const normalized = Array.isArray(codes)
+      ? Array.from(
+          new Set(
+            codes
+              .map((code) => (typeof code === 'string' ? code.trim() : ''))
+              .filter((code) => code.length > 0),
+          ),
+        )
+      : [];
     setBrandCodes(normalized);
+    setBrandModalOpen(false);
   };
 
   const columnDefinitions = useMemo(() => {
@@ -303,23 +417,150 @@ const BatchCreateAdGroupModal = ({ onClose, onCreated }) => {
   const brandComputation = useMemo(() => {
     const rows = [];
     const missing = [];
+    const selectionMap = new Map();
     brandCodes.forEach((code) => {
       const brand = brands.find((b) => (b.code || '').toLowerCase() === code.toLowerCase());
       if (!brand) {
         missing.push(code);
         return;
       }
-      const columnMap = new Map();
-      const componentValues = {};
-      columnDefinitions.forEach((col) => {
-        const { display, values } = buildComponentData(col.component, brand, componentInstances);
-        columnMap.set(col.key, display);
-        Object.assign(componentValues, values);
+      const brandCodeKey = typeof brand.code === 'string' && brand.code.length > 0 ? brand.code : code;
+      const columns = columnDefinitions.map((col) => {
+        const overrides = {};
+        if (col.component?.key === 'product') {
+          overrides.selectedProductId = productSelections[brandCodeKey] || '';
+        }
+        const data = buildComponentData(col.component, brand, componentInstances, overrides);
+        if (col.component?.key === 'product') {
+          selectionMap.set(brandCodeKey, data.meta?.selectedId || '');
+        }
+        return { ...col, data };
       });
-      rows.push({ brand, columnMap, componentValues });
+      const componentValues = {};
+      columns.forEach((col) => {
+        Object.assign(componentValues, col.data.values);
+      });
+      rows.push({ brand, columns, componentValues });
     });
-    return { rows, missing };
-  }, [brandCodes, brands, columnDefinitions, componentInstances]);
+    return { rows, missing, selectionMap };
+  }, [brandCodes, brands, columnDefinitions, componentInstances, productSelections]);
+
+  useEffect(() => {
+    const { selectionMap } = brandComputation;
+    if (!selectionMap) return;
+    setProductSelections((prev) => {
+      const next = { ...prev };
+      let changed = false;
+      const brandCodeSet = new Set(brandCodes);
+      const selectionCodes = new Set();
+      selectionMap.forEach((selectedId, code) => {
+        selectionCodes.add(code);
+        if (selectedId) {
+          if (next[code] !== selectedId) {
+            next[code] = selectedId;
+            changed = true;
+          }
+        } else if (next[code]) {
+          delete next[code];
+          changed = true;
+        }
+      });
+      Object.keys(next).forEach((code) => {
+        if (!brandCodeSet.has(code) || !selectionCodes.has(code)) {
+          delete next[code];
+          changed = true;
+        }
+      });
+      return changed ? next : prev;
+    });
+  }, [brandComputation, brandCodes]);
+
+  const handleProductSelectionChange = (brandCode, optionId) => {
+    if (!brandCode) return;
+    setProductSelections((prev) => ({ ...prev, [brandCode]: optionId }));
+  };
+
+  const openAddProductModal = (brand) => {
+    if (!brand) return;
+    setProductModalBrand(brand);
+    setNewProductForm({ name: '', url: '', description: '', benefits: '' });
+    setProductModalError('');
+  };
+
+  const closeProductModal = () => {
+    if (savingProduct) return;
+    setProductModalBrand(null);
+    setProductModalError('');
+  };
+
+  const handleProductFieldChange = (field, value) => {
+    setNewProductForm((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleSaveNewProduct = async (event) => {
+    event?.preventDefault();
+    const brand = productModalBrand;
+    if (!brand) return;
+    const brandCodeKey = typeof brand.code === 'string' && brand.code.length > 0 ? brand.code : '';
+    const name = newProductForm.name.trim();
+    if (!name) {
+      setProductModalError('Enter a product name.');
+      return;
+    }
+
+    setProductModalError('');
+    setSavingProduct(true);
+    try {
+      const descriptionList = normalizeTextList(newProductForm.description);
+      const benefitsList = normalizeTextList(newProductForm.benefits);
+      const url = newProductForm.url.trim();
+
+      const existingProducts = Array.isArray(brand.products)
+        ? brand.products
+            .filter((prod) => !prod?.archived)
+            .map((prod) => {
+              const values = normalizeProductValues(prod);
+              return {
+                name: values.name || '',
+                url: values.url || '',
+                description: normalizeTextList(values.description),
+                benefits: normalizeTextList(values.benefits),
+                images: Array.isArray(values.images) ? values.images : [],
+                featuredImage: values.featuredImage || '',
+              };
+            })
+        : [];
+
+      const newProduct = {
+        name,
+        url,
+        description: descriptionList,
+        benefits: benefitsList,
+        images: [],
+        featuredImage: '',
+      };
+
+      const updatedProducts = [...existingProducts, newProduct];
+      await setDoc(doc(db, 'brands', brand.id), { products: updatedProducts }, { merge: true });
+      setBrands((prev) =>
+        prev.map((b) => (b.id === brand.id ? { ...b, products: updatedProducts } : b)),
+      );
+      if (brandCodeKey) {
+        setProductSelections((prev) => ({
+          ...prev,
+          [brandCodeKey]: `brand:${updatedProducts.length - 1}`,
+        }));
+      }
+      setSuccess(`Added product "${name}" for ${brandCodeKey || 'brand'}.`);
+      setProductModalBrand(null);
+      setNewProductForm({ name: '', url: '', description: '', benefits: '' });
+    } catch (err) {
+      console.error('Failed to save product', err);
+      setProductModalError('Failed to save product. Please try again.');
+    } finally {
+      setSavingProduct(false);
+    }
+  };
 
   const handleNextFromBrands = () => {
     if (!selectedRecipeType) {
@@ -463,18 +704,38 @@ const BatchCreateAdGroupModal = ({ onClose, onCreated }) => {
             </button>
           </div>
           <p className="text-sm text-gray-600 dark:text-gray-400">
-            Enter brand codes or names to include in this batch.
+            Choose which brands to include in this batch by selecting their brand codes.
           </p>
-          <TagInput
-            id="batch-brand-input"
-            value={brandCodes}
-            onChange={handleBrandCodesChange}
-            suggestions={brandSuggestions}
-            placeholder="Type a brand code or name and press Enter"
-            className="w-full"
-            inputClassName="w-auto flex-1 min-w-[12rem]"
-          />
-          {loadingBrands && <p>Loading brands…</p>}
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={() => setBrandModalOpen(true)}
+            >
+              {brandCodes.length === 0 ? 'Select brands' : 'Edit selection'}
+            </button>
+            {loadingBrands && (
+              <span className="text-sm text-gray-500 dark:text-gray-400">Loading brands…</span>
+            )}
+          </div>
+          <div className="rounded-lg border border-dashed border-gray-300 p-4 dark:border-gray-700">
+            {brandCodes.length === 0 ? (
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                No brands selected yet.
+              </p>
+            ) : (
+              <ul className="flex flex-wrap gap-2">
+                {selectedBrandSummaries.map(({ code, name }) => (
+                  <li
+                    key={code}
+                    className="rounded-full bg-gray-100 px-3 py-1 text-sm text-gray-700 dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]"
+                  >
+                    {name ? `${name} (${code})` : code}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
           {brandComputation.missing.length > 0 && (
             <p className="text-sm text-red-600 dark:text-red-400">
               Could not find: {brandComputation.missing.join(', ')}
@@ -528,21 +789,86 @@ const BatchCreateAdGroupModal = ({ onClose, onCreated }) => {
                 </thead>
                 <tbody>
                   {brandComputation.rows.map((row) => (
-                    <tr key={row.brand.code} className="odd:bg-white even:bg-gray-50 dark:odd:bg-[var(--dark-bg)] dark:even:bg-[var(--dark-bg-secondary)]">
+                    <tr
+                      key={row.brand.code || row.brand.id}
+                      className="odd:bg-white even:bg-gray-50 dark:odd:bg-[var(--dark-bg)] dark:even:bg-[var(--dark-bg-secondary)]"
+                    >
                       <td className="border border-gray-200 dark:border-gray-700 px-3 py-2 align-top">
                         <div className="font-semibold">{row.brand.name || '—'}</div>
                         <div className="text-xs text-gray-600 dark:text-gray-400">{row.brand.code}</div>
                       </td>
-                      {columnDefinitions.map((col) => (
-                        <td
-                          key={col.key}
-                          className="border border-gray-200 dark:border-gray-700 px-3 py-2 align-top"
-                        >
-                          <div className="whitespace-pre-wrap text-sm">
-                            {row.columnMap.get(col.key) || '—'}
-                          </div>
-                        </td>
-                      ))}
+                      {row.columns.map((col) => {
+                        const brandCodeKey =
+                          typeof row.brand.code === 'string' && row.brand.code.length > 0
+                            ? row.brand.code
+                            : '';
+                        if (col.component?.key === 'product') {
+                          const options = Array.isArray(col.data.meta?.options)
+                            ? col.data.meta.options
+                            : [];
+                          const selectedId = col.data.meta?.selectedId || '';
+                          return (
+                            <td
+                              key={col.key}
+                              className="border border-gray-200 dark:border-gray-700 px-3 py-2 align-top"
+                            >
+                              {options.length === 0 ? (
+                                <div className="space-y-2 text-sm">
+                                  <p className="text-gray-600 dark:text-gray-400">
+                                    No products available for this brand.
+                                  </p>
+                                  <button
+                                    type="button"
+                                    onClick={() => openAddProductModal(row.brand)}
+                                    className="inline-flex items-center gap-2 rounded border border-gray-300 bg-white px-3 py-1 text-sm text-gray-700 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)] dark:border-gray-700 dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]"
+                                  >
+                                    <FiPlus /> Add product
+                                  </button>
+                                </div>
+                              ) : (
+                                <div className="space-y-2">
+                                  <div className="flex items-center gap-2">
+                                    <select
+                                      value={selectedId}
+                                      onChange={(e) =>
+                                        handleProductSelectionChange(brandCodeKey, e.target.value)
+                                      }
+                                      className="w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm focus:border-[var(--accent-color)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)] focus:ring-offset-0 dark:border-gray-700 dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]"
+                                    >
+                                      {options.map((option) => (
+                                        <option key={option.id} value={option.id}>
+                                          {option.label || 'Unnamed product'}
+                                        </option>
+                                      ))}
+                                    </select>
+                                    <button
+                                      type="button"
+                                      onClick={() => openAddProductModal(row.brand)}
+                                      className="inline-flex h-8 w-8 items-center justify-center rounded border border-gray-300 bg-white text-gray-600 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)] dark:border-gray-700 dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]"
+                                      aria-label={`Add product for ${row.brand.name || row.brand.code || 'brand'}`}
+                                    >
+                                      <FiPlus />
+                                    </button>
+                                  </div>
+                                  <div className="whitespace-pre-wrap text-xs text-gray-600 dark:text-gray-400">
+                                    {col.data.display || '—'}
+                                  </div>
+                                </div>
+                              )}
+                            </td>
+                          );
+                        }
+                        return (
+                          <td
+                            key={col.key}
+                            className="border border-gray-200 dark:border-gray-700 px-3 py-2 align-top"
+                          >
+                            <div className="whitespace-pre-wrap text-sm">
+                              {col.data.display || '—'}
+                            </div>
+                          </td>
+                        );
+                      })}
                     </tr>
                   ))}
                 </tbody>
@@ -600,6 +926,103 @@ const BatchCreateAdGroupModal = ({ onClose, onCreated }) => {
             </button>
           </div>
         </div>
+      )}
+
+      <BrandCodeSelectionModal
+        open={brandModalOpen}
+        brands={availableBrandCodes}
+        selected={brandCodes}
+        onApply={handleBrandSelectionApply}
+        onClose={() => setBrandModalOpen(false)}
+        title="Select brands"
+        description="Search, sort, and select the brand codes to include in this batch."
+        emptyMessage="No brand codes match your search."
+        applyLabel="Use selected brands"
+      />
+
+      {productModalBrand && (
+        <Modal sizeClass="max-w-lg w-full">
+          <form className="space-y-4" onSubmit={handleSaveNewProduct}>
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Add product</h3>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  Save a new product for {productModalBrand.name || productModalBrand.code || 'this brand'} and use it in this batch.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={closeProductModal}
+                className="inline-flex h-8 w-8 items-center justify-center rounded-full text-gray-500 hover:bg-gray-100 hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)] dark:hover:bg-[var(--dark-sidebar-hover)]"
+                aria-label="Close add product dialog"
+              >
+                <FiX />
+              </button>
+            </div>
+            <div className="space-y-3">
+              <label className="block text-sm font-medium">
+                <span className="mb-1 block">Name</span>
+                <input
+                  type="text"
+                  value={newProductForm.name}
+                  onChange={(e) => handleProductFieldChange('name', e.target.value)}
+                  className="w-full rounded border border-gray-300 px-3 py-2 focus:border-[var(--accent-color)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)] dark:border-gray-700 dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]"
+                  required
+                />
+              </label>
+              <label className="block text-sm font-medium">
+                <span className="mb-1 block">Product URL</span>
+                <input
+                  type="url"
+                  value={newProductForm.url}
+                  onChange={(e) => handleProductFieldChange('url', e.target.value)}
+                  className="w-full rounded border border-gray-300 px-3 py-2 focus:border-[var(--accent-color)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)] dark:border-gray-700 dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]"
+                  placeholder="https://example.com/product"
+                />
+              </label>
+              <label className="block text-sm font-medium">
+                <span className="mb-1 block">Description</span>
+                <textarea
+                  rows={3}
+                  value={newProductForm.description}
+                  onChange={(e) => handleProductFieldChange('description', e.target.value)}
+                  className="w-full rounded border border-gray-300 px-3 py-2 focus:border-[var(--accent-color)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)] dark:border-gray-700 dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]"
+                  placeholder="Enter key description details. Separate lines to create multiple entries."
+                />
+              </label>
+              <label className="block text-sm font-medium">
+                <span className="mb-1 block">Benefits</span>
+                <textarea
+                  rows={3}
+                  value={newProductForm.benefits}
+                  onChange={(e) => handleProductFieldChange('benefits', e.target.value)}
+                  className="w-full rounded border border-gray-300 px-3 py-2 focus:border-[var(--accent-color)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)] dark:border-gray-700 dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]"
+                  placeholder="List product benefits on separate lines."
+                />
+              </label>
+            </div>
+            {productModalError && (
+              <p className="text-sm text-red-600 dark:text-red-400">{productModalError}</p>
+            )}
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={closeProductModal}
+                disabled={savingProduct}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="btn-primary"
+                disabled={savingProduct}
+              >
+                {savingProduct ? 'Saving…' : 'Save product'}
+              </button>
+            </div>
+          </form>
+        </Modal>
       )}
 
       <div className="flex justify-end gap-2">
