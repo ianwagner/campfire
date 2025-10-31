@@ -8,6 +8,7 @@ import BrandCodeSelectionModal from './BrandCodeSelectionModal.jsx';
 import Modal from './Modal.jsx';
 import Button from './Button.jsx';
 import selectRandomOption from '../utils/selectRandomOption.js';
+import normalizeAssetType from '../utils/normalizeAssetType.js';
 
 const escapeRegExp = (value) => {
   if (typeof value !== 'string') return '';
@@ -209,7 +210,7 @@ const buildComponentData = (component, brand, instances, overrides = {}) => {
     selectedIds = selectedIds.filter((id) => validIds.has(id));
 
     if (!overrideProvided && selectedIds.length === 0 && options.length > 0) {
-      selectedIds = [options[0].id];
+      selectedIds = options.map((opt) => opt.id);
     }
 
     const selectedOptions = options.filter((opt) => selectedIds.includes(opt.id));
@@ -1116,10 +1117,11 @@ const BatchCreateAdGroupModal = ({ onClose, onCreated }) => {
       const key = candidate.adUrl;
       if (seen.has(key)) return;
       seen.add(key);
+      const normalizedType = normalizeAssetType(candidate.assetType || candidate.type || '');
       candidates.push({
         id: candidate.id || candidate.adUrl,
         adUrl: candidate.adUrl,
-        assetType: candidate.assetType || '',
+        assetType: normalizedType || '',
         thumbnailUrl: candidate.thumbnailUrl || '',
       });
     };
@@ -1210,7 +1212,7 @@ const BatchCreateAdGroupModal = ({ onClose, onCreated }) => {
     return candidates;
   };
 
-  const determineAssetCount = (componentsData, candidates) => {
+  const determineAssetDistribution = (componentsData, candidates) => {
     const sectionCounts = {};
     Object.keys(componentsData).forEach((key) => {
       const match = key.match(/^(.+)\.(assetCount|assetNo)$/);
@@ -1255,22 +1257,75 @@ const BatchCreateAdGroupModal = ({ onClose, onCreated }) => {
       assetCount = Math.min(candidates.length, 1);
     }
 
-    return assetCount;
+    return { assetCount, sectionCounts };
   };
 
   const selectAssetsForRow = (row, componentsData) => {
     const candidates = gatherAssetCandidates(row, componentsData);
-    const assetCount = determineAssetCount(componentsData, candidates);
+    const { assetCount, sectionCounts } = determineAssetDistribution(componentsData, candidates);
     if (assetCount <= 0) return [];
-    if (candidates.length === 0) {
-      return Array.from({ length: assetCount }, () => ({ needAsset: true }));
+
+    const createPlaceholders = (count) => Array.from({ length: count }, () => ({ needAsset: true }));
+    const normalizedCandidates = candidates.map((candidate) => ({
+      ...candidate,
+      assetType: normalizeAssetType(candidate.assetType || ''),
+    }));
+
+    const pickFromPool = (pool, count) => {
+      if (count <= 0) return [];
+      if (!Array.isArray(pool) || pool.length === 0) {
+        return createPlaceholders(count);
+      }
+      const chosen = [];
+      for (let index = 0; index < count; index += 1) {
+        const candidate = pool[index % pool.length];
+        chosen.push({ ...candidate });
+      }
+      return chosen;
+    };
+
+    const sectionKeys = Object.keys(sectionCounts);
+    if (normalizedCandidates.length === 0) {
+      if (sectionKeys.length > 0) {
+        const aggregated = [];
+        sectionKeys.forEach((section) => {
+          const count = sectionCounts[section];
+          if (!count || count <= 0) return;
+          const placeholders = createPlaceholders(count);
+          componentsData[`${section}.assets`] = placeholders.map((asset) => ({ ...asset }));
+          aggregated.push(...placeholders);
+        });
+        return aggregated.length > 0 ? aggregated : createPlaceholders(assetCount);
+      }
+      return createPlaceholders(assetCount);
     }
-    const assets = [];
-    for (let index = 0; index < assetCount; index += 1) {
-      const candidate = candidates[index % candidates.length];
-      assets.push({ ...candidate });
+
+    const collectedAssets = [];
+    if (sectionKeys.length > 0) {
+      sectionKeys.forEach((section) => {
+        const count = sectionCounts[section];
+        if (!count || count <= 0) return;
+        const desiredType = normalizeAssetType(componentsData[`${section}.assetType`] || '');
+        let pool = normalizedCandidates;
+        if (desiredType) {
+          const filtered = normalizedCandidates.filter((candidate) => candidate.assetType === desiredType);
+          if (filtered.length > 0) {
+            pool = filtered;
+          }
+        }
+        const selected = pickFromPool(pool, count);
+        componentsData[`${section}.assets`] = selected.map((asset) => ({ ...asset }));
+        collectedAssets.push(...selected);
+      });
+    } else {
+      collectedAssets.push(...pickFromPool(normalizedCandidates, assetCount));
     }
-    return assets;
+
+    if (collectedAssets.length < assetCount) {
+      collectedAssets.push(...createPlaceholders(assetCount - collectedAssets.length));
+    }
+
+    return collectedAssets;
   };
 
   const generateRecipePayloadForRow = async (row) => {
