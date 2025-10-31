@@ -1778,65 +1778,22 @@ const BatchCreateAdGroupModal = ({ onClose, onCreated }) => {
       return libraryAssets;
     }
 
-    const normalizedCandidates = candidates.map((candidate) => ({
-      ...candidate,
-      assetType: normalizeAssetType(candidate.assetType || ''),
-    }));
-
-    const pickFromPool = (pool, count) => {
-      if (count <= 0) return [];
-      if (!Array.isArray(pool) || pool.length === 0) {
-        return createPlaceholders(count);
-      }
-      const chosen = [];
-      for (let index = 0; index < count; index += 1) {
-        const candidate = pool[index % pool.length];
-        chosen.push({ ...candidate });
-      }
-      return chosen;
-    };
-
-    if (normalizedCandidates.length === 0) {
-      if (sectionKeys.length > 0) {
-        const aggregated = [];
-        sectionKeys.forEach((section) => {
-          const count = sectionCounts[section];
-          if (!count || count <= 0) return;
-          const placeholders = createPlaceholders(count);
-          componentsData[`${section}.assets`] = placeholders.map((asset) => ({ ...asset }));
-          aggregated.push(...placeholders);
-        });
-        return aggregated.length > 0 ? aggregated : createPlaceholders(assetCount);
-      }
-      return createPlaceholders(assetCount);
-    }
-
-    const collectedAssets = [];
     if (sectionKeys.length > 0) {
+      const aggregated = [];
       sectionKeys.forEach((section) => {
         const count = sectionCounts[section];
         if (!count || count <= 0) return;
-        const desiredType = normalizeAssetType(componentsData[`${section}.assetType`] || '');
-        let pool = normalizedCandidates;
-        if (desiredType) {
-          const filtered = normalizedCandidates.filter((candidate) => candidate.assetType === desiredType);
-          if (filtered.length > 0) {
-            pool = filtered;
-          }
-        }
-        const selected = pickFromPool(pool, count);
-        componentsData[`${section}.assets`] = selected.map((asset) => ({ ...asset }));
-        collectedAssets.push(...selected);
+        const placeholders = createPlaceholders(count);
+        componentsData[`${section}.assets`] = placeholders.map((asset) => ({ ...asset }));
+        aggregated.push(...placeholders);
       });
-    } else {
-      collectedAssets.push(...pickFromPool(normalizedCandidates, assetCount));
+      if (aggregated.length < assetCount) {
+        aggregated.push(...createPlaceholders(assetCount - aggregated.length));
+      }
+      return aggregated.length > 0 ? aggregated : createPlaceholders(assetCount);
     }
 
-    if (collectedAssets.length < assetCount) {
-      collectedAssets.push(...createPlaceholders(assetCount - collectedAssets.length));
-    }
-
-    return collectedAssets;
+    return createPlaceholders(assetCount);
   };
 
   const generateRecipePayloadForRow = async (row) => {
