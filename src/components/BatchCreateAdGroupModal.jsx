@@ -6,6 +6,7 @@ import useComponentTypes from '../useComponentTypes.js';
 import { db, auth } from '../firebase/config';
 import BrandCodeSelectionModal from './BrandCodeSelectionModal.jsx';
 import Modal from './Modal.jsx';
+import selectRandomOption from '../utils/selectRandomOption.js';
 
 const normalizeValueForDisplay = (value) => {
   if (value === null || value === undefined) return '';
@@ -62,6 +63,27 @@ const normalizeProductValues = (product) => {
   };
 };
 
+const extractOptionList = (value) => {
+  if (value === null || value === undefined) return [];
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => {
+        if (typeof item === 'string') return item.trim();
+        const formatted = normalizeValueForDisplay(item);
+        return typeof formatted === 'string' ? formatted.trim() : '';
+      })
+      .filter((item) => item.length > 0);
+  }
+  if (typeof value === 'string') {
+    return value
+      .split(/[;\n]+/)
+      .map((item) => item.trim())
+      .filter((item) => item.length > 0);
+  }
+  const formatted = normalizeValueForDisplay(value);
+  return formatted ? [formatted.trim()] : [];
+};
+
 const gatherProductOptions = (component, brand, instances) => {
   const options = [];
   if (!component) return options;
@@ -102,11 +124,6 @@ const gatherProductOptions = (component, brand, instances) => {
   return options;
 };
 
-const joinEntries = (entries) => {
-  if (!entries || entries.size === 0) return '';
-  return Array.from(entries).join('\n');
-};
-
 const buildComponentData = (component, brand, instances, overrides = {}) => {
   if (!component) {
     return { display: '—', values: {}, meta: {} };
@@ -115,17 +132,27 @@ const buildComponentData = (component, brand, instances, overrides = {}) => {
   const attributes = Array.isArray(component.attributes) ? component.attributes : [];
   if (component.key === 'brand') {
     const values = {};
-    const displayParts = [];
-    attributes.forEach((attr) => {
+    const attributeOptions = attributes.map((attr) => {
       const raw = brand?.[attr.key];
       const formatted = normalizeValueForDisplay(raw);
+      let options = Array.from(new Set(extractOptionList(raw)));
+      if (options.length === 0 && formatted) {
+        options = [formatted];
+      }
       values[`${component.key}.${attr.key}`] = formatted;
-      if (formatted) displayParts.push(`${attr.label}: ${formatted}`);
+      return {
+        key: attr.key,
+        label: attr.label,
+        options,
+      };
     });
+    const displayParts = attributeOptions
+      .filter((attr) => Array.isArray(attr.options) && attr.options.length > 0)
+      .map((attr) => `${attr.label}: ${attr.options.join(', ')}`);
     return {
       display: displayParts.length > 0 ? displayParts.join('\n') : '—',
       values,
-      meta: { type: 'brand' },
+      meta: { type: 'brand', attributeOptions },
     };
   }
 
@@ -148,10 +175,10 @@ const buildComponentData = (component, brand, instances, overrides = {}) => {
     const aggregatedValues = {};
     options.forEach((option) => {
       attributes.forEach((attr) => {
-        const formatted = normalizeValueForDisplay(option.values?.[attr.key]);
-        if (!formatted) return;
+        const extracted = extractOptionList(option.values?.[attr.key]);
+        if (extracted.length === 0) return;
         if (!aggregatedValues[attr.key]) aggregatedValues[attr.key] = new Set();
-        aggregatedValues[attr.key].add(formatted);
+        extracted.forEach((val) => aggregatedValues[attr.key].add(val));
       });
     });
 
@@ -162,17 +189,25 @@ const buildComponentData = (component, brand, instances, overrides = {}) => {
       );
     });
 
-    const displayParts = attributes
-      .map((attr) => {
-        const joined = joinEntries(aggregatedValues[attr.key]);
-        return joined ? `${attr.label}: ${joined}` : '';
-      })
-      .filter(Boolean);
+    const attributeOptions = attributes.map((attr) => {
+      const optionsList = aggregatedValues[attr.key]
+        ? Array.from(aggregatedValues[attr.key])
+        : [];
+      return {
+        key: attr.key,
+        label: attr.label,
+        options: optionsList,
+      };
+    });
+
+    const displayParts = attributeOptions
+      .filter((attr) => Array.isArray(attr.options) && attr.options.length > 0)
+      .map((attr) => `${attr.label}: ${attr.options.join('\n')}`);
 
     return {
       display: displayParts.length > 0 ? displayParts.join('\n\n') : '—',
       values,
-      meta: { type: 'product', options, selectedId },
+      meta: { type: 'product', options, selectedId, attributeOptions },
     };
   }
 
@@ -193,26 +228,35 @@ const buildComponentData = (component, brand, instances, overrides = {}) => {
       brand.campaigns.forEach((campaign) => {
         const source = campaign.values ? campaign.values : campaign;
         attributes.forEach((attr) => {
-          const formatted = normalizeValueForDisplay(source[attr.key]);
-          if (!formatted) return;
+          const extracted = extractOptionList(source[attr.key]);
+          if (extracted.length === 0) return;
           if (!aggregatedValues[attr.key]) aggregatedValues[attr.key] = new Set();
-          aggregatedValues[attr.key].add(formatted);
+          extracted.forEach((val) => aggregatedValues[attr.key].add(val));
         });
       });
 
       const values = {};
-      const displayParts = attributes
-        .map((attr) => {
-          const joined = joinEntries(aggregatedValues[attr.key]);
-          values[`${component.key}.${attr.key}`] = joined;
-          return joined ? `${attr.label}: ${joined}` : '';
-        })
-        .filter(Boolean);
+      const attributeOptions = attributes.map((attr) => {
+        const optionsList = aggregatedValues[attr.key]
+          ? Array.from(aggregatedValues[attr.key])
+          : [];
+        const joined = optionsList.join('\n');
+        values[`${component.key}.${attr.key}`] = joined;
+        return {
+          key: attr.key,
+          label: attr.label,
+          options: optionsList,
+        };
+      });
+
+      const displayParts = attributeOptions
+        .filter((attr) => Array.isArray(attr.options) && attr.options.length > 0)
+        .map((attr) => `${attr.label}: ${attr.options.join('\n')}`);
 
       return {
         display: displayParts.length > 0 ? displayParts.join('\n\n') : '—',
         values,
-        meta: { type: component.key },
+        meta: { type: component.key, attributeOptions },
       };
     }
 
@@ -222,26 +266,35 @@ const buildComponentData = (component, brand, instances, overrides = {}) => {
   const aggregatedValues = {};
   effectiveInstances.forEach((inst) => {
     attributes.forEach((attr) => {
-      const formatted = normalizeValueForDisplay(inst.values?.[attr.key]);
-      if (!formatted) return;
+      const extracted = extractOptionList(inst.values?.[attr.key]);
+      if (extracted.length === 0) return;
       if (!aggregatedValues[attr.key]) aggregatedValues[attr.key] = new Set();
-      aggregatedValues[attr.key].add(formatted);
+      extracted.forEach((val) => aggregatedValues[attr.key].add(val));
     });
   });
 
   const values = {};
-  const displayParts = attributes
-    .map((attr) => {
-      const joined = joinEntries(aggregatedValues[attr.key]);
-      values[`${component.key}.${attr.key}`] = joined;
-      return joined ? `${attr.label}: ${joined}` : '';
-    })
-    .filter(Boolean);
+  const attributeOptions = attributes.map((attr) => {
+    const optionsList = aggregatedValues[attr.key]
+      ? Array.from(aggregatedValues[attr.key])
+      : [];
+    const joined = optionsList.join('\n');
+    values[`${component.key}.${attr.key}`] = joined;
+    return {
+      key: attr.key,
+      label: attr.label,
+      options: optionsList,
+    };
+  });
+
+  const displayParts = attributeOptions
+    .filter((attr) => Array.isArray(attr.options) && attr.options.length > 0)
+    .map((attr) => `${attr.label}: ${attr.options.join('\n')}`);
 
   return {
     display: displayParts.length > 0 ? displayParts.join('\n\n') : '—',
     values,
-    meta: { type: component.key },
+    meta: { type: component.key, attributeOptions },
   };
 };
 
@@ -437,10 +490,28 @@ const BatchCreateAdGroupModal = ({ onClose, onCreated }) => {
         return { ...col, data };
       });
       const componentValues = {};
+      const componentValueOptions = {};
       columns.forEach((col) => {
         Object.assign(componentValues, col.data.values);
+        const attributeOptions = Array.isArray(col.data.meta?.attributeOptions)
+          ? col.data.meta.attributeOptions
+          : [];
+        const componentKey = col.component?.key || col.key;
+        attributeOptions.forEach((attr) => {
+          if (!componentKey) return;
+          const attrKey = `${componentKey}.${attr.key}`;
+          componentValueOptions[attrKey] = Array.isArray(attr.options) ? [...attr.options] : [];
+        });
       });
-      rows.push({ brand, columns, componentValues });
+      const selectedProductId = selectionMap.get(brandCodeKey) || '';
+      rows.push({
+        brand,
+        brandCode: brandCodeKey,
+        columns,
+        componentValues,
+        componentValueOptions,
+        selectedProductId,
+      });
     });
     return { rows, missing, selectionMap };
   }, [brandCodes, brands, columnDefinitions, componentInstances, productSelections]);
@@ -578,6 +649,119 @@ const BatchCreateAdGroupModal = ({ onClose, onCreated }) => {
   const parsedRecipeCount = Number.parseInt(recipeCount, 10);
   const validRecipeCount = !Number.isNaN(parsedRecipeCount) && parsedRecipeCount > 0;
 
+  const renderAttributeTagList = (attributeOptions) => {
+    const validOptions = Array.isArray(attributeOptions)
+      ? attributeOptions.filter((attr) => Array.isArray(attr.options) && attr.options.length > 0)
+      : [];
+    if (validOptions.length === 0) {
+      return <div className="text-xs text-gray-600 dark:text-gray-400">—</div>;
+    }
+    return (
+      <div className="space-y-3 text-xs text-gray-600 dark:text-gray-400">
+        {validOptions.map((attr) => (
+          <div key={attr.key} className="space-y-1">
+            {attr.label && (
+              <div className="text-xs font-medium text-gray-700 dark:text-gray-300">{attr.label}</div>
+            )}
+            <div className="flex flex-wrap gap-1">
+              {attr.options.map((opt, index) => (
+                <span
+                  key={`${attr.key}-${index}-${opt}`}
+                  className="inline-flex items-center rounded-full bg-gray-200 px-2 py-0.5 text-xs text-gray-800 dark:bg-gray-700 dark:text-gray-100"
+                >
+                  {opt}
+                </span>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
+  const generateRandomComponentsForRow = (row) => {
+    const componentsData = {};
+    if (!row || !Array.isArray(row.columns)) return componentsData;
+
+    row.columns.forEach((col) => {
+      const component = col.component;
+      if (!component || !Array.isArray(component.attributes)) return;
+      const componentKey = component.key;
+      if (!componentKey) return;
+
+      if (componentKey === 'product') {
+        const options = Array.isArray(col.data.meta?.options) ? col.data.meta.options : [];
+        let availableOptions = options;
+        if (row.selectedProductId) {
+          const filtered = options.filter((opt) => opt.id === row.selectedProductId);
+          if (filtered.length > 0) availableOptions = filtered;
+        }
+        const chosenOption =
+          availableOptions.length > 0
+            ? availableOptions[Math.floor(Math.random() * availableOptions.length)]
+            : null;
+
+        component.attributes.forEach((attr) => {
+          const attrKey = `${componentKey}.${attr.key}`;
+          let value = '';
+          if (chosenOption) {
+            const optionValue = chosenOption.values?.[attr.key];
+            if (Array.isArray(optionValue)) {
+              value = selectRandomOption(optionValue);
+            } else {
+              value = normalizeValueForDisplay(optionValue);
+            }
+          }
+
+          if (!value) {
+            const optionsList = row.componentValueOptions?.[attrKey];
+            if (Array.isArray(optionsList) && optionsList.length > 0) {
+              value = selectRandomOption(optionsList);
+            }
+          }
+
+          if (!value) {
+            value = row.componentValues?.[attrKey] || '';
+          }
+
+          componentsData[attrKey] = value;
+        });
+        return;
+      }
+
+      component.attributes.forEach((attr) => {
+        const attrKey = `${componentKey}.${attr.key}`;
+        let value = '';
+        const optionsList = row.componentValueOptions?.[attrKey];
+        if (Array.isArray(optionsList) && optionsList.length > 0) {
+          value = selectRandomOption(optionsList);
+        }
+
+        if (!value && componentKey === 'brand') {
+          const brandValue = row.brand?.[attr.key];
+          if (Array.isArray(brandValue)) {
+            const normalized = brandValue
+              .map((item) => normalizeValueForDisplay(item))
+              .filter((item) => typeof item === 'string' && item.length > 0);
+            if (normalized.length > 0) {
+              value = selectRandomOption(normalized);
+            }
+          } else if (brandValue) {
+            value = normalizeValueForDisplay(brandValue);
+          }
+        }
+
+        if (!value) {
+          value = row.componentValues?.[attrKey] || '';
+        }
+
+        componentsData[attrKey] = value;
+      });
+    });
+
+    return componentsData;
+  };
+
   const handleBatchCreate = async () => {
     if (!selectedRecipeType) {
       setError('Select a recipe type before creating ad groups.');
@@ -628,8 +812,9 @@ const BatchCreateAdGroupModal = ({ onClose, onCreated }) => {
 
         const batch = writeBatch(db);
         for (let i = 1; i <= parsedRecipeCount; i += 1) {
+          const components = generateRandomComponentsForRow(row);
           batch.set(doc(db, 'adGroups', groupRef.id, 'recipes', String(i)), {
-            components: row.componentValues,
+            components,
             copy: '',
             assets: [],
             type: selectedRecipeType.id,
@@ -850,9 +1035,7 @@ const BatchCreateAdGroupModal = ({ onClose, onCreated }) => {
                                       <FiPlus />
                                     </button>
                                   </div>
-                                  <div className="whitespace-pre-wrap text-xs text-gray-600 dark:text-gray-400">
-                                    {col.data.display || '—'}
-                                  </div>
+                                  {renderAttributeTagList(col.data.meta?.attributeOptions)}
                                 </div>
                               )}
                             </td>
@@ -863,11 +1046,9 @@ const BatchCreateAdGroupModal = ({ onClose, onCreated }) => {
                             key={col.key}
                             className="border border-gray-200 dark:border-gray-700 px-3 py-2 align-top"
                           >
-                            <div className="whitespace-pre-wrap text-sm">
-                              {col.data.display || '—'}
-                            </div>
-                          </td>
-                        );
+                        {renderAttributeTagList(col.data.meta?.attributeOptions)}
+                      </td>
+                    );
                       })}
                     </tr>
                   ))}
