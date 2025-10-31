@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { collection, getDocs, addDoc, writeBatch, doc, serverTimestamp, setDoc } from 'firebase/firestore';
 import { FiLayers, FiPlus, FiX } from 'react-icons/fi';
 import BriefStepSelect from './BriefStepSelect.jsx';
@@ -9,6 +9,7 @@ import Modal from './Modal.jsx';
 import Button from './Button.jsx';
 import selectRandomOption from '../utils/selectRandomOption.js';
 import normalizeAssetType from '../utils/normalizeAssetType.js';
+import parseContextTags from '../utils/parseContextTags.js';
 
 const escapeRegExp = (value) => {
   if (typeof value !== 'string') return '';
@@ -68,6 +69,302 @@ const normalizeProductValues = (product) => {
     description: normalizeTextList(source.description),
     benefits: normalizeTextList(source.benefits),
   };
+};
+
+const similarityScore = (a, b) => {
+  if (!a || !b) return 1;
+  const aa = a.toString().toLowerCase();
+  const bb = b.toString().toLowerCase();
+  if (aa === bb) return 10;
+  const setA = new Set(aa.split(/\s+/));
+  const setB = new Set(bb.split(/\s+/));
+  let intersection = 0;
+  setA.forEach((w) => {
+    if (setB.has(w)) intersection += 1;
+  });
+  const union = new Set([...setA, ...setB]);
+  return Math.round((intersection / union.size) * 9) + 1;
+};
+
+const buildAssetLibraryMap = (sourceMap = {}, matchFields = []) => {
+  const map = {};
+  if (sourceMap && typeof sourceMap === 'object') {
+    Object.entries(sourceMap).forEach(([key, value]) => {
+      if (!value) return;
+      if (typeof value === 'string') {
+        map[key] = { header: value, score: 10 };
+        return;
+      }
+      if (typeof value === 'object') {
+        const header =
+          (typeof value.header === 'string' && value.header) ||
+          (typeof value.column === 'string' && value.column) ||
+          (typeof value.field === 'string' && value.field) ||
+          (typeof value.key === 'string' && value.key) ||
+          '';
+        const scoreValue =
+          typeof value.score === 'number'
+            ? value.score
+            : typeof value.threshold === 'number'
+              ? value.threshold
+              : undefined;
+        map[key] = { header };
+        if (typeof scoreValue === 'number') {
+          map[key].score = scoreValue;
+        }
+        return;
+      }
+      map[key] = { header: String(value), score: 10 };
+    });
+  }
+
+  matchFields.forEach((field) => {
+    if (!map[field]) {
+      map[field] = { header: field, score: 10 };
+    }
+  });
+
+  const defaults = [
+    ['imageUrl', 'url'],
+    ['imageName', 'name'],
+    ['thumbnailUrl', 'thumbnailUrl'],
+    ['context', 'description'],
+    ['assetType', 'type'],
+    ['product.name', 'product'],
+    ['campaign.name', 'campaign'],
+  ];
+  defaults.forEach(([key, header]) => {
+    if (!map[key]) {
+      map[key] = { header };
+    }
+  });
+
+  return map;
+};
+
+const getValueFromRow = (row, header) => {
+  if (!row || typeof row !== 'object' || !header) return undefined;
+  if (Object.prototype.hasOwnProperty.call(row, header)) {
+    return row[header];
+  }
+  const parts = header.split('.').filter(Boolean);
+  if (parts.length <= 1) {
+    return row[header];
+  }
+  let current = row;
+  for (const part of parts) {
+    if (current && typeof current === 'object' && part in current) {
+      current = current[part];
+    } else {
+      return undefined;
+    }
+  }
+  return current;
+};
+
+const collectFieldValues = (row, fieldKey, assetMap) => {
+  if (!row || typeof row !== 'object') return [];
+  const normalizedKey = typeof fieldKey === 'string' ? fieldKey : '';
+  const lookupKeys = [
+    normalizedKey,
+    normalizedKey.replace(/\./g, '_'),
+    normalizedKey.split('.').pop(),
+    normalizedKey.replace(/\W+/g, ''),
+    normalizedKey.replace(/\./g, ''),
+    normalizedKey.toLowerCase(),
+  ];
+  const mapping = lookupKeys.reduce((acc, key) => {
+    if (acc) return acc;
+    if (key && assetMap[key]) return assetMap[key];
+    return null;
+  }, null);
+
+  const candidates = new Set();
+  const addCandidate = (candidate) => {
+    if (typeof candidate === 'string' && candidate.trim().length > 0) {
+      candidates.add(candidate.trim());
+    }
+  };
+
+  if (mapping) {
+    if (typeof mapping === 'string') {
+      addCandidate(mapping);
+    } else if (typeof mapping === 'object') {
+      addCandidate(mapping.header);
+      addCandidate(mapping.column);
+      addCandidate(mapping.field);
+      if (Array.isArray(mapping.headers)) {
+        mapping.headers.forEach(addCandidate);
+      }
+    }
+  }
+
+  addCandidate(normalizedKey);
+  if (normalizedKey.includes('.')) {
+    addCandidate(normalizedKey.replace(/\./g, '_'));
+    const segments = normalizedKey.split('.');
+    addCandidate(segments[segments.length - 1]);
+  }
+
+  addCandidate(normalizedKey.replace(/\W+/g, ''));
+  addCandidate(normalizedKey.replace(/\./g, ''));
+  addCandidate(normalizedKey.toLowerCase());
+
+  const values = [];
+  candidates.forEach((candidate) => {
+    const value = getValueFromRow(row, candidate);
+    if (value !== undefined) {
+      values.push(value);
+    }
+  });
+  return values;
+};
+
+const extractMappedValue = (row, fieldKey, assetMap) => {
+  const values = collectFieldValues(row, fieldKey, assetMap);
+  for (const value of values) {
+    if (value === undefined || value === null) continue;
+    const formatted = normalizeValueForDisplay(value);
+    if (formatted) return formatted;
+  }
+  return '';
+};
+
+const extractMappedList = (row, fieldKey, assetMap) => {
+  const values = collectFieldValues(row, fieldKey, assetMap);
+  const result = [];
+  values.forEach((value) => {
+    if (value === undefined || value === null) return;
+    if (Array.isArray(value)) {
+      value.forEach((item) => {
+        const formatted = normalizeValueForDisplay(item);
+        if (typeof formatted === 'string' && formatted.length > 0) {
+          formatted
+            .split(/[;,|]/)
+            .map((part) => part.trim())
+            .filter((part) => part.length > 0)
+            .forEach((part) => result.push(part));
+        }
+      });
+    } else if (typeof value === 'string') {
+      value
+        .split(/[;,|]/)
+        .map((part) => part.trim())
+        .filter((part) => part.length > 0)
+        .forEach((part) => result.push(part));
+    } else {
+      const formatted = normalizeValueForDisplay(value);
+      if (typeof formatted === 'string' && formatted.length > 0) {
+        result.push(formatted);
+      }
+    }
+  });
+  return result;
+};
+
+const resolveAssetIdentifier = (row, assetMap, rowIndexMap = null) => {
+  if (!row || typeof row !== 'object') return '';
+  const candidates = [
+    extractMappedValue(row, 'imageName', assetMap),
+    extractMappedValue(row, 'imageUrl', assetMap),
+    row.id,
+    row.assetId,
+    row.imageName,
+    row.filename,
+    row.url,
+  ];
+  const id = candidates.find((val) => typeof val === 'string' && val.trim().length > 0);
+  if (id) return id.trim();
+  if (rowIndexMap && rowIndexMap.has(row)) {
+    return `asset-${rowIndexMap.get(row)}`;
+  }
+  return '';
+};
+
+const resolveAssetUrlFromRow = (row, assetMap) => {
+  const candidates = [
+    extractMappedValue(row, 'imageUrl', assetMap),
+    row.adUrl,
+    row.url,
+    row.imageUrl,
+    row.downloadUrl,
+    row.downloadURL,
+    row.fileUrl,
+    row.firebaseUrl,
+    row.cdnUrl,
+  ];
+  const url = candidates.find(
+    (candidate) => typeof candidate === 'string' && /^https?:\/\//i.test(candidate.trim()),
+  );
+  return url ? url.trim() : '';
+};
+
+const resolveAssetThumbnailFromRow = (row, assetMap, fallbackUrl = '') => {
+  const candidates = [
+    extractMappedValue(row, 'thumbnailUrl', assetMap),
+    row.thumbnailUrl,
+    row.thumbnail,
+    row.previewUrl,
+    row.imageUrl,
+    row.url,
+    fallbackUrl,
+  ];
+  const thumbnail = candidates.find((candidate) => typeof candidate === 'string' && candidate.length > 0);
+  return thumbnail || '';
+};
+
+const resolveAssetTypeFromRow = (row, assetMap) =>
+  normalizeAssetType(
+    extractMappedValue(row, 'assetType', assetMap) || row.assetType || row.type || '',
+  );
+
+const filterRowsByAssetType = (rowsList, typeFilter, assetMap) => {
+  if (!typeFilter) return rowsList;
+  const desired = normalizeAssetType(typeFilter);
+  if (!desired) return rowsList;
+  return rowsList.filter((row) => {
+    const rowType = normalizeAssetType(
+      extractMappedValue(row, 'assetType', assetMap) || row.assetType || row.type || '',
+    );
+    return rowType === desired;
+  });
+};
+
+const doesRowMatchProduct = (row, productName, assetMap) => {
+  if (!productName) return false;
+  const normalizedTarget = productName.trim().toLowerCase();
+  if (!normalizedTarget) return false;
+  const values = [
+    ...extractMappedList(row, 'product.name', assetMap),
+    ...extractMappedList(row, 'product', assetMap),
+  ];
+  if (values.length === 0) return false;
+  return values.some((val) => val.trim().toLowerCase() === normalizedTarget);
+};
+
+const buildInitialUsage = (rows, assetMap, rowIndexMap) => {
+  const usage = {};
+  rows.forEach((row) => {
+    const id = resolveAssetIdentifier(row, assetMap, rowIndexMap);
+    if (id && !(id in usage)) {
+      usage[id] = 0;
+    }
+  });
+  return usage;
+};
+
+const resolveBrandUsageKey = (row) => {
+  if (!row) return 'default';
+  const candidates = [row.brandCode, row.brand?.code, row.brand?.id];
+  for (const candidate of candidates) {
+    if (typeof candidate === 'string' && candidate.trim().length > 0) {
+      return candidate.trim().toLowerCase();
+    }
+    if (candidate !== undefined && candidate !== null) {
+      return String(candidate);
+    }
+  }
+  return 'default';
 };
 
 const normalizeIdList = (value) => {
@@ -406,6 +703,7 @@ const BatchCreateAdGroupModal = ({ onClose, onCreated }) => {
   const [instanceModal, setInstanceModal] = useState(null);
 
   const components = useComponentTypes();
+  const assetUsageCacheRef = useRef(new Map());
 
   const OPENAI_PROXY_URL = useMemo(() => {
     const projectId = import.meta.env.VITE_FIREBASE_PROJECT_ID || '';
@@ -1266,66 +1564,236 @@ const BatchCreateAdGroupModal = ({ onClose, onCreated }) => {
     if (assetCount <= 0) return [];
 
     const createPlaceholders = (count) => Array.from({ length: count }, () => ({ needAsset: true }));
-    const normalizedCandidates = candidates.map((candidate) => ({
-      ...candidate,
-      assetType: normalizeAssetType(candidate.assetType || ''),
-    }));
-
-    const pickFromPool = (pool, count) => {
-      if (count <= 0) return [];
-      if (!Array.isArray(pool) || pool.length === 0) {
-        return createPlaceholders(count);
-      }
-      const chosen = [];
-      for (let index = 0; index < count; index += 1) {
-        const candidate = pool[index % pool.length];
-        chosen.push({ ...candidate });
-      }
-      return chosen;
-    };
-
     const sectionKeys = Object.keys(sectionCounts);
-    if (normalizedCandidates.length === 0) {
+
+    const tryAssetLibrarySelection = () => {
+      if (!selectedRecipeType?.enableAssetCsv) return null;
+      const assetRows = Array.isArray(row?.brand?.assetLibrary?.rows)
+        ? row.brand.assetLibrary.rows.filter((asset) => asset && typeof asset === 'object')
+        : [];
+      if (assetRows.length === 0) return null;
+
+      const matchFields = Array.isArray(selectedRecipeType?.assetMatchFields)
+        ? selectedRecipeType.assetMatchFields
+        : [];
+      const assetMap = buildAssetLibraryMap(row.brand?.assetLibrary?.map, matchFields);
+      const rowIndexMap = new WeakMap();
+      assetRows.forEach((asset, index) => {
+        if (asset && typeof asset === 'object') {
+          rowIndexMap.set(asset, index);
+        }
+      });
+
+      const brandKey = resolveBrandUsageKey(row);
+      if (!assetUsageCacheRef.current.has(brandKey)) {
+        const initialUsage = buildInitialUsage(assetRows, assetMap, rowIndexMap);
+        assetUsageCacheRef.current.set(brandKey, initialUsage);
+      }
+
+      const usageBase = assetUsageCacheRef.current.get(brandKey) || {};
+      const usageCopy = { ...usageBase };
+
+      const productSource =
+        componentsData['product.name'] || componentsData['product.label'] || componentsData['campaign.name'] || '';
+      const productName = normalizeValueForDisplay(productSource).trim();
+      const productFilteredRows = productName
+        ? assetRows.filter((asset) => doesRowMatchProduct(asset, productName, assetMap))
+        : assetRows;
+      const rowsForSelection = productFilteredRows.length > 0 ? productFilteredRows : assetRows;
+      if (rowsForSelection.length === 0) return null;
+
+      const matchFieldList = Array.isArray(matchFields) ? matchFields : [];
+
+      const findBestAsset = (rowsList, usageMap, typeFilter) => {
+        const rowsToEvaluate = filterRowsByAssetType(rowsList, typeFilter, assetMap);
+        if (rowsToEvaluate.length === 0) return null;
+        let bestScore = -Infinity;
+        let bestRows = [];
+        rowsToEvaluate.forEach((assetRow) => {
+          let score = 0;
+          matchFieldList.forEach((field) => {
+            const recipeVal = componentsData[field] || '';
+            if (!recipeVal) return;
+            const rowVal = extractMappedValue(assetRow, field, assetMap);
+            if (!rowVal) return;
+            const mapping = assetMap[field] || assetMap[field.replace(/\./g, '_')] || {};
+            const threshold =
+              typeof mapping.score === 'number'
+                ? mapping.score
+                : typeof mapping.threshold === 'number'
+                  ? mapping.threshold
+                  : 10;
+            const sim = similarityScore(recipeVal, rowVal);
+            if (sim >= threshold) {
+              score += 1;
+            }
+          });
+          if (score > bestScore) {
+            bestScore = score;
+            bestRows = [assetRow];
+          } else if (score === bestScore) {
+            bestRows.push(assetRow);
+          }
+        });
+        if (bestRows.length === 0) return null;
+        let minUsage = Infinity;
+        bestRows.forEach((assetRow) => {
+          const assetId = resolveAssetIdentifier(assetRow, assetMap, rowIndexMap);
+          const usage = usageMap[assetId] || 0;
+          if (usage < minUsage) minUsage = usage;
+        });
+        const lowUsageRows = bestRows.filter((assetRow) => {
+          const assetId = resolveAssetIdentifier(assetRow, assetMap, rowIndexMap);
+          if (!assetId) return false;
+          return (usageMap[assetId] || 0) === minUsage;
+        });
+        if (lowUsageRows.length === 0) return null;
+        return lowUsageRows[Math.floor(Math.random() * lowUsageRows.length)];
+      };
+
+      const findRelatedAsset = (rowsList, contextTags, mainId, usageMap, typeFilter) => {
+        if (!contextTags || contextTags.size === 0) return null;
+        const rowsToEvaluate = filterRowsByAssetType(rowsList, typeFilter, assetMap);
+        if (rowsToEvaluate.length === 0) return null;
+        let bestScore = -Infinity;
+        let bestRows = [];
+        rowsToEvaluate.forEach((assetRow) => {
+          const assetId = resolveAssetIdentifier(assetRow, assetMap, rowIndexMap);
+          if (!assetId || assetId === mainId) return;
+          const rowTags = new Set(parseContextTags(extractMappedValue(assetRow, 'context', assetMap)));
+          let score = 0;
+          contextTags.forEach((tag) => {
+            if (rowTags.has(tag)) score += 1;
+          });
+          if (score > bestScore) {
+            bestScore = score;
+            bestRows = [assetRow];
+          } else if (score === bestScore) {
+            bestRows.push(assetRow);
+          }
+        });
+        if (bestRows.length === 0) return null;
+        let minUsage = Infinity;
+        bestRows.forEach((assetRow) => {
+          const assetId = resolveAssetIdentifier(assetRow, assetMap, rowIndexMap);
+          if (!assetId) return;
+          const usage = usageMap[assetId] || 0;
+          if (usage < minUsage) minUsage = usage;
+        });
+        const lowUsageRows = bestRows.filter((assetRow) => {
+          const assetId = resolveAssetIdentifier(assetRow, assetMap, rowIndexMap);
+          if (!assetId) return false;
+          return (usageMap[assetId] || 0) === minUsage;
+        });
+        if (lowUsageRows.length === 0) return null;
+        return lowUsageRows[Math.floor(Math.random() * lowUsageRows.length)];
+      };
+
+      const selectAssetsWithCount = (rowsList, count, typeFilter) => {
+        if (count <= 0) return [];
+        const arr = [];
+        const mainMatch = findBestAsset(rowsList, usageCopy, typeFilter);
+        let mainId = '';
+        let contextValue = '';
+        if (mainMatch) {
+          const url = resolveAssetUrlFromRow(mainMatch, assetMap);
+          const assetId = resolveAssetIdentifier(mainMatch, assetMap, rowIndexMap);
+          const thumbnail = resolveAssetThumbnailFromRow(mainMatch, assetMap, url);
+          const assetType = resolveAssetTypeFromRow(mainMatch, assetMap);
+          contextValue = extractMappedValue(mainMatch, 'context', assetMap);
+          mainId = assetId;
+          if (assetId) {
+            usageCopy[assetId] = (usageCopy[assetId] || 0) + 1;
+          }
+          if (url) {
+            arr.push({ id: assetId || url, adUrl: url, assetType, thumbnailUrl: thumbnail });
+          } else {
+            arr.push({ needAsset: true });
+          }
+        } else {
+          arr.push({ needAsset: true });
+        }
+
+        const contextTags = new Set(parseContextTags(contextValue));
+        for (let index = 1; index < count; index += 1) {
+          const match = findRelatedAsset(rowsList, contextTags, mainId, usageCopy, typeFilter);
+          if (match) {
+            const url = resolveAssetUrlFromRow(match, assetMap);
+            const assetId = resolveAssetIdentifier(match, assetMap, rowIndexMap);
+            const thumbnail = resolveAssetThumbnailFromRow(match, assetMap, url);
+            const assetType = resolveAssetTypeFromRow(match, assetMap);
+            if (assetId) {
+              usageCopy[assetId] = (usageCopy[assetId] || 0) + 1;
+            }
+            if (url) {
+              arr.push({ id: assetId || url, adUrl: url, assetType, thumbnailUrl: thumbnail });
+            } else {
+              arr.push({ needAsset: true });
+            }
+          } else {
+            arr.push({ needAsset: true });
+          }
+        }
+
+        while (arr.length < count) {
+          arr.push({ needAsset: true });
+        }
+        return arr;
+      };
+
+      const collected = [];
+      const sectionAssets = {};
       if (sectionKeys.length > 0) {
-        const aggregated = [];
         sectionKeys.forEach((section) => {
           const count = sectionCounts[section];
           if (!count || count <= 0) return;
-          const placeholders = createPlaceholders(count);
-          componentsData[`${section}.assets`] = placeholders.map((asset) => ({ ...asset }));
-          aggregated.push(...placeholders);
+          const desiredType = componentsData[`${section}.assetType`] || '';
+          const assetsForSection = selectAssetsWithCount(rowsForSelection, count, desiredType);
+          sectionAssets[section] = assetsForSection;
+          collected.push(...assetsForSection);
         });
-        return aggregated.length > 0 ? aggregated : createPlaceholders(assetCount);
+      } else {
+        collected.push(...selectAssetsWithCount(rowsForSelection, assetCount, null));
       }
-      return createPlaceholders(assetCount);
+
+      const hasRealAsset = collected.some((asset) => asset && asset.adUrl);
+      if (!hasRealAsset) return null;
+
+      if (sectionKeys.length > 0) {
+        Object.entries(sectionAssets).forEach(([section, assets]) => {
+          componentsData[`${section}.assets`] = assets.map((asset) => ({ ...asset }));
+        });
+      }
+
+      if (collected.length < assetCount) {
+        collected.push(...createPlaceholders(assetCount - collected.length));
+      }
+
+      assetUsageCacheRef.current.set(brandKey, usageCopy);
+      return collected;
+    };
+
+    const libraryAssets = tryAssetLibrarySelection();
+    if (libraryAssets) {
+      return libraryAssets;
     }
 
-    const collectedAssets = [];
     if (sectionKeys.length > 0) {
+      const aggregated = [];
       sectionKeys.forEach((section) => {
         const count = sectionCounts[section];
         if (!count || count <= 0) return;
-        const desiredType = normalizeAssetType(componentsData[`${section}.assetType`] || '');
-        let pool = normalizedCandidates;
-        if (desiredType) {
-          const filtered = normalizedCandidates.filter((candidate) => candidate.assetType === desiredType);
-          if (filtered.length > 0) {
-            pool = filtered;
-          }
-        }
-        const selected = pickFromPool(pool, count);
-        componentsData[`${section}.assets`] = selected.map((asset) => ({ ...asset }));
-        collectedAssets.push(...selected);
+        const placeholders = createPlaceholders(count);
+        componentsData[`${section}.assets`] = placeholders.map((asset) => ({ ...asset }));
+        aggregated.push(...placeholders);
       });
-    } else {
-      collectedAssets.push(...pickFromPool(normalizedCandidates, assetCount));
+      if (aggregated.length < assetCount) {
+        aggregated.push(...createPlaceholders(assetCount - aggregated.length));
+      }
+      return aggregated.length > 0 ? aggregated : createPlaceholders(assetCount);
     }
 
-    if (collectedAssets.length < assetCount) {
-      collectedAssets.push(...createPlaceholders(assetCount - collectedAssets.length));
-    }
-
-    return collectedAssets;
+    return createPlaceholders(assetCount);
   };
 
   const generateRecipePayloadForRow = async (row) => {
