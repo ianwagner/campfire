@@ -1556,6 +1556,14 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
                       );
                     };
 
+                    const brandLinkParams = new URLSearchParams({
+                      brandCode: r.code || '',
+                    });
+                    if (briefOnly) {
+                      brandLinkParams.set('reviewType', 'brief');
+                    }
+                    const brandLink = `${adGroupListPath}?${brandLinkParams.toString()}`;
+
                     return (
                       <tr key={r.id}>
                         <td data-label="Brand" className="align-middle">
@@ -1581,7 +1589,7 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
                             )}
                             {r.code ? (
                               <Link
-                                to={`${adGroupListPath}?brandCode=${encodeURIComponent(r.code)}`}
+                                to={brandLink}
                                 className="inline-flex flex-wrap items-center gap-2 font-semibold text-gray-900 transition hover:text-[var(--accent-color)] dark:text-gray-100 dark:hover:text-[var(--accent-color)]"
                               >
                                 <span>{r.name || r.code}</span>

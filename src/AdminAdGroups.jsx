@@ -87,7 +87,11 @@ const AdminAdGroups = () => {
   const [editors, setEditors] = useState([]);
   const [editorFilter, setEditorFilter] = useState('');
   const [monthFilter, setMonthFilter] = useState('');
-  const [reviewFilter, setReviewFilter] = useState('2');
+  const [reviewFilter, setReviewFilter] = useState(() => {
+    const params = new URLSearchParams(location.search);
+    const reviewParam = params.get('reviewType') || params.get('reviewVersion');
+    return reviewParam ? normalizeReviewVersion(reviewParam) : '2';
+  });
   const [view, setView] = useState('kanban');
   const [showGallery, setShowGallery] = useState(false);
   const [galleryAds, setGalleryAds] = useState([]);
@@ -117,6 +121,14 @@ const AdminAdGroups = () => {
     } else {
       setFilter((prev) => (prev === '' ? prev : ''));
     }
+  }, [location.search]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const reviewParam = params.get('reviewType') || params.get('reviewVersion');
+    if (!reviewParam) return;
+    const normalized = normalizeReviewVersion(reviewParam);
+    setReviewFilter((prev) => (prev === normalized ? prev : normalized));
   }, [location.search]);
 
   useEffect(() => {
