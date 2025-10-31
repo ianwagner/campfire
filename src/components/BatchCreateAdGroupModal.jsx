@@ -1127,14 +1127,33 @@ const BatchCreateAdGroupModal = ({ onClose, onCreated }) => {
     const assetRows = Array.isArray(row?.brand?.assetLibrary?.rows)
       ? row.brand.assetLibrary.rows
       : [];
+    const resolveAssetUrl = (asset, index, prefix) => {
+      if (!asset) return '';
+      if (typeof asset === 'string') return asset;
+      const urlCandidates = [
+        asset?.adUrl,
+        asset?.imageUrl,
+        asset?.url,
+        asset?.downloadUrl,
+        asset?.downloadURL,
+        asset?.fileUrl,
+        asset?.firebaseUrl,
+        asset?.cdnUrl,
+      ];
+      const resolved = urlCandidates.find((candidate) => typeof candidate === 'string' && candidate.length > 0);
+      if (resolved) return resolved;
+      if (typeof asset?.source === 'string') return asset.source;
+      return prefix ? `${prefix}-${index}` : '';
+    };
     assetRows.forEach((asset, index) => {
-      const url = asset?.adUrl || asset?.imageUrl || asset?.url || '';
-      if (!url) return;
+      const url = resolveAssetUrl(asset, index, 'asset');
+      if (!url || !/^https?:\/\//i.test(url)) return;
       pushCandidate({
-        id: asset?.id || asset?.imageName || asset?.filename || `asset-${index}`,
+        id: asset?.id || asset?.imageName || asset?.filename || resolveAssetUrl(asset, index, 'asset'),
         adUrl: url,
         assetType: asset?.assetType || asset?.type || '',
-        thumbnailUrl: asset?.thumbnailUrl || asset?.thumbnail || '',
+        thumbnailUrl:
+          asset?.thumbnailUrl || asset?.thumbnail || asset?.previewUrl || asset?.imageUrl || asset?.url || '',
       });
     });
 
@@ -1153,13 +1172,24 @@ const BatchCreateAdGroupModal = ({ onClose, onCreated }) => {
         }
         return;
       }
-      const url = asset.adUrl || asset.imageUrl || asset.url || '';
-      if (!url) return;
+      const url = resolveAssetUrl(asset, index, 'brand-asset');
+      if (!url || !/^https?:\/\//i.test(url)) return;
       pushCandidate({
-        id: asset.id || asset.imageName || asset.filename || `brand-asset-${index}`,
+        id:
+          asset.id ||
+          asset.imageName ||
+          asset.filename ||
+          asset.assetId ||
+          resolveAssetUrl(asset, index, 'brand-asset'),
         adUrl: url,
         assetType: asset.assetType || asset.type || '',
-        thumbnailUrl: asset.thumbnailUrl || asset.thumbnail || '',
+        thumbnailUrl:
+          asset.thumbnailUrl ||
+          asset.thumbnail ||
+          asset.previewUrl ||
+          asset.imageUrl ||
+          asset.url ||
+          url,
       });
     });
 
