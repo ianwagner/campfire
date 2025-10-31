@@ -63,6 +63,37 @@ const normalizeProductValues = (product) => {
   };
 };
 
+const normalizeIdList = (value) => {
+  if (!Array.isArray(value)) return [];
+  return Array.from(
+    new Set(
+      value
+        .map((item) => (typeof item === 'string' ? item.trim() : ''))
+        .filter((item) => item.length > 0),
+    ),
+  );
+};
+
+const areIdListsEqual = (a = [], b = []) => {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i += 1) {
+    if (a[i] !== b[i]) return false;
+  }
+  return true;
+};
+
+const deriveInstanceLabel = (instance, index = 0) => {
+  if (!instance) return `Instance ${index + 1}`;
+  return (
+    instance.label ||
+    instance.name ||
+    instance.values?.name ||
+    instance.values?.title ||
+    instance.values?.label ||
+    `Instance ${index + 1}`
+  );
+};
+
 const extractOptionList = (value) => {
   if (value === null || value === undefined) return [];
   if (Array.isArray(value)) {
@@ -162,18 +193,31 @@ const buildComponentData = (component, brand, instances, overrides = {}) => {
       return {
         display: '—',
         values: {},
-        meta: { type: 'product', options: [], selectedId: '' },
+        meta: { type: 'product', options: [], selectedIds: [], attributeOptions: [] },
       };
     }
 
-    let selectedId = overrides.selectedProductId || '';
-    if (!options.some((opt) => opt.id === selectedId)) {
-      selectedId = options[0].id;
+    const overrideProvided = Array.isArray(overrides.selectedProductIds);
+    let selectedIds = overrideProvided ? normalizeIdList(overrides.selectedProductIds) : [];
+    const validIds = new Set(options.map((opt) => opt.id));
+    selectedIds = selectedIds.filter((id) => validIds.has(id));
+
+    if (!overrideProvided && selectedIds.length === 0 && options.length > 0) {
+      selectedIds = [options[0].id];
     }
-    const selectedOption = options.find((opt) => opt.id === selectedId) || options[0];
+
+    const selectedOptions = options.filter((opt) => selectedIds.includes(opt.id));
+    const primaryOption =
+      selectedOptions[0] || (!overrideProvided && options.length > 0 ? options[0] : null);
 
     const aggregatedValues = {};
-    options.forEach((option) => {
+    const aggregationTargets =
+      selectedOptions.length > 0
+        ? selectedOptions
+        : overrideProvided
+        ? []
+        : options;
+    aggregationTargets.forEach((option) => {
       attributes.forEach((attr) => {
         const extracted = extractOptionList(option.values?.[attr.key]);
         if (extracted.length === 0) return;
@@ -185,7 +229,7 @@ const buildComponentData = (component, brand, instances, overrides = {}) => {
     const values = {};
     attributes.forEach((attr) => {
       values[`${component.key}.${attr.key}`] = normalizeValueForDisplay(
-        selectedOption.values?.[attr.key],
+        primaryOption?.values?.[attr.key],
       );
     });
 
@@ -207,7 +251,7 @@ const buildComponentData = (component, brand, instances, overrides = {}) => {
     return {
       display: displayParts.length > 0 ? displayParts.join('\n\n') : '—',
       values,
-      meta: { type: 'product', options, selectedId, attributeOptions },
+      meta: { type: 'product', options, selectedIds, attributeOptions },
     };
   }
 
@@ -256,17 +300,42 @@ const buildComponentData = (component, brand, instances, overrides = {}) => {
       return {
         display: displayParts.length > 0 ? displayParts.join('\n\n') : '—',
         values,
-        meta: { type: component.key, attributeOptions },
+        meta: { type: component.key, attributeOptions, options: [], selectedIds: [] },
       };
     }
 
-    return { display: '—', values: {}, meta: { type: component.key } };
+    return { display: '—', values: {}, meta: { type: component.key, attributeOptions: [], options: [], selectedIds: [] } };
   }
 
+  const options = effectiveInstances.map((inst, index) => ({
+    id: inst.id || `instance:${index}`,
+    label: deriveInstanceLabel(inst, index),
+    values: inst.values || {},
+  }));
+
+  const overrideProvided = Array.isArray(overrides.selectedInstanceIds);
+  let selectedIds = overrideProvided ? normalizeIdList(overrides.selectedInstanceIds) : [];
+  const validIds = new Set(options.map((opt) => opt.id));
+  selectedIds = selectedIds.filter((id) => validIds.has(id));
+
+  if (!overrideProvided && selectedIds.length === 0 && options.length > 0) {
+    selectedIds = options.map((opt) => opt.id);
+  }
+
+  const selectedOptions = options.filter((opt) => selectedIds.includes(opt.id));
+  const primaryOption =
+    selectedOptions[0] || (!overrideProvided && options.length > 0 ? options[0] : null);
+
   const aggregatedValues = {};
-  effectiveInstances.forEach((inst) => {
+  const aggregationTargets =
+    selectedOptions.length > 0
+      ? selectedOptions
+      : overrideProvided
+      ? []
+      : options;
+  aggregationTargets.forEach((option) => {
     attributes.forEach((attr) => {
-      const extracted = extractOptionList(inst.values?.[attr.key]);
+      const extracted = extractOptionList(option.values?.[attr.key]);
       if (extracted.length === 0) return;
       if (!aggregatedValues[attr.key]) aggregatedValues[attr.key] = new Set();
       extracted.forEach((val) => aggregatedValues[attr.key].add(val));
@@ -278,8 +347,7 @@ const buildComponentData = (component, brand, instances, overrides = {}) => {
     const optionsList = aggregatedValues[attr.key]
       ? Array.from(aggregatedValues[attr.key])
       : [];
-    const joined = optionsList.join('\n');
-    values[`${component.key}.${attr.key}`] = joined;
+    values[`${component.key}.${attr.key}`] = normalizeValueForDisplay(primaryOption?.values?.[attr.key]);
     return {
       key: attr.key,
       label: attr.label,
@@ -294,7 +362,7 @@ const buildComponentData = (component, brand, instances, overrides = {}) => {
   return {
     display: displayParts.length > 0 ? displayParts.join('\n\n') : '—',
     values,
-    meta: { type: component.key, attributeOptions },
+    meta: { type: component.key, attributeOptions, options, selectedIds },
   };
 };
 
@@ -316,6 +384,8 @@ const BatchCreateAdGroupModal = ({ onClose, onCreated }) => {
   const [creating, setCreating] = useState(false);
   const [brandModalOpen, setBrandModalOpen] = useState(false);
   const [productSelections, setProductSelections] = useState({});
+  const [instanceSelections, setInstanceSelections] = useState({});
+  const [instanceSearchTerms, setInstanceSearchTerms] = useState({});
   const [productModalBrand, setProductModalBrand] = useState(null);
   const [newProductForm, setNewProductForm] = useState({
     name: '',
@@ -470,7 +540,8 @@ const BatchCreateAdGroupModal = ({ onClose, onCreated }) => {
   const brandComputation = useMemo(() => {
     const rows = [];
     const missing = [];
-    const selectionMap = new Map();
+    const productSelectionMap = new Map();
+    const instanceSelectionMap = new Map();
     brandCodes.forEach((code) => {
       const brand = brands.find((b) => (b.code || '').toLowerCase() === code.toLowerCase());
       if (!brand) {
@@ -478,14 +549,24 @@ const BatchCreateAdGroupModal = ({ onClose, onCreated }) => {
         return;
       }
       const brandCodeKey = typeof brand.code === 'string' && brand.code.length > 0 ? brand.code : code;
+      const brandInstanceSelections = instanceSelections[brandCodeKey] || {};
       const columns = columnDefinitions.map((col) => {
         const overrides = {};
         if (col.component?.key === 'product') {
-          overrides.selectedProductId = productSelections[brandCodeKey] || '';
+          overrides.selectedProductIds = productSelections[brandCodeKey];
+        } else if (col.component?.key && col.component.key !== 'brand') {
+          overrides.selectedInstanceIds = brandInstanceSelections[col.component.key];
         }
         const data = buildComponentData(col.component, brand, componentInstances, overrides);
         if (col.component?.key === 'product') {
-          selectionMap.set(brandCodeKey, data.meta?.selectedId || '');
+          productSelectionMap.set(brandCodeKey, data.meta?.selectedIds || []);
+        } else if (col.component?.key && col.component.key !== 'brand') {
+          let brandMap = instanceSelectionMap.get(brandCodeKey);
+          if (!brandMap) {
+            brandMap = new Map();
+            instanceSelectionMap.set(brandCodeKey, brandMap);
+          }
+          brandMap.set(col.component.key, data.meta?.selectedIds || []);
         }
         return { ...col, data };
       });
@@ -503,41 +584,52 @@ const BatchCreateAdGroupModal = ({ onClose, onCreated }) => {
           componentValueOptions[attrKey] = Array.isArray(attr.options) ? [...attr.options] : [];
         });
       });
-      const selectedProductId = selectionMap.get(brandCodeKey) || '';
+      const selectedProductIds = productSelectionMap.get(brandCodeKey) || [];
+      const brandInstanceMap = instanceSelectionMap.get(brandCodeKey) || new Map();
+      const normalizedInstanceSelections = {};
+      brandInstanceMap.forEach((ids, componentKey) => {
+        normalizedInstanceSelections[componentKey] = Array.isArray(ids) ? [...ids] : [];
+      });
       rows.push({
         brand,
         brandCode: brandCodeKey,
         columns,
         componentValues,
         componentValueOptions,
-        selectedProductId,
+        selectedProductIds,
+        instanceSelections: normalizedInstanceSelections,
+        productSelectionExplicit: Array.isArray(productSelections[brandCodeKey]),
       });
     });
-    return { rows, missing, selectionMap };
-  }, [brandCodes, brands, columnDefinitions, componentInstances, productSelections]);
+    return { rows, missing, productSelectionMap, instanceSelectionMap };
+  }, [
+    brandCodes,
+    brands,
+    columnDefinitions,
+    componentInstances,
+    productSelections,
+    instanceSelections,
+  ]);
 
   useEffect(() => {
-    const { selectionMap } = brandComputation;
-    if (!selectionMap) return;
+    const { productSelectionMap } = brandComputation;
+    if (!productSelectionMap) return;
     setProductSelections((prev) => {
       const next = { ...prev };
       let changed = false;
       const brandCodeSet = new Set(brandCodes);
-      const selectionCodes = new Set();
-      selectionMap.forEach((selectedId, code) => {
-        selectionCodes.add(code);
-        if (selectedId) {
-          if (next[code] !== selectedId) {
-            next[code] = selectedId;
-            changed = true;
-          }
-        } else if (next[code]) {
-          delete next[code];
+      const seenCodes = new Set();
+      productSelectionMap.forEach((selectedIds, code) => {
+        if (!brandCodeSet.has(code)) return;
+        seenCodes.add(code);
+        const normalized = normalizeIdList(selectedIds);
+        if (!areIdListsEqual(next[code] || [], normalized) || next[code] === undefined) {
+          next[code] = normalized;
           changed = true;
         }
       });
       Object.keys(next).forEach((code) => {
-        if (!brandCodeSet.has(code) || !selectionCodes.has(code)) {
+        if (!brandCodeSet.has(code) || !seenCodes.has(code)) {
           delete next[code];
           changed = true;
         }
@@ -546,9 +638,146 @@ const BatchCreateAdGroupModal = ({ onClose, onCreated }) => {
     });
   }, [brandComputation, brandCodes]);
 
-  const handleProductSelectionChange = (brandCode, optionId) => {
-    if (!brandCode) return;
-    setProductSelections((prev) => ({ ...prev, [brandCode]: optionId }));
+  useEffect(() => {
+    const { instanceSelectionMap } = brandComputation;
+    if (!instanceSelectionMap) return;
+    setInstanceSelections((prev) => {
+      const next = { ...prev };
+      let changed = false;
+      const brandCodeSet = new Set(brandCodes);
+      const seenCodes = new Set();
+      instanceSelectionMap.forEach((componentMap, code) => {
+        if (!brandCodeSet.has(code)) return;
+        seenCodes.add(code);
+        const current = next[code] ? { ...next[code] } : {};
+        let brandChanged = false;
+        const componentKeysSeen = new Set();
+        componentMap.forEach((ids, componentKey) => {
+          componentKeysSeen.add(componentKey);
+          const normalized = normalizeIdList(ids);
+          if (
+            !areIdListsEqual(current[componentKey] || [], normalized) ||
+            typeof current[componentKey] === 'undefined'
+          ) {
+            current[componentKey] = normalized;
+            brandChanged = true;
+          }
+        });
+        Object.keys(current).forEach((componentKey) => {
+          if (!componentKeysSeen.has(componentKey)) {
+            delete current[componentKey];
+            brandChanged = true;
+          }
+        });
+        if (brandChanged || !next[code]) {
+          if (Object.keys(current).length > 0) {
+            next[code] = current;
+          } else if (next[code]) {
+            delete next[code];
+          }
+          changed = brandChanged || (!next[code] && Object.keys(current).length === 0);
+        }
+      });
+      Object.keys(next).forEach((code) => {
+        if (!brandCodeSet.has(code) || !seenCodes.has(code)) {
+          delete next[code];
+          changed = true;
+        }
+      });
+      return changed ? next : prev;
+    });
+  }, [brandComputation, brandCodes]);
+
+  const handleAddProductSelection = (brandCode, optionId) => {
+    if (!brandCode || !optionId) return;
+    setProductSelections((prev) => {
+      const current = Array.isArray(prev[brandCode]) ? prev[brandCode] : [];
+      if (current.includes(optionId)) return prev;
+      return { ...prev, [brandCode]: [...current, optionId] };
+    });
+  };
+
+  const handleRemoveProductSelection = (brandCode, optionId) => {
+    if (!brandCode || !optionId) return;
+    setProductSelections((prev) => {
+      const current = Array.isArray(prev[brandCode]) ? prev[brandCode] : [];
+      if (!current.includes(optionId)) return prev;
+      const nextList = current.filter((id) => id !== optionId);
+      return { ...prev, [brandCode]: nextList };
+    });
+  };
+
+  const handleAddInstanceSelection = (brandCode, componentKey, instanceId) => {
+    if (!brandCode || !componentKey || !instanceId) return;
+    setInstanceSelections((prev) => {
+      const brandEntry = prev[brandCode] ? { ...prev[brandCode] } : {};
+      const current = Array.isArray(brandEntry[componentKey]) ? brandEntry[componentKey] : [];
+      if (current.includes(instanceId)) return prev;
+      const nextBrand = { ...brandEntry, [componentKey]: [...current, instanceId] };
+      return { ...prev, [brandCode]: nextBrand };
+    });
+  };
+
+  const handleRemoveInstanceSelection = (brandCode, componentKey, instanceId) => {
+    if (!brandCode || !componentKey || !instanceId) return;
+    setInstanceSelections((prev) => {
+      const brandEntry = prev[brandCode];
+      if (!brandEntry) return prev;
+      const current = Array.isArray(brandEntry[componentKey]) ? brandEntry[componentKey] : [];
+      if (!current.includes(instanceId)) return prev;
+      const nextList = current.filter((id) => id !== instanceId);
+      const nextBrand = { ...brandEntry, [componentKey]: nextList };
+      return { ...prev, [brandCode]: nextBrand };
+    });
+  };
+
+  const getInstanceSearchKey = (brandCode, componentKey) => `${brandCode}::${componentKey}`;
+
+  const getInstanceSearchValue = (brandCode, componentKey) =>
+    instanceSearchTerms[getInstanceSearchKey(brandCode, componentKey)] || '';
+
+  const handleInstanceSearchChange = (brandCode, componentKey, value) => {
+    const key = getInstanceSearchKey(brandCode, componentKey);
+    setInstanceSearchTerms((prev) => {
+      if (prev[key] === value) return prev;
+      return { ...prev, [key]: value };
+    });
+  };
+
+  const clearInstanceSearchValue = (brandCode, componentKey) => {
+    const key = getInstanceSearchKey(brandCode, componentKey);
+    setInstanceSearchTerms((prev) => {
+      if (!prev[key]) return prev;
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+  };
+
+  const findMatchingInstanceOption = (options, inputValue) => {
+    const trimmed = (inputValue || '').trim().toLowerCase();
+    if (!trimmed) return null;
+    const normalizedOptions = Array.isArray(options) ? options : [];
+    const exact = normalizedOptions.find((opt) => {
+      const label = (opt.label || opt.id || '').toLowerCase();
+      return label === trimmed;
+    });
+    if (exact) return exact;
+    const partialMatches = normalizedOptions.filter((opt) => {
+      const label = (opt.label || opt.id || '').toLowerCase();
+      return label.includes(trimmed);
+    });
+    if (partialMatches.length === 1) return partialMatches[0];
+    return null;
+  };
+
+  const handleInstanceInputCommit = (brandCode, componentKey, options, inputValue) => {
+    if (!brandCode || !componentKey) return;
+    const match = findMatchingInstanceOption(options, inputValue);
+    if (match) {
+      handleAddInstanceSelection(brandCode, componentKey, match.id);
+    }
+    clearInstanceSearchValue(brandCode, componentKey);
   };
 
   const openAddProductModal = (brand) => {
@@ -617,10 +846,12 @@ const BatchCreateAdGroupModal = ({ onClose, onCreated }) => {
         prev.map((b) => (b.id === brand.id ? { ...b, products: updatedProducts } : b)),
       );
       if (brandCodeKey) {
-        setProductSelections((prev) => ({
-          ...prev,
-          [brandCodeKey]: `brand:${updatedProducts.length - 1}`,
-        }));
+        const newProductId = `brand:${updatedProducts.length - 1}`;
+        setProductSelections((prev) => {
+          const current = Array.isArray(prev[brandCodeKey]) ? prev[brandCodeKey] : [];
+          if (current.includes(newProductId)) return prev;
+          return { ...prev, [brandCodeKey]: [...current, newProductId] };
+        });
       }
       setSuccess(`Added product "${name}" for ${brandCodeKey || 'brand'}.`);
       setProductModalBrand(null);
@@ -691,10 +922,16 @@ const BatchCreateAdGroupModal = ({ onClose, onCreated }) => {
 
       if (componentKey === 'product') {
         const options = Array.isArray(col.data.meta?.options) ? col.data.meta.options : [];
+        const selectedProductIds = Array.isArray(row.selectedProductIds)
+          ? row.selectedProductIds
+          : [];
+        const overrideExplicit = row.productSelectionExplicit;
         let availableOptions = options;
-        if (row.selectedProductId) {
-          const filtered = options.filter((opt) => opt.id === row.selectedProductId);
-          if (filtered.length > 0) availableOptions = filtered;
+        if (selectedProductIds.length > 0) {
+          const filtered = options.filter((opt) => selectedProductIds.includes(opt.id));
+          availableOptions = filtered.length > 0 ? filtered : options;
+        } else if (overrideExplicit) {
+          availableOptions = [];
         }
         const chosenOption =
           availableOptions.length > 0
@@ -991,7 +1228,11 @@ const BatchCreateAdGroupModal = ({ onClose, onCreated }) => {
                           const options = Array.isArray(col.data.meta?.options)
                             ? col.data.meta.options
                             : [];
-                          const selectedId = col.data.meta?.selectedId || '';
+                          const selectedIds = Array.isArray(col.data.meta?.selectedIds)
+                            ? col.data.meta.selectedIds
+                            : [];
+                          const selectedOptions = options.filter((opt) => selectedIds.includes(opt.id));
+                          const availableOptions = options.filter((opt) => !selectedIds.includes(opt.id));
                           return (
                             <td
                               key={col.key}
@@ -1011,16 +1252,49 @@ const BatchCreateAdGroupModal = ({ onClose, onCreated }) => {
                                   </button>
                                 </div>
                               ) : (
-                                <div className="space-y-2">
+                                <div className="space-y-3">
+                                  <div className="flex flex-wrap gap-2">
+                                    {selectedOptions.length === 0 ? (
+                                      <span className="inline-flex items-center rounded-full bg-gray-200 px-3 py-1 text-xs text-gray-700 dark:bg-gray-700 dark:text-gray-100">
+                                        No products selected.
+                                      </span>
+                                    ) : (
+                                      selectedOptions.map((option) => (
+                                        <span
+                                          key={option.id}
+                                          className="inline-flex items-center gap-1 rounded-full bg-gray-200 px-3 py-1 text-xs text-gray-800 dark:bg-gray-700 dark:text-gray-100"
+                                        >
+                                          {option.label || 'Unnamed product'}
+                                          <button
+                                            type="button"
+                                            onClick={() => handleRemoveProductSelection(brandCodeKey, option.id)}
+                                            className="ml-1 inline-flex h-4 w-4 items-center justify-center rounded-full text-gray-500 hover:text-gray-800 focus:outline-none focus:ring-1 focus:ring-[var(--accent-color)]"
+                                            aria-label={`Remove ${option.label || 'product'} from ${row.brand.name || row.brand.code || 'brand'}`}
+                                          >
+                                            <FiX />
+                                          </button>
+                                        </span>
+                                      ))
+                                    )}
+                                  </div>
                                   <div className="flex items-center gap-2">
                                     <select
-                                      value={selectedId}
-                                      onChange={(e) =>
-                                        handleProductSelectionChange(brandCodeKey, e.target.value)
-                                      }
+                                      defaultValue=""
+                                      onChange={(e) => {
+                                        const value = e.target.value;
+                                        if (value) {
+                                          handleAddProductSelection(brandCodeKey, value);
+                                          e.target.value = '';
+                                        }
+                                      }}
                                       className="w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm focus:border-[var(--accent-color)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)] focus:ring-offset-0 dark:border-gray-700 dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]"
                                     >
-                                      {options.map((option) => (
+                                      <option value="" disabled>
+                                        {availableOptions.length > 0
+                                          ? 'Add product…'
+                                          : 'No additional products'}
+                                      </option>
+                                      {availableOptions.map((option) => (
                                         <option key={option.id} value={option.id}>
                                           {option.label || 'Unnamed product'}
                                         </option>
@@ -1041,14 +1315,119 @@ const BatchCreateAdGroupModal = ({ onClose, onCreated }) => {
                             </td>
                           );
                         }
+                        const componentKey = col.component?.key || col.key;
+                        if (componentKey === 'brand') {
+                          return (
+                            <td
+                              key={col.key}
+                              className="border border-gray-200 dark:border-gray-700 px-3 py-2 align-top"
+                            >
+                              {renderAttributeTagList(col.data.meta?.attributeOptions)}
+                            </td>
+                          );
+                        }
+
+                        const instanceOptions = Array.isArray(col.data.meta?.options)
+                          ? col.data.meta.options
+                          : [];
+                        const selectedIds = Array.isArray(col.data.meta?.selectedIds)
+                          ? col.data.meta.selectedIds
+                          : [];
+                        const selectedOptions = instanceOptions.filter((opt) =>
+                          selectedIds.includes(opt.id),
+                        );
+                        const sanitizedBrandCode = String(brandCodeKey || '')
+                          .replace(/[^a-zA-Z0-9_-]/g, '-')
+                          .toLowerCase();
+                        const datalistId = `instance-options-${sanitizedBrandCode}-${componentKey}`;
+                        const searchValue = getInstanceSearchValue(brandCodeKey, componentKey);
+
                         return (
                           <td
                             key={col.key}
                             className="border border-gray-200 dark:border-gray-700 px-3 py-2 align-top"
                           >
-                        {renderAttributeTagList(col.data.meta?.attributeOptions)}
-                      </td>
-                    );
+                            <div className="space-y-3">
+                              <div className="flex flex-wrap gap-2">
+                                {selectedOptions.length === 0 ? (
+                                  <span className="inline-flex items-center rounded-full bg-gray-200 px-3 py-1 text-xs text-gray-700 dark:bg-gray-700 dark:text-gray-100">
+                                    No instances selected.
+                                  </span>
+                                ) : (
+                                  selectedOptions.map((option) => (
+                                    <span
+                                      key={option.id}
+                                      className="inline-flex items-center gap-1 rounded-full bg-gray-200 px-3 py-1 text-xs text-gray-800 dark:bg-gray-700 dark:text-gray-100"
+                                    >
+                                      {option.label || 'Unnamed instance'}
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          handleRemoveInstanceSelection(brandCodeKey, componentKey, option.id)
+                                        }
+                                        className="ml-1 inline-flex h-4 w-4 items-center justify-center rounded-full text-gray-500 hover:text-gray-800 focus:outline-none focus:ring-1 focus:ring-[var(--accent-color)]"
+                                        aria-label={`Remove ${option.label || 'instance'} from ${row.brand.name || row.brand.code || 'brand'}`}
+                                      >
+                                        <FiX />
+                                      </button>
+                                    </span>
+                                  ))
+                                )}
+                              </div>
+                              {instanceOptions.length > 0 ? (
+                                <div className="space-y-2">
+                                  <div className="flex items-center gap-2">
+                                    <input
+                                      type="text"
+                                      list={datalistId}
+                                      value={searchValue}
+                                      onChange={(e) =>
+                                        handleInstanceSearchChange(brandCodeKey, componentKey, e.target.value)
+                                      }
+                                      onKeyDown={(e) => {
+                                        if (e.key === 'Enter') {
+                                          e.preventDefault();
+                                          handleInstanceInputCommit(
+                                            brandCodeKey,
+                                            componentKey,
+                                            instanceOptions,
+                                            e.target.value,
+                                          );
+                                        }
+                                      }}
+                                      placeholder="Type to add instance"
+                                      className="w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm focus:border-[var(--accent-color)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)] focus:ring-offset-0 dark:border-gray-700 dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]"
+                                    />
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        handleInstanceInputCommit(
+                                          brandCodeKey,
+                                          componentKey,
+                                          instanceOptions,
+                                          searchValue,
+                                        )
+                                      }
+                                      className="inline-flex items-center gap-1 rounded border border-gray-300 bg-white px-3 py-1 text-xs text-gray-700 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)] dark:border-gray-700 dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]"
+                                      disabled={!searchValue.trim()}
+                                    >
+                                      Add
+                                    </button>
+                                  </div>
+                                  <datalist id={datalistId}>
+                                    {instanceOptions.map((option) => (
+                                      <option key={option.id} value={option.label || option.id} />
+                                    ))}
+                                  </datalist>
+                                </div>
+                              ) : (
+                                <p className="text-xs text-gray-600 dark:text-gray-400">
+                                  No instances available.
+                                </p>
+                              )}
+                            </div>
+                          </td>
+                        );
                       })}
                     </tr>
                   ))}
