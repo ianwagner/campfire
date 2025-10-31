@@ -466,19 +466,19 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
           key: 'videos',
           label: 'Videos',
           accent: 'from-rose-500 to-pink-500',
-          fallbackDescription: 'Recipes tagged as video formats this month.',
+          fallbackDescription: 'Video formats this month.',
         },
         {
           key: 'statics',
           label: 'Statics',
           accent: 'from-slate-500 to-slate-600',
-          fallbackDescription: 'Static image recipes scheduled for this month.',
+          fallbackDescription: 'Static formats this month.',
         },
         {
           key: 'carousels',
           label: 'Carousels',
           accent: 'from-fuchsia-500 to-purple-500',
-          fallbackDescription: 'Carousel recipes scheduled for this month.',
+          fallbackDescription: 'Carousel formats this month.',
         },
       ];
 
