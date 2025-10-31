@@ -1381,6 +1381,8 @@ const BatchCreateAdGroupModal = ({ onClose, onCreated }) => {
           assignedIntegrationId: typeof brand.defaultIntegrationId === 'string' ? brand.defaultIntegrationId : null,
           assignedIntegrationName:
             typeof brand.defaultIntegrationName === 'string' ? brand.defaultIntegrationName : '',
+          designerId: typeof brand.defaultDesignerId === 'string' ? brand.defaultDesignerId : null,
+          editorId: typeof brand.defaultEditorId === 'string' ? brand.defaultEditorId : null,
         });
 
         const batch = writeBatch(db);

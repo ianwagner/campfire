@@ -57,6 +57,8 @@ const CreateAdGroup = ({ showSidebar = true, asModal = false }) => {
     try {
       let defaultIntegrationId = null;
       let defaultIntegrationName = '';
+      let defaultDesignerId = null;
+      let defaultEditorId = null;
       if (brandCode) {
         try {
           const brandSnap = await getDocs(
@@ -69,6 +71,12 @@ const CreateAdGroup = ({ showSidebar = true, asModal = false }) => {
             }
             if (typeof brandData.defaultIntegrationName === 'string') {
               defaultIntegrationName = brandData.defaultIntegrationName;
+            }
+            if (typeof brandData.defaultDesignerId === 'string') {
+              defaultDesignerId = brandData.defaultDesignerId;
+            }
+            if (typeof brandData.defaultEditorId === 'string') {
+              defaultEditorId = brandData.defaultEditorId;
             }
             const agencyId = typeof brandData.agencyId === 'string' ? brandData.agencyId : '';
             if (!defaultIntegrationId && agencyId) {
@@ -116,6 +124,8 @@ const CreateAdGroup = ({ showSidebar = true, asModal = false }) => {
         ...(briefNote ? { notes: briefNote } : {}),
         assignedIntegrationId: defaultIntegrationId || null,
         assignedIntegrationName: defaultIntegrationName || '',
+        designerId: defaultDesignerId || null,
+        editorId: defaultEditorId || null,
       });
 
       if (Array.isArray(briefAssets) && briefAssets.length > 0) {

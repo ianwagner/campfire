@@ -8,6 +8,9 @@ import {
   doc,
   getDoc,
   Timestamp,
+  query,
+  where,
+  getDocs,
 } from 'firebase/firestore';
 import { db, auth } from './firebase/config';
 import Modal from './components/Modal.jsx';
@@ -60,6 +63,26 @@ const CreateProjectModal = ({
       return;
     }
     try {
+      let defaultDesignerId = null;
+      let defaultEditorId = null;
+      if (brandCode) {
+        try {
+          const brandSnap = await getDocs(
+            query(collection(db, 'brands'), where('code', '==', brandCode)),
+          );
+          if (!brandSnap.empty) {
+            const brandData = brandSnap.docs[0].data() || {};
+            if (typeof brandData.defaultDesignerId === 'string') {
+              defaultDesignerId = brandData.defaultDesignerId;
+            }
+            if (typeof brandData.defaultEditorId === 'string') {
+              defaultEditorId = brandData.defaultEditorId;
+            }
+          }
+        } catch (err) {
+          console.error('Failed to load brand staff defaults', err);
+        }
+      }
       const groupRef = await addDoc(collection(db, 'adGroups'), {
         name: title.trim(),
         brandCode,
@@ -82,6 +105,8 @@ const CreateProjectModal = ({
         month: month || null,
         dueDate: dueDate ? Timestamp.fromDate(new Date(dueDate)) : null,
         ...(briefNote ? { notes: briefNote } : {}),
+        designerId: defaultDesignerId || null,
+        editorId: defaultEditorId || null,
       });
 
       if (Array.isArray(briefAssets) && briefAssets.length > 0) {
