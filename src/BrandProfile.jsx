@@ -33,6 +33,7 @@ import {
   FiMessageSquare,
   FiUser,
   FiAtSign,
+  FiUsers,
 } from 'react-icons/fi';
 import BrandTone from './BrandTone.jsx';
 import BrandContracts from './BrandContracts.jsx';
@@ -40,6 +41,7 @@ import BrandAIArtStyle from './BrandAIArtStyle.jsx';
 import BrandNotes from './BrandNotes.jsx';
 import BrandFeedback from './BrandFeedback.jsx';
 import BrandSlackMentions from './BrandSlackMentions.jsx';
+import BrandStaffAssignment from './BrandStaffAssignment.jsx';
 
 const BrandProfile = ({ brandId: propId = null, backPath }) => {
   const { id } = useParams();
@@ -59,6 +61,7 @@ const BrandProfile = ({ brandId: propId = null, backPath }) => {
 
   const isAdmin = role === 'admin';
   const canManageSlackMentions = ['admin', 'ops', 'client'].includes(role);
+  const canManageStaffAssignments = ['admin', 'project-manager'].includes(role);
   const adminDirectoryRole = ['admin', 'manager', 'project-manager'].includes(role);
   const resolvedBackPath = backPath || (adminDirectoryRole ? '/admin/brands' : '/brand-profile');
 
@@ -302,6 +305,11 @@ const BrandProfile = ({ brandId: propId = null, backPath }) => {
             <TabButton active={tab === 'contracts'} onClick={() => setTab('contracts')}>
               <FiFileText /> <span>Contracts</span>
             </TabButton>
+            {canManageStaffAssignments && brandId && (
+              <TabButton active={tab === 'staff'} onClick={() => setTab('staff')}>
+                <FiUsers /> <span>Staff Assignment</span>
+              </TabButton>
+            )}
             {isAdmin && brandId && (
               <TabButton active={tab === 'account'} onClick={() => setTab('account')}>
                 <FiUser /> <span>Account</span>
@@ -325,6 +333,9 @@ const BrandProfile = ({ brandId: propId = null, backPath }) => {
             {tab === 'notes' && <BrandNotes brandId={brandId} />}
             {tab === 'contracts' && (
               <BrandContracts brandId={brandId} brandCode={brandCode} />
+            )}
+            {tab === 'staff' && canManageStaffAssignments && brandId && (
+              <BrandStaffAssignment brandId={brandId} brand={brand} onBrandUpdate={setBrand} />
             )}
             {tab === 'account' && isAdmin && brandId && (
               <div className="space-y-6 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar)]">

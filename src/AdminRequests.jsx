@@ -1091,6 +1091,26 @@ const AdminRequests = ({
     } else {
       const groupName = req.title?.trim() || `Group ${Date.now()}`;
       try {
+        let defaultDesignerId = req.designerId || null;
+        let defaultEditorId = req.editorId || null;
+        if (req.brandCode && (!defaultDesignerId || !defaultEditorId)) {
+          try {
+            const brandSnap = await getDocs(
+              query(collection(db, 'brands'), where('code', '==', req.brandCode)),
+            );
+            if (!brandSnap.empty) {
+              const brandData = brandSnap.docs[0].data() || {};
+              if (!defaultDesignerId && typeof brandData.defaultDesignerId === 'string') {
+                defaultDesignerId = brandData.defaultDesignerId;
+              }
+              if (!defaultEditorId && typeof brandData.defaultEditorId === 'string') {
+                defaultEditorId = brandData.defaultEditorId;
+              }
+            }
+          } catch (err) {
+            console.error('Failed to load brand staff defaults for request', err);
+          }
+        }
         const docRef = await addDoc(collection(db, 'adGroups'), {
           name: groupName,
           brandCode: req.brandCode || '',
@@ -1113,8 +1133,8 @@ const AdminRequests = ({
           reviewVersion: 2,
           dueDate: req.dueDate || null,
           clientNote: '',
-          designerId: req.designerId || null,
-          editorId: req.editorId || null,
+          designerId: defaultDesignerId || null,
+          editorId: defaultEditorId || null,
           requestId: req.id,
         });
         if (req.projectId) {
