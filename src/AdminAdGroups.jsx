@@ -17,6 +17,7 @@ import {
   FiThumbsUp,
   FiThumbsDown,
   FiEdit,
+  FiLayers,
 } from 'react-icons/fi';
 import { collection, getDocs, getDoc, query, where, doc, updateDoc, serverTimestamp, Timestamp, deleteField } from 'firebase/firestore';
 import { db } from './firebase/config';
@@ -46,6 +47,7 @@ import ScrollModal from './components/ScrollModal.jsx';
 import CloseButton from './components/CloseButton.jsx';
 import GalleryModal from './components/GalleryModal.jsx';
 import AdGroupGantt from './components/AdGroupGantt.jsx';
+import BatchCreateAdGroupModal from './components/BatchCreateAdGroupModal.jsx';
 
 const AdminAdGroups = () => {
   const location = useLocation();
@@ -73,6 +75,8 @@ const AdminAdGroups = () => {
   const [renameId, setRenameId] = useState(null);
   const [renameName, setRenameName] = useState('');
   const [showCreate, setShowCreate] = useState(false);
+  const [showBatchCreate, setShowBatchCreate] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
   const [filter, setFilter] = useState(() => {
     const params = new URLSearchParams(location.search);
     return params.get('brandCode') || '';
@@ -215,7 +219,7 @@ const AdminAdGroups = () => {
     };
 
     fetchGroups();
-  }, [showArchived]);
+  }, [showArchived, refreshKey]);
 
   useEffect(() => {
     const fetchDesigners = async () => {
@@ -628,7 +632,17 @@ const AdminAdGroups = () => {
               </TabButton>
             </>
           )}
-          right={<CreateButton onClick={() => setShowCreate(true)} ariaLabel="Create Ad Group" />}
+          right={
+            <div className="flex items-center gap-2">
+              <IconButton
+                onClick={() => setShowBatchCreate(true)}
+                aria-label="Batch create ad groups"
+              >
+                <FiLayers />
+              </IconButton>
+              <CreateButton onClick={() => setShowCreate(true)} ariaLabel="Create Ad Group" />
+            </div>
+          }
         />
         {loading ? (
           <p>Loading groups...</p>
@@ -883,6 +897,22 @@ const AdminAdGroups = () => {
           }
         >
           <CreateAdGroup showSidebar={false} asModal={true} />
+        </ScrollModal>
+      )}
+      {showBatchCreate && (
+        <ScrollModal
+          sizeClass="max-w-[64rem] w-full"
+          header={
+            <div className="flex items-center justify-between p-2">
+              <h2 className="text-lg font-semibold">Batch Create Ad Groups</h2>
+              <CloseButton onClick={() => setShowBatchCreate(false)} />
+            </div>
+          }
+        >
+          <BatchCreateAdGroupModal
+            onClose={() => setShowBatchCreate(false)}
+            onCreated={() => setRefreshKey((key) => key + 1)}
+          />
         </ScrollModal>
       )}
       {viewNote && (
