@@ -163,6 +163,22 @@ const InstancesView = () => {
     for (const row of csvRows) {
       const instNameIdx = csvMap.name;
       const instName = instNameIdx !== undefined && instNameIdx !== '' ? (row[instNameIdx] || '').trim() : '';
+      const brandIdx = csvMap.brand;
+      let brandRelationships = {};
+      if (brandIdx !== undefined && brandIdx !== '') {
+        const brandValue = (row[brandIdx] || '').trim();
+        if (brandValue) {
+          const brand = brands.find((b) => (b.code || '').toLowerCase() === brandValue.toLowerCase());
+          if (brand?.code) {
+            brandRelationships = { brandCode: brand.code };
+          } else {
+            console.warn(`No brand found for code "${brandValue}". Skipping brand relationship for this row.`);
+          }
+        }
+      }
+      if (!brandRelationships.brandCode && brandCode) {
+        brandRelationships = { brandCode };
+      }
       const vals = {};
       comp.attributes?.forEach((a) => {
         const idx = csvMap[a.key];
@@ -175,11 +191,11 @@ const InstancesView = () => {
           componentKey: comp.key,
           name: instName,
           values: vals,
-          relationships: brandCode ? { brandCode } : {},
+          relationships: brandRelationships,
         });
         setInstances((i) => [
           ...i,
-          { id: docRef.id, componentKey: comp.key, name: instName, values: vals, relationships: brandCode ? { brandCode } : {} },
+          { id: docRef.id, componentKey: comp.key, name: instName, values: vals, relationships: brandRelationships },
         ]);
       } catch (err) {
         console.error('Failed to save instance from CSV', err);
@@ -428,6 +444,17 @@ const InstancesView = () => {
               <div>
                 <label className="block text-sm mb-1">Name Column</label>
                 <select className="w-full p-2 border rounded" value={csvMap.name ?? ''} onChange={(e) => setCsvMap({ ...csvMap, name: e.target.value })}>
+                  <option value="">Ignore</option>
+                  {csvColumns.map((c, idx) => (
+                    <option key={idx} value={idx}>
+                      {c}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm mb-1">Brand Column</label>
+                <select className="w-full p-2 border rounded" value={csvMap.brand ?? ''} onChange={(e) => setCsvMap({ ...csvMap, brand: e.target.value })}>
                   <option value="">Ignore</option>
                   {csvColumns.map((c, idx) => (
                     <option key={idx} value={idx}>
