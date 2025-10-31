@@ -168,11 +168,21 @@ const InstancesView = () => {
       if (brandIdx !== undefined && brandIdx !== '') {
         const brandValue = (row[brandIdx] || '').trim();
         if (brandValue) {
-          const brand = brands.find((b) => (b.code || '').toLowerCase() === brandValue.toLowerCase());
-          if (brand?.code) {
-            brandRelationships = { brandCode: brand.code };
+          const normalizedValue = brandValue.toLowerCase();
+          const brand = brands.find((b) => {
+            const candidates = [b.code, b.codeId, b.brandCode, b.name, b.slug]
+              .filter((candidate) => candidate != null)
+              .map((candidate) => String(candidate).toLowerCase());
+            return candidates.some((candidate) => candidate === normalizedValue);
+          });
+          if (brand) {
+            const resolvedBrandCode =
+              brand.code || brand.codeId || brand.brandCode || brandValue;
+            brandRelationships = { brandCode: resolvedBrandCode };
           } else {
-            console.warn(`No brand found for code "${brandValue}". Skipping brand relationship for this row.`);
+            console.warn(
+              `No brand found matching "${brandValue}". Skipping brand relationship for this row.`,
+            );
           }
         }
       }
