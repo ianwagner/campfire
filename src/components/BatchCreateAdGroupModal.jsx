@@ -6,6 +6,7 @@ import useComponentTypes from '../useComponentTypes.js';
 import { db, auth } from '../firebase/config';
 import BrandCodeSelectionModal from './BrandCodeSelectionModal.jsx';
 import Modal from './Modal.jsx';
+import Button from './Button.jsx';
 import selectRandomOption from '../utils/selectRandomOption.js';
 
 const normalizeValueForDisplay = (value) => {
@@ -395,8 +396,12 @@ const BatchCreateAdGroupModal = ({ onClose, onCreated }) => {
   });
   const [productModalError, setProductModalError] = useState('');
   const [savingProduct, setSavingProduct] = useState(false);
+  const [attributeModal, setAttributeModal] = useState(null);
 
   const components = useComponentTypes();
+
+  const stepCardClass =
+    'space-y-4 rounded-xl border border-gray-100 bg-gray-50 p-5 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-hover)]';
 
   useEffect(() => {
     let active = true;
@@ -688,6 +693,12 @@ const BatchCreateAdGroupModal = ({ onClose, onCreated }) => {
     });
   }, [brandComputation, brandCodes]);
 
+  useEffect(() => {
+    if (step !== 'review' && attributeModal) {
+      setAttributeModal(null);
+    }
+  }, [attributeModal, step]);
+
   const handleAddProductSelection = (brandCode, optionId) => {
     if (!brandCode || !optionId) return;
     setProductSelections((prev) => {
@@ -880,7 +891,7 @@ const BatchCreateAdGroupModal = ({ onClose, onCreated }) => {
   const parsedRecipeCount = Number.parseInt(recipeCount, 10);
   const validRecipeCount = !Number.isNaN(parsedRecipeCount) && parsedRecipeCount > 0;
 
-  const renderAttributeTagList = (attributeOptions) => {
+  const renderAttributeTagList = (attributeOptions, columnLabel = '', brandLabel = '') => {
     const validOptions = Array.isArray(attributeOptions)
       ? attributeOptions.filter((attr) => Array.isArray(attr.options) && attr.options.length > 0)
       : [];
@@ -889,23 +900,49 @@ const BatchCreateAdGroupModal = ({ onClose, onCreated }) => {
     }
     return (
       <div className="space-y-3 text-xs text-gray-600 dark:text-gray-400">
-        {validOptions.map((attr) => (
-          <div key={attr.key} className="space-y-1">
-            {attr.label && (
-              <div className="text-xs font-medium text-gray-700 dark:text-gray-300">{attr.label}</div>
-            )}
-            <div className="flex flex-wrap gap-1">
-              {attr.options.map((opt, index) => (
-                <span
-                  key={`${attr.key}-${index}-${opt}`}
-                  className="inline-flex items-center rounded-full bg-gray-200 px-2 py-0.5 text-xs text-gray-800 dark:bg-gray-700 dark:text-gray-100"
-                >
-                  {opt}
-                </span>
-              ))}
+        {validOptions.map((attr) => {
+          const options = Array.isArray(attr.options) ? attr.options : [];
+          const normalizedOptions = options.map((opt) => {
+            if (typeof opt === 'string') return opt;
+            const formatted = normalizeValueForDisplay(opt);
+            return typeof formatted === 'string' ? formatted : String(formatted);
+          });
+          const visibleOptions = normalizedOptions.slice(0, 6);
+          const remainingCount = normalizedOptions.length - visibleOptions.length;
+          const modalTitleParts = [brandLabel, columnLabel, attr.label].filter(Boolean);
+          const modalTitle = modalTitleParts.join(' • ');
+          return (
+            <div key={attr.key} className="space-y-1">
+              {attr.label && (
+                <div className="text-xs font-medium text-gray-700 dark:text-gray-300">{attr.label}</div>
+              )}
+              <div className="flex flex-wrap gap-1">
+                {visibleOptions.map((opt, index) => (
+                  <span
+                    key={`${attr.key}-${index}-${opt}`}
+                    className="inline-flex items-center rounded-full bg-gray-200 px-2 py-0.5 text-xs text-gray-800 dark:bg-gray-700 dark:text-gray-100"
+                  >
+                    {opt}
+                  </span>
+                ))}
+                {remainingCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setAttributeModal({
+                        title: modalTitle || 'Details',
+                        options: normalizedOptions,
+                      })
+                    }
+                    className="inline-flex items-center rounded-full border border-gray-300 bg-white px-2 py-0.5 text-xs text-gray-700 shadow-sm transition hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-color)] dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]"
+                  >
+                    +{remainingCount} more
+                  </button>
+                )}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     );
   };
@@ -1080,7 +1117,7 @@ const BatchCreateAdGroupModal = ({ onClose, onCreated }) => {
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]">
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-xl font-semibold">Batch Create Ad Groups</h2>
@@ -1094,7 +1131,7 @@ const BatchCreateAdGroupModal = ({ onClose, onCreated }) => {
       </div>
 
       {step === 'recipe' && (
-        <div className="space-y-4">
+        <div className={stepCardClass}>
           <p className="text-sm text-gray-600 dark:text-gray-400">
             Choose a recipe to use for every ad group in this batch.
           </p>
@@ -1114,28 +1151,25 @@ const BatchCreateAdGroupModal = ({ onClose, onCreated }) => {
       )}
 
       {step === 'brands' && (
-        <div className="space-y-4">
+        <div className={stepCardClass}>
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-semibold">Select brands</h3>
-            <button
-              type="button"
-              className="btn-secondary"
-              onClick={() => setStep('recipe')}
-            >
+            <Button type="button" variant="neutral" size="sm" onClick={() => setStep('recipe')}>
               Back
-            </button>
+            </Button>
           </div>
           <p className="text-sm text-gray-600 dark:text-gray-400">
             Choose which brands to include in this batch by selecting their brand codes.
           </p>
           <div className="flex flex-wrap items-center gap-3">
-            <button
+            <Button
               type="button"
-              className="btn-secondary"
+              variant="neutral"
+              size="sm"
               onClick={() => setBrandModalOpen(true)}
             >
               {brandCodes.length === 0 ? 'Select brands' : 'Edit selection'}
-            </button>
+            </Button>
             {loadingBrands && (
               <span className="text-sm text-gray-500 dark:text-gray-400">Loading brands…</span>
             )}
@@ -1164,36 +1198,33 @@ const BatchCreateAdGroupModal = ({ onClose, onCreated }) => {
             </p>
           )}
           <div className="flex justify-end">
-            <button
+            <Button
               type="button"
-              className="btn-primary"
+              variant="accent"
+              size="sm"
               onClick={handleNextFromBrands}
               disabled={brandComputation.rows.length === 0}
             >
               Next
-            </button>
+            </Button>
           </div>
         </div>
       )}
 
       {step === 'review' && (
-        <div className="space-y-4">
+        <div className={stepCardClass}>
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-semibold">Review brand details</h3>
-            <button
-              type="button"
-              className="btn-secondary"
-              onClick={() => setStep('brands')}
-            >
+            <Button type="button" variant="neutral" size="sm" onClick={() => setStep('brands')}>
               Back
-            </button>
+            </Button>
           </div>
           {(loadingBrands || loadingInstances) && <p>Loading data…</p>}
           {brandComputation.rows.length === 0 ? (
             <p>No brands selected.</p>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full border border-gray-200 dark:border-gray-700 text-sm">
+            <div className="overflow-x-auto rounded-xl border border-gray-200 shadow-sm dark:border-gray-700">
+              <table className="min-w-full text-sm">
                 <thead>
                   <tr className="bg-gray-50 dark:bg-gray-800">
                     <th className="border border-gray-200 dark:border-gray-700 px-3 py-2 text-left">
@@ -1239,20 +1270,22 @@ const BatchCreateAdGroupModal = ({ onClose, onCreated }) => {
                               className="border border-gray-200 dark:border-gray-700 px-3 py-2 align-top"
                             >
                               {options.length === 0 ? (
-                                <div className="space-y-2 text-sm">
+                                <div className="space-y-3 text-sm">
                                   <p className="text-gray-600 dark:text-gray-400">
                                     No products available for this brand.
                                   </p>
-                                  <button
+                                  <Button
                                     type="button"
+                                    variant="neutral"
+                                    size="sm"
+                                    className="gap-2"
                                     onClick={() => openAddProductModal(row.brand)}
-                                    className="inline-flex items-center gap-2 rounded border border-gray-300 bg-white px-3 py-1 text-sm text-gray-700 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)] dark:border-gray-700 dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]"
                                   >
                                     <FiPlus /> Add product
-                                  </button>
+                                  </Button>
                                 </div>
                               ) : (
-                                <div className="space-y-3">
+                                <div className="space-y-4">
                                   <div className="flex flex-wrap gap-2">
                                     {selectedOptions.length === 0 ? (
                                       <span className="inline-flex items-center rounded-full bg-gray-200 px-3 py-1 text-xs text-gray-700 dark:bg-gray-700 dark:text-gray-100">
@@ -1262,7 +1295,7 @@ const BatchCreateAdGroupModal = ({ onClose, onCreated }) => {
                                       selectedOptions.map((option) => (
                                         <span
                                           key={option.id}
-                                          className="inline-flex items-center gap-1 rounded-full bg-gray-200 px-3 py-1 text-xs text-gray-800 dark:bg-gray-700 dark:text-gray-100"
+                                          className="inline-flex items-center gap-1 rounded-full bg-gray-200 px-3 py-1 text-xs font-medium text-gray-800 dark:bg-gray-700 dark:text-gray-100"
                                         >
                                           {option.label || 'Unnamed product'}
                                           <button
@@ -1300,16 +1333,17 @@ const BatchCreateAdGroupModal = ({ onClose, onCreated }) => {
                                         </option>
                                       ))}
                                     </select>
-                                    <button
+                                    <Button
                                       type="button"
+                                      variant="neutral"
+                                      size="sm"
+                                      className="h-8 w-8 min-w-[2rem] p-0"
                                       onClick={() => openAddProductModal(row.brand)}
-                                      className="inline-flex h-8 w-8 items-center justify-center rounded border border-gray-300 bg-white text-gray-600 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)] dark:border-gray-700 dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]"
                                       aria-label={`Add product for ${row.brand.name || row.brand.code || 'brand'}`}
                                     >
                                       <FiPlus />
-                                    </button>
+                                    </Button>
                                   </div>
-                                  {renderAttributeTagList(col.data.meta?.attributeOptions)}
                                 </div>
                               )}
                             </td>
@@ -1322,7 +1356,11 @@ const BatchCreateAdGroupModal = ({ onClose, onCreated }) => {
                               key={col.key}
                               className="border border-gray-200 dark:border-gray-700 px-3 py-2 align-top"
                             >
-                              {renderAttributeTagList(col.data.meta?.attributeOptions)}
+                              {renderAttributeTagList(
+                                col.data.meta?.attributeOptions,
+                                col.label,
+                                row.brand?.name || row.brandCode || 'Brand',
+                              )}
                             </td>
                           );
                         }
@@ -1476,14 +1514,14 @@ const BatchCreateAdGroupModal = ({ onClose, onCreated }) => {
           {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
           {success && <p className="text-sm text-green-600 dark:text-green-400">{success}</p>}
           <div className="flex justify-end">
-            <button
+            <Button
               type="button"
-              className="btn-primary"
+              variant="accent"
               onClick={handleBatchCreate}
               disabled={creating || brandComputation.rows.length === 0 || !validRecipeCount}
             >
               {creating ? 'Creating…' : 'Batch create'}
-            </button>
+            </Button>
           </div>
         </div>
       )}
@@ -1499,6 +1537,48 @@ const BatchCreateAdGroupModal = ({ onClose, onCreated }) => {
         emptyMessage="No brand codes match your search."
         applyLabel="Use selected brands"
       />
+
+      {attributeModal && (
+        <Modal sizeClass="max-w-lg w-full">
+          <div className="space-y-4">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                  {attributeModal.title || 'Details'}
+                </h3>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  Full list of options for this column.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setAttributeModal(null)}
+                className="inline-flex h-8 w-8 items-center justify-center rounded-full text-gray-500 hover:bg-gray-100 hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)] dark:hover:bg-[var(--dark-sidebar-hover)]"
+                aria-label="Close details dialog"
+              >
+                <FiX />
+              </button>
+            </div>
+            <div className="max-h-64 overflow-y-auto pr-1">
+              <div className="flex flex-wrap gap-2">
+                {attributeModal.options.map((option, index) => (
+                  <span
+                    key={`${attributeModal.title || 'option'}-${index}-${option}`}
+                    className="inline-flex items-center rounded-full bg-gray-200 px-3 py-1 text-xs font-medium text-gray-800 dark:bg-gray-700 dark:text-gray-100"
+                  >
+                    {option}
+                  </span>
+                ))}
+              </div>
+            </div>
+            <div className="flex justify-end">
+              <Button type="button" variant="neutral" onClick={() => setAttributeModal(null)}>
+                Close
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
 
       {productModalBrand && (
         <Modal sizeClass="max-w-lg w-full">
@@ -1565,30 +1645,26 @@ const BatchCreateAdGroupModal = ({ onClose, onCreated }) => {
               <p className="text-sm text-red-600 dark:text-red-400">{productModalError}</p>
             )}
             <div className="flex justify-end gap-2">
-              <button
+              <Button
                 type="button"
-                className="btn-secondary"
+                variant="neutral"
                 onClick={closeProductModal}
                 disabled={savingProduct}
               >
                 Cancel
-              </button>
-              <button
-                type="submit"
-                className="btn-primary"
-                disabled={savingProduct}
-              >
+              </Button>
+              <Button type="submit" variant="accent" disabled={savingProduct}>
                 {savingProduct ? 'Saving…' : 'Save product'}
-              </button>
+              </Button>
             </div>
           </form>
         </Modal>
       )}
 
       <div className="flex justify-end gap-2">
-        <button type="button" className="btn-secondary" onClick={onClose}>
+        <Button type="button" variant="neutral" onClick={onClose}>
           Close
-        </button>
+        </Button>
       </div>
     </div>
   );
