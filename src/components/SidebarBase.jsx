@@ -28,6 +28,8 @@ const SidebarBase = ({
   const location = useLocation();
   const [open, setOpen] = React.useState(false);
   const [openGroups, setOpenGroups] = React.useState({});
+  const scrollContainerRef = React.useRef(null);
+  const [showTopGradient, setShowTopGradient] = React.useState(false);
   const { settings } = useSiteSettings(applySiteAccent);
   const [logoReady, setLogoReady] = React.useState(false);
   const logoSrc = logoUrl || settings.logoUrl || DEFAULT_LOGO_URL;
@@ -54,6 +56,30 @@ const SidebarBase = ({
 
   const toggleGroup = (label) =>
     setOpenGroups((g) => ({ ...g, [label]: !g[label] }));
+
+  const updateGradientVisibility = React.useCallback(() => {
+    const node = scrollContainerRef.current;
+    if (!node) {
+      return;
+    }
+    setShowTopGradient(node.scrollTop > 0);
+  }, []);
+
+  React.useEffect(() => {
+    updateGradientVisibility();
+  }, [updateGradientVisibility, collapsed, open, tabs]);
+
+  React.useEffect(() => {
+    const node = scrollContainerRef.current;
+    if (!node) {
+      return undefined;
+    }
+
+    node.addEventListener('scroll', updateGradientVisibility);
+    return () => {
+      node.removeEventListener('scroll', updateGradientVisibility);
+    };
+  }, [updateGradientVisibility]);
 
   const menuItems = (
     <>
@@ -185,7 +211,10 @@ const SidebarBase = ({
           </div>
           <div className="relative flex-1 min-h-0 overflow-hidden">
             <div className="absolute inset-0 overflow-hidden">
-              <div className={`sidebar-scroll h-full overflow-y-auto pr-1 ${collapsed ? 'px-0' : 'px-1'}`}>
+              <div
+                ref={scrollContainerRef}
+                className={`sidebar-scroll h-full overflow-y-auto pr-1 ${collapsed ? 'px-0' : 'px-1'}`}
+              >
                 <div className="space-y-2 pb-6 pt-4 -mt-4">
                   {menuItems}
                   {onToggleCollapse && (
@@ -204,7 +233,9 @@ const SidebarBase = ({
                   )}
                 </div>
               </div>
-              <div className="pointer-events-none absolute top-0 left-0 right-0 h-6 bg-gradient-to-b from-white via-white/70 to-transparent dark:from-[var(--dark-sidebar-bg)] dark:via-[var(--dark-sidebar-bg)]/70 dark:to-transparent" />
+              <div
+                className={`pointer-events-none absolute top-0 left-0 right-0 h-6 bg-gradient-to-b from-white via-white/70 to-transparent dark:from-[var(--dark-sidebar-bg)] dark:via-[var(--dark-sidebar-bg)]/70 dark:to-transparent transition-opacity duration-200 ${showTopGradient ? 'opacity-100' : 'opacity-0'}`}
+              />
               <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-6 bg-gradient-to-t from-white via-white/70 to-transparent dark:from-[var(--dark-sidebar-bg)] dark:via-[var(--dark-sidebar-bg)]/70 dark:to-transparent" />
             </div>
           </div>
