@@ -804,7 +804,7 @@ const compareRecipeCodes = (first, second) => {
 };
 
 const Review = forwardRef(
-  (
+  ( 
     {
       user,
       userRole = null,
@@ -818,24 +818,26 @@ const Review = forwardRef(
     },
     ref,
   ) => {
-  const [ads, setAds] = useState([]); // full list of ads
-  const [reviewAds, setReviewAds] = useState([]); // ads being reviewed in the current pass
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [comment, setComment] = useState('');
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [editCopy, setEditCopy] = useState('');
-  const [origCopy, setOrigCopy] = useState('');
-  const [editModalMode, setEditModalMode] = useState('all');
-  const [clientNote, setClientNote] = useState('');
-  const [noteSubmitting, setNoteSubmitting] = useState(false);
-  const [rejectionCount, setRejectionCount] = useState(0);
-  const [showStreakModal, setShowStreakModal] = useState(false);
-  const [showNoteInput, setShowNoteInput] = useState(false);
-  const [askContinue, setAskContinue] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [firstAdLoaded, setFirstAdLoaded] = useState(false);
-  const [logoReady, setLogoReady] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
+    const location = useLocation();
+    const navigate = useNavigate();
+    const [ads, setAds] = useState([]); // full list of ads
+    const [reviewAds, setReviewAds] = useState([]); // ads being reviewed in the current pass
+    const [currentIndex, setCurrentIndex] = useState(0);
+    const [comment, setComment] = useState('');
+    const [showEditModal, setShowEditModal] = useState(false);
+    const [editCopy, setEditCopy] = useState('');
+    const [origCopy, setOrigCopy] = useState('');
+    const [editModalMode, setEditModalMode] = useState('all');
+    const [clientNote, setClientNote] = useState('');
+    const [noteSubmitting, setNoteSubmitting] = useState(false);
+    const [rejectionCount, setRejectionCount] = useState(0);
+    const [showStreakModal, setShowStreakModal] = useState(false);
+    const [showNoteInput, setShowNoteInput] = useState(false);
+    const [askContinue, setAskContinue] = useState(false);
+    const [loading, setLoading] = useState(true);
+    const [firstAdLoaded, setFirstAdLoaded] = useState(false);
+    const [logoReady, setLogoReady] = useState(false);
+    const [submitting, setSubmitting] = useState(false);
   const [responses, setResponses] = useState({}); // map of adUrl -> response object
   const [allAds, setAllAds] = useState([]); // includes all non-pending versions
   const [versionModal, setVersionModal] = useState(null); // {current, previous}
@@ -2096,8 +2098,6 @@ const Review = forwardRef(
     };
   }, [groupId]);
 
-  const location = useLocation();
-  const navigate = useNavigate();
   const handleExitReview = useCallback(() => {
     releaseLock();
     setStarted(false);
