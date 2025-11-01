@@ -21,7 +21,7 @@ import {
   FiDownload,
   FiMoreHorizontal,
 } from 'react-icons/fi';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
   collection,
   collectionGroup,
@@ -214,6 +214,111 @@ const normalizeCopyText = (value) => {
   if (value === null || value === undefined) return '';
   if (typeof value === 'string') return value.trim();
   return String(value);
+};
+
+const extractMetaString = (value) => {
+  if (value === null || value === undefined) return '';
+  if (typeof value === 'string') return value.trim();
+  if (typeof value === 'number' || typeof value === 'boolean') {
+    return String(value);
+  }
+  if (Array.isArray(value)) {
+    const parts = value.map((entry) => extractMetaString(entry)).filter(Boolean);
+    return parts.join(', ');
+  }
+  if (typeof value === 'object') {
+    const candidates = [
+      value.label,
+      value.name,
+      value.title,
+      value.value,
+      value.text,
+      value.displayName,
+      value.display,
+      value.primary,
+      value.headline,
+      value.description,
+    ];
+    for (const candidate of candidates) {
+      const extracted = extractMetaString(candidate);
+      if (extracted) {
+        return extracted;
+      }
+    }
+  }
+  return '';
+};
+
+const getAdMetaField = (ad, key) => {
+  if (!ad || typeof ad !== 'object') {
+    return '';
+  }
+  const candidates = [
+    ad[key],
+    ad[`${key}Name`],
+    ad[`${key}Label`],
+    ad.metadata?.[key],
+    ad.metadata?.[`${key}Name`],
+    ad.metadata?.[`${key}Label`],
+    ad.meta?.[key],
+    ad.meta?.[`${key}Name`],
+    ad.meta?.[`${key}Label`],
+    ad.components?.[key],
+    ad.components?.[`${key}Name`],
+    ad.details?.[key],
+    ad.details?.[`${key}Name`],
+    ad.brief?.[key],
+    ad.brief?.[`${key}Name`],
+    ad.targeting?.[key],
+    ad.platform?.[key],
+  ];
+  for (const candidate of candidates) {
+    const extracted = extractMetaString(candidate);
+    if (extracted) {
+      return extracted;
+    }
+  }
+  return '';
+};
+
+const getAdCopyMeta = (ad) => {
+  if (!ad || typeof ad !== 'object') {
+    return '';
+  }
+  const candidates = [
+    ad.copy,
+    ad.copyText,
+    ad.copytext,
+    ad.metadata?.copy,
+    ad.metadata?.copyText,
+    ad.metadata?.primary,
+    ad.metadata?.primaryText,
+    ad.metadata?.headline,
+    ad.metadata?.description,
+    ad.meta?.copy,
+    ad.meta?.copyText,
+    ad.meta?.primary,
+    ad.meta?.primaryText,
+    ad.meta?.headline,
+    ad.meta?.description,
+    ad.components?.copy,
+    ad.components?.primary,
+    ad.components?.headline,
+    ad.components?.description,
+    ad.details?.copy,
+    ad.details?.primary,
+    ad.details?.headline,
+    ad.details?.description,
+  ];
+  const parts = [];
+  candidates.forEach((candidate) => {
+    const extracted = extractMetaString(candidate);
+    if (extracted) {
+      parts.push(extracted);
+    }
+  });
+  const unique = Array.from(new Set(parts));
+  return unique.join(' • ');
 };
 
 const normalizeRecipeCode = (value) => {
@@ -797,6 +902,7 @@ const Review = forwardRef(
   const autoDispatchedIntegrationAssetIdsRef = useRef(new Set());
   const [statusBarPinned, setStatusBarPinned] = useState(false);
   const statusBarPinnedRef = useRef(statusBarPinned);
+  const cardRefs = useRef({});
   useEffect(() => {
     statusBarPinnedRef.current = statusBarPinned;
   }, [statusBarPinned]);
@@ -821,6 +927,11 @@ const Review = forwardRef(
   const touchStartY = useRef(0);
   const touchEndX = useRef(0);
   const touchEndY = useRef(0);
+  const [navigationSearch, setNavigationSearch] = useState('');
+  const [navigationAudience, setNavigationAudience] = useState('');
+  const [navigationAngle, setNavigationAngle] = useState('');
+  const [navigationProduct, setNavigationProduct] = useState('');
+  const [activeNavigationKey, setActiveNavigationKey] = useState('');
 
   const copyCardsWithMeta = useMemo(
     () =>
@@ -1493,6 +1604,7 @@ const Review = forwardRef(
     };
   }, [groupId]);
 
+  const location = useLocation();
   const navigate = useNavigate();
   const handleExitReview = useCallback(() => {
     releaseLock();
@@ -1520,6 +1632,116 @@ const Review = forwardRef(
   const [isMobile, setIsMobile] = useState(
     typeof window !== 'undefined' ? window.innerWidth <= 640 : false
   );
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search || '');
+    const queryValue = params.get('q') || '';
+    const audienceValue = params.get('audience') || '';
+    const angleValue = params.get('angle') || '';
+    const productValue = params.get('product') || '';
+    setNavigationSearch((prev) => (prev === queryValue ? prev : queryValue));
+    setNavigationAudience((prev) => (prev === audienceValue ? prev : audienceValue));
+    setNavigationAngle((prev) => (prev === angleValue ? prev : angleValue));
+    setNavigationProduct((prev) => (prev === productValue ? prev : productValue));
+  }, [location.search]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search || '');
+    const trimmedQuery = navigationSearch.trim();
+    if (trimmedQuery) {
+      params.set('q', trimmedQuery);
+    } else {
+      params.delete('q');
+    }
+    if (navigationAudience) {
+      params.set('audience', navigationAudience);
+    } else {
+      params.delete('audience');
+    }
+    if (navigationAngle) {
+      params.set('angle', navigationAngle);
+    } else {
+      params.delete('angle');
+    }
+    if (navigationProduct) {
+      params.set('product', navigationProduct);
+    } else {
+      params.delete('product');
+    }
+    const nextSearch = params.toString();
+    const currentSearch = location.search.replace(/^\?/, '');
+    if (nextSearch === currentSearch) {
+      return;
+    }
+    navigate(`${location.pathname}${nextSearch ? `?${nextSearch}` : ''}`, {
+      replace: true,
+    });
+  }, [
+    location.pathname,
+    location.search,
+    navigate,
+    navigationSearch,
+    navigationAudience,
+    navigationAngle,
+    navigationProduct,
+  ]);
+
+  useEffect(() => {
+    const validKeys = new Set(
+      (reviewAds || [])
+        .map((ad, index) => getAdKey(ad, index))
+        .filter((key) => key),
+    );
+    Object.keys(cardRefs.current).forEach((key) => {
+      if (!validKeys.has(key)) {
+        delete cardRefs.current[key];
+      }
+    });
+  }, [reviewAds]);
+
+  const assignCardNode = useCallback((key, node) => {
+    if (!key) return;
+    if (node) {
+      cardRefs.current[key] = node;
+    } else {
+      delete cardRefs.current[key];
+    }
+  }, []);
+
+  const scrollToCard = useCallback((key) => {
+    if (!key || typeof window === 'undefined') {
+      return;
+    }
+    const node = cardRefs.current[key];
+    if (!node) {
+      return;
+    }
+    try {
+      node.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    } catch (err) {
+      const rect = node.getBoundingClientRect();
+      window.scrollTo({
+        top: rect.top + window.pageYOffset - 120,
+        behavior: 'smooth',
+      });
+    }
+  }, []);
+
+  const handleNavigationItemClick = useCallback(
+    (key) => {
+      if (!key) return;
+      setActiveNavigationKey(key);
+      scrollToCard(key);
+    },
+    [scrollToCard],
+  );
+
+  const handleResetNavigationFilters = useCallback(() => {
+    setNavigationSearch('');
+    setNavigationAudience('');
+    setNavigationAngle('');
+    setNavigationProduct('');
+  }, []);
 
   const buildHeroList = useCallback((list) => {
     const prefOrder = REVIEW_V2_ASPECT_ORDER;
@@ -3285,6 +3507,443 @@ useEffect(() => {
     [versionGroupsByAd, responses, manualStatus],
   );
 
+  const reviewNavigationItems = useMemo(() => {
+    if (reviewVersion !== 2 || !Array.isArray(reviewAds) || reviewAds.length === 0) {
+      return [];
+    }
+    return reviewAds
+      .map((ad, index) => {
+        if (!ad) return null;
+        const parsedInfo = parseAdFilename(ad.filename || '');
+        const recipeCode = ad.recipeCode || parsedInfo.recipeCode || '';
+        const recipeLabel = ad.recipeCode || parsedInfo.recipeCode || 'Ad Unit';
+        const productNameFromRecipe = getProductNameForRecipe(recipeCode);
+        const fallbackProduct = getAdMetaField(ad, 'product');
+        const productName = productNameFromRecipe || fallbackProduct || '';
+        const audience = getAdMetaField(ad, 'audience');
+        const angle = getAdMetaField(ad, 'angle');
+        const adCopyMeta = getAdCopyMeta(ad);
+        const normalizedRecipeKey = normalizeRecipeCode(recipeCode);
+        const assignedCopyCardId =
+          normalizedRecipeKey && recipeCopyAssignments[normalizedRecipeKey]
+            ? recipeCopyAssignments[normalizedRecipeKey]
+            : null;
+        const assignedCopyCard =
+          assignedCopyCardId && copyCardById[assignedCopyCardId]
+            ? copyCardById[assignedCopyCardId]
+            : null;
+        const productCopyCards = getCopyCardsForProduct(productName);
+        const copyCardCandidates = assignedCopyCard
+          ? [
+              assignedCopyCard,
+              ...productCopyCards.filter((card) => card && card.id !== assignedCopyCard.id),
+            ]
+          : productCopyCards;
+        const copyCardText = copyCardCandidates
+          .flatMap((card) => {
+            if (!card) return [];
+            return [
+              normalizeCopyText(card.primary),
+              normalizeCopyText(card.headline),
+              normalizeCopyText(card.description),
+            ];
+          })
+          .filter((text) => text)
+          .join(' • ');
+        const copyText = [adCopyMeta, copyCardText].filter(Boolean).join(' • ');
+        const cardKey = getAdKey(ad, index);
+        const audienceKey = normalizeKeyPart(audience).toLowerCase();
+        const angleKey = normalizeKeyPart(angle).toLowerCase();
+        const productKey = normalizeKeyPart(productName).toLowerCase();
+        const searchTokens = [recipeLabel, productName, audience, angle, copyText]
+          .map((token) => (token ? String(token).toLowerCase() : ''))
+          .filter(Boolean);
+        const searchString = searchTokens.join(' ');
+        return {
+          cardKey,
+          index,
+          recipeLabel,
+          productName,
+          audience,
+          angle,
+          copyText,
+          audienceKey,
+          angleKey,
+          productKey,
+          searchString,
+        };
+      })
+      .filter(Boolean);
+  }, [
+    reviewVersion,
+    reviewAds,
+    copyCardById,
+    getCopyCardsForProduct,
+    getProductNameForRecipe,
+    recipeCopyAssignments,
+  ]);
+
+  const availableAudiences = useMemo(() => {
+    const map = new Map();
+    reviewNavigationItems.forEach((item) => {
+      if (item.audienceKey && !map.has(item.audienceKey)) {
+        map.set(item.audienceKey, item.audience);
+      }
+    });
+    return Array.from(map.values()).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+  }, [reviewNavigationItems]);
+
+  const availableAngles = useMemo(() => {
+    const map = new Map();
+    reviewNavigationItems.forEach((item) => {
+      if (item.angleKey && !map.has(item.angleKey)) {
+        map.set(item.angleKey, item.angle);
+      }
+    });
+    return Array.from(map.values()).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+  }, [reviewNavigationItems]);
+
+  const availableProducts = useMemo(() => {
+    const map = new Map();
+    reviewNavigationItems.forEach((item) => {
+      if (item.productKey && !map.has(item.productKey)) {
+        map.set(item.productKey, item.productName);
+      }
+    });
+    return Array.from(map.values()).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+  }, [reviewNavigationItems]);
+
+  const normalizedSearchTerm = navigationSearch.trim().toLowerCase();
+  const normalizedAudienceFilter = navigationAudience.trim().toLowerCase();
+  const normalizedAngleFilter = navigationAngle.trim().toLowerCase();
+  const normalizedProductFilter = navigationProduct.trim().toLowerCase();
+
+  const filteredNavigationItems = useMemo(() => {
+    if (!reviewNavigationItems || reviewNavigationItems.length === 0) {
+      return [];
+    }
+    return reviewNavigationItems.filter((item) => {
+      if (normalizedSearchTerm && !item.searchString.includes(normalizedSearchTerm)) {
+        return false;
+      }
+      if (normalizedAudienceFilter && item.audienceKey !== normalizedAudienceFilter) {
+        return false;
+      }
+      if (normalizedAngleFilter && item.angleKey !== normalizedAngleFilter) {
+        return false;
+      }
+      if (normalizedProductFilter && item.productKey !== normalizedProductFilter) {
+        return false;
+      }
+      return true;
+    });
+  }, [
+    reviewNavigationItems,
+    normalizedSearchTerm,
+    normalizedAudienceFilter,
+    normalizedAngleFilter,
+    normalizedProductFilter,
+  ]);
+
+  useEffect(() => {
+    if (!navigationAudience) return;
+    const target = navigationAudience.trim().toLowerCase();
+    const exists = availableAudiences.some(
+      (value) => normalizeKeyPart(value).toLowerCase() === target,
+    );
+    if (!exists) {
+      setNavigationAudience('');
+    }
+  }, [availableAudiences, navigationAudience]);
+
+  useEffect(() => {
+    if (!navigationAngle) return;
+    const target = navigationAngle.trim().toLowerCase();
+    const exists = availableAngles.some(
+      (value) => normalizeKeyPart(value).toLowerCase() === target,
+    );
+    if (!exists) {
+      setNavigationAngle('');
+    }
+  }, [availableAngles, navigationAngle]);
+
+  useEffect(() => {
+    if (!navigationProduct) return;
+    const target = navigationProduct.trim().toLowerCase();
+    const exists = availableProducts.some(
+      (value) => normalizeKeyPart(value).toLowerCase() === target,
+    );
+    if (!exists) {
+      setNavigationProduct('');
+    }
+  }, [availableProducts, navigationProduct]);
+
+  useEffect(() => {
+    if (filteredNavigationItems.length === 0) {
+      if (activeNavigationKey) {
+        setActiveNavigationKey('');
+      }
+      return;
+    }
+    if (filteredNavigationItems.some((item) => item.cardKey === activeNavigationKey)) {
+      return;
+    }
+    setActiveNavigationKey(filteredNavigationItems[0].cardKey);
+  }, [filteredNavigationItems, activeNavigationKey]);
+
+  const visibleCardKeys = useMemo(() => {
+    const set = new Set();
+    filteredNavigationItems.forEach((item) => {
+      if (item.cardKey) {
+        set.add(item.cardKey);
+      }
+    });
+    return set;
+  }, [filteredNavigationItems]);
+
+  const visibleStatusCounts = useMemo(() => {
+    const counts = { pending: 0, approve: 0, edit: 0, reject: 0 };
+    if (!filteredNavigationItems || filteredNavigationItems.length === 0) {
+      return counts;
+    }
+    filteredNavigationItems.forEach((item) => {
+      const ad = reviewAds[item.index];
+      if (!ad) return;
+      const meta = buildStatusMeta(ad, item.index);
+      const key = ['approve', 'reject', 'edit', 'pending'].includes(meta.statusValue)
+        ? meta.statusValue
+        : 'pending';
+      counts[key] += 1;
+    });
+    return counts;
+  }, [filteredNavigationItems, reviewAds, buildStatusMeta]);
+
+  const visibleReviewCount = filteredNavigationItems.length;
+  const totalReviewCount = reviewNavigationItems.length;
+  const navigationFiltersActive = Boolean(
+    normalizedSearchTerm ||
+      normalizedAudienceFilter ||
+      normalizedAngleFilter ||
+      normalizedProductFilter,
+  );
+  const navigationStickyOffset = useMemo(() => {
+    const base = Number.isFinite(effectiveToolbarOffset)
+      ? Math.max(0, effectiveToolbarOffset)
+      : 0;
+    return base + 24;
+  }, [effectiveToolbarOffset]);
+
+  const renderNavigationPanel = useCallback(
+    ({ scrollableList = true } = {}) => {
+      const listClass = combineClasses(
+        'mt-4 flex-1 space-y-2',
+        scrollableList ? 'overflow-y-auto pr-1' : '',
+      );
+      return (
+        <div className="flex h-full flex-col">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-gray-800 dark:text-[var(--dark-text)]">
+              Filters
+            </h3>
+            <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
+              {visibleReviewCount}/{totalReviewCount || 0}
+            </span>
+          </div>
+          <div className="mt-3 flex flex-col gap-1">
+            <label
+              htmlFor="reviewNavigationSearch"
+              className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-300"
+            >
+              Search ads
+            </label>
+            <input
+              id="reviewNavigationSearch"
+              type="search"
+              value={navigationSearch}
+              onChange={(event) => setNavigationSearch(event.target.value)}
+              placeholder="Search by audience, angle, product, copy"
+              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-[var(--accent-color)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)] dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)] dark:text-gray-200 dark:focus:border-[var(--accent-color)] dark:focus:ring-[var(--accent-color)]"
+            />
+          </div>
+          {availableAudiences.length > 0 && (
+            <div className="mt-3 flex flex-col gap-1">
+              <label
+                htmlFor="reviewNavigationAudience"
+                className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-300"
+              >
+                Audience
+              </label>
+              <select
+                id="reviewNavigationAudience"
+                value={navigationAudience}
+                onChange={(event) => setNavigationAudience(event.target.value)}
+                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm focus:border-[var(--accent-color)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)] dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)] dark:text-gray-200 dark:focus:border-[var(--accent-color)] dark:focus:ring-[var(--accent-color)]"
+              >
+                <option value="">All audiences</option>
+                {availableAudiences.map((audience) => (
+                  <option key={audience || 'audience-default'} value={audience}>
+                    {audience}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+          {availableAngles.length > 0 && (
+            <div className="mt-3 flex flex-col gap-1">
+              <label
+                htmlFor="reviewNavigationAngle"
+                className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-300"
+              >
+                Angle
+              </label>
+              <select
+                id="reviewNavigationAngle"
+                value={navigationAngle}
+                onChange={(event) => setNavigationAngle(event.target.value)}
+                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm focus:border-[var(--accent-color)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)] dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)] dark:text-gray-200 dark:focus:border-[var(--accent-color)] dark:focus:ring-[var(--accent-color)]"
+              >
+                <option value="">All angles</option>
+                {availableAngles.map((angle) => (
+                  <option key={angle || 'angle-default'} value={angle}>
+                    {angle}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+          {availableProducts.length > 0 && (
+            <div className="mt-3 flex flex-col gap-1">
+              <label
+                htmlFor="reviewNavigationProduct"
+                className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-300"
+              >
+                Product
+              </label>
+              <select
+                id="reviewNavigationProduct"
+                value={navigationProduct}
+                onChange={(event) => setNavigationProduct(event.target.value)}
+                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm focus:border-[var(--accent-color)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)] dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)] dark:text-gray-200 dark:focus:border-[var(--accent-color)] dark:focus:ring-[var(--accent-color)]"
+              >
+                <option value="">All products</option>
+                {availableProducts.map((product) => (
+                  <option key={product || 'product-default'} value={product}>
+                    {product}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+          <Button
+            type="button"
+            variant="accent"
+            size="sm"
+            fullWidth
+            className="mt-4"
+            onClick={handleResetNavigationFilters}
+            disabled={!navigationFiltersActive}
+          >
+            View all
+          </Button>
+          <p className="mt-3 text-xs text-gray-500 dark:text-gray-400">
+            Showing {visibleReviewCount} of {totalReviewCount || 0} ads
+          </p>
+          <div className={listClass}>
+            {filteredNavigationItems.length === 0 ? (
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                Adjust filters to see matching ads.
+              </p>
+            ) : (
+              filteredNavigationItems.map((item) => {
+                const ad = reviewAds[item.index];
+                if (!ad) {
+                  return null;
+                }
+                const meta = buildStatusMeta(ad, item.index);
+                const statusValue = meta.statusValue || 'pending';
+                const statusLabel = (statusLabelMap[statusValue] || statusValue || '')
+                  .toString()
+                  .toUpperCase();
+                const isActive = activeNavigationKey === item.cardKey;
+                const buttonClass = combineClasses(
+                  'w-full rounded-lg border px-3 py-2 text-left text-sm shadow-sm transition',
+                  isActive
+                    ? 'border-[var(--accent-color)] bg-white dark:bg-[var(--dark-sidebar-bg)]'
+                    : 'border-transparent bg-white/80 hover:bg-white dark:bg-[var(--dark-sidebar-bg)] dark:hover:bg-[var(--dark-sidebar-bg)]/80',
+                );
+                return (
+                  <button
+                    key={item.cardKey}
+                    type="button"
+                    onClick={() => handleNavigationItemClick(item.cardKey)}
+                    className={buttonClass}
+                  >
+                    <div className="flex flex-col gap-1">
+                      <div className="flex items-start justify-between gap-2">
+                        <span className="font-semibold text-gray-800 dark:text-[var(--dark-text)]">
+                          {item.productName || item.recipeLabel}
+                        </span>
+                        <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-gray-500 dark:text-gray-300">
+                          <span
+                            className="inline-block h-2 w-2 rounded-full"
+                            style={statusDotStyles[statusValue] || statusDotStyles.pending}
+                          />
+                          {statusLabel}
+                        </span>
+                      </div>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        {item.recipeLabel}
+                      </p>
+                      <div className="flex flex-wrap gap-2 text-[11px] text-gray-500 dark:text-gray-400">
+                        {item.audience && (
+                          <span className="inline-flex items-center rounded-full bg-white/70 px-2 py-0.5 dark:bg-white/10">
+                            Audience: {item.audience}
+                          </span>
+                        )}
+                        {item.angle && (
+                          <span className="inline-flex items-center rounded-full bg-white/70 px-2 py-0.5 dark:bg-white/10">
+                            Angle: {item.angle}
+                          </span>
+                        )}
+                      </div>
+                      {item.copyText && (
+                        <p className="line-clamp-2 text-[11px] text-gray-400 dark:text-gray-500">
+                          {item.copyText}
+                        </p>
+                      )}
+                    </div>
+                  </button>
+                );
+              })
+            )}
+          </div>
+        </div>
+      );
+    },
+    [
+      activeNavigationKey,
+      availableAngles,
+      availableAudiences,
+      availableProducts,
+      buildStatusMeta,
+      filteredNavigationItems,
+      handleNavigationItemClick,
+      handleResetNavigationFilters,
+      navigationAngle,
+      navigationAudience,
+      navigationFiltersActive,
+      navigationProduct,
+      navigationSearch,
+      reviewAds,
+      setNavigationAngle,
+      setNavigationAudience,
+      setNavigationProduct,
+      setNavigationSearch,
+      totalReviewCount,
+      visibleReviewCount,
+    ],
+  );
+
   useEffect(() => {
     if (!reviewAds || reviewAds.length === 0) {
       if (Object.keys(collapsedRejects).length > 0) {
@@ -5034,122 +5693,137 @@ useEffect(() => {
               />
             </div>
           ) : reviewVersion === 2 ? (
-            <div
-              className={combineClasses(
-                'relative w-full max-w-[712px] pt-2 sm:px-0',
-                statusBarPinned ? 'px-4' : 'px-2',
-              )}
-            >
+            <div className="flex w-full flex-col gap-6 lg:flex-row lg:items-start lg:justify-center">
               <div
-                ref={statusBarSentinelRef}
-                aria-hidden="true"
-                className="pointer-events-none absolute inset-x-0 -top-6 h-6"
-              />
-              <div
-                ref={statusBarRef}
                 className={combineClasses(
-                  'sticky z-20',
-                  statusBarPinned ? 'mt-0' : 'mt-2',
+                  'relative flex-1 pt-2 sm:px-0',
+                  statusBarPinned ? 'px-4' : 'px-2',
+                  'lg:max-w-[712px]'
                 )}
-                style={{
-                  top:
-                    effectiveToolbarOffset && effectiveToolbarOffset > 0
-                      ? `${effectiveToolbarOffset}px`
-                      : 0,
-                }}
               >
                 <div
+                  ref={statusBarSentinelRef}
+                  aria-hidden="true"
+                  className="pointer-events-none absolute inset-x-0 -top-6 h-6"
+                />
+                <div
+                  ref={statusBarRef}
                   className={combineClasses(
-                    'rounded-2xl border border-gray-200 bg-white shadow-sm transition-all duration-200 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)]',
-                    statusBarPinned
-                      ? 'px-2 py-1.5 sm:px-3 sm:py-2'
-                      : 'px-3 py-3 sm:px-4 sm:py-3',
+                    'sticky z-20',
+                    statusBarPinned ? 'mt-0' : 'mt-2',
                   )}
+                  style={{
+                    top:
+                      effectiveToolbarOffset && effectiveToolbarOffset > 0
+                        ? `${effectiveToolbarOffset}px`
+                        : 0,
+                  }}
                 >
                   <div
                     className={combineClasses(
-                      'flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between',
-                      statusBarPinned ? 'sm:gap-3' : '',
+                      'rounded-2xl border border-gray-200 bg-white shadow-sm transition-all duration-200 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)]',
+                      statusBarPinned
+                        ? 'px-2 py-1.5 sm:px-3 sm:py-2'
+                        : 'px-3 py-3 sm:px-4 sm:py-3',
                     )}
                   >
                     <div
                       className={combineClasses(
-                        'flex-1',
-                        statusBarPinned ? 'hidden sm:flex sm:items-center sm:gap-4' : '',
+                        'flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between',
+                        statusBarPinned ? 'sm:gap-3' : '',
                       )}
                     >
-                      {adGroupDisplayName && !statusBarPinned && (
-                        <div className="text-sm font-semibold text-gray-700 dark:text-gray-200">
-                          {adGroupDisplayName}
-                        </div>
-                      )}
                       <div
                         className={combineClasses(
-                          statusBarPinned
-                            ? 'hidden sm:grid sm:grid-cols-4'
-                            : 'grid grid-cols-2 sm:grid-cols-4',
-                          statusBarPinned
-                            ? 'mt-0 gap-2 sm:gap-3'
-                            : 'mt-3 gap-4',
+                          'flex-1',
+                          statusBarPinned ? 'hidden sm:flex sm:items-center sm:gap-4' : '',
                         )}
                       >
-                        {['pending', 'approve', 'edit', 'reject'].map((statusKey) => {
-                          const statusLabel = (statusLabelMap[statusKey] || statusKey).toLowerCase();
-                          return (
-                            <div
-                              key={statusKey}
-                              className={`flex flex-col items-center text-center ${
-                                statusBarPinned ? 'gap-0.5 sm:gap-0.5' : 'gap-0.5 sm:gap-1'
-                              }`}
-                            >
-                              <span
-                                className={`font-semibold text-gray-900 dark:text-[var(--dark-text)] ${
-                                  statusBarPinned
-                                    ? 'text-base sm:text-lg'
-                                    : 'text-lg sm:text-xl'
+                        {adGroupDisplayName && !statusBarPinned && (
+                          <div className="text-sm font-semibold text-gray-700 dark:text-gray-200">
+                            {adGroupDisplayName}
+                          </div>
+                        )}
+                        <div
+                          className={combineClasses(
+                            statusBarPinned
+                              ? 'hidden sm:grid sm:grid-cols-4'
+                              : 'grid grid-cols-2 sm:grid-cols-4',
+                            statusBarPinned
+                              ? 'mt-0 gap-2 sm:gap-3'
+                              : 'mt-3 gap-4',
+                          )}
+                        >
+                          {['pending', 'approve', 'edit', 'reject'].map((statusKey) => {
+                            const statusLabel = (statusLabelMap[statusKey] || statusKey).toLowerCase();
+                            return (
+                              <div
+                                key={statusKey}
+                                className={`flex flex-col items-center text-center ${
+                                  statusBarPinned ? 'gap-0.5 sm:gap-0.5' : 'gap-0.5 sm:gap-1'
                                 }`}
                               >
-                                {reviewStatusCounts[statusKey] ?? 0}
-                              </span>
-                              <span
-                                className={`font-medium text-gray-500 dark:text-gray-300 ${
-                                  statusBarPinned
-                                    ? 'text-[10px] sm:text-[11px]'
-                                    : 'text-[11px] sm:text-xs'
-                                }`}
-                              >
-                                {statusLabel}
-                              </span>
-                            </div>
-                          );
-                        })}
+                                <span
+                                  className={`font-semibold text-gray-900 dark:text-[var(--dark-text)] ${
+                                    statusBarPinned
+                                      ? 'text-base sm:text-lg'
+                                      : 'text-lg sm:text-xl'
+                                  }`}
+                                >
+                                  {visibleStatusCounts[statusKey] ?? 0}
+                                </span>
+                                <span
+                                  className={`font-medium text-gray-500 dark:text-gray-300 ${
+                                    statusBarPinned
+                                      ? 'text-[10px] sm:text-[11px]'
+                                      : 'text-[11px] sm:text-xs'
+                                  }`}
+                                >
+                                  {statusLabel}
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </div>
                       </div>
-                    </div>
-                    <div
-                      className={combineClasses(
-                        statusBarPinned ? 'hidden sm:flex' : 'flex',
-                        'w-full flex-col items-stretch gap-2 sm:w-auto sm:self-center sm:items-end',
-                      )}
-                    >
-                      {renderFinalizeAction({ compact: statusBarPinned })}
+                      <div
+                        className={combineClasses(
+                          statusBarPinned ? 'hidden sm:flex' : 'flex',
+                          'w-full flex-col items-stretch gap-2 sm:w-auto sm:self-center sm:items-end',
+                        )}
+                      >
+                        {renderFinalizeAction({ compact: statusBarPinned })}
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-              <div className="mt-6 space-y-6">
-                {reviewAds.length === 0 ? (
+                {reviewNavigationItems.length > 0 && (
+                  <div className="mt-4 lg:hidden">
+                    <div className="rounded-2xl border border-gray-200 bg-gray-50 px-3 py-4 shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-hover)]">
+                      {renderNavigationPanel({ scrollableList: false })}
+                    </div>
+                  </div>
+                )}
+                <div className="mt-6 space-y-6">
+                {visibleReviewCount === 0 ? (
                   <div className="rounded-2xl border border-dashed border-gray-300 dark:border-[var(--border-color-default)] bg-white dark:bg-[var(--dark-sidebar-bg)] p-8 text-center text-gray-500 dark:text-gray-300">
-                    No ads to review yet.
+                    {navigationFiltersActive && totalReviewCount > 0
+                      ? 'No ads match your filters yet.'
+                      : 'No ads to review yet.'}
                   </div>
                 ) : (
                   reviewAds.map((ad, index) => {
+                  const meta = buildStatusMeta(ad, index);
                   const {
                     cardKey,
                     groups,
                     latestAssets,
                     statusAssets,
                     statusValue,
-                  } = buildStatusMeta(ad, index);
+                  } = meta;
+                  if (!visibleCardKeys.has(cardKey)) {
+                    return null;
+                  }
                   const fallbackAssets =
                     latestAssets && latestAssets.length > 0
                       ? latestAssets
@@ -5931,6 +6605,7 @@ useEffect(() => {
                       return (
                         <div
                           key={cardKey}
+                          ref={(node) => assignCardNode(cardKey, node)}
                           className="w-full overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)]"
                         >
                           <div className="flex flex-col gap-4 p-4">
@@ -5980,6 +6655,7 @@ useEffect(() => {
                     return (
                       <div
                         key={cardKey}
+                        ref={(node) => assignCardNode(cardKey, node)}
                         className="w-full overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)]"
                       >
                         <div className="flex flex-col gap-4 p-4">
@@ -6219,6 +6895,7 @@ useEffect(() => {
                     return (
                       <div
                         key={cardKey}
+                        ref={(node) => assignCardNode(cardKey, node)}
                         className="mx-auto w-full max-w-[712px] rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)]"
                       >
                         <div className="flex flex-col gap-4 p-5">
@@ -6269,6 +6946,7 @@ useEffect(() => {
                   return (
                     <div
                       key={cardKey}
+                      ref={(node) => assignCardNode(cardKey, node)}
                       className="mx-auto w-full max-w-[712px] rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)]"
                     >
                       <div className="flex flex-col gap-4 p-5">
@@ -6506,6 +7184,16 @@ useEffect(() => {
                   When you are all set, just click Finalize Review so we can keep things moving.
                 </p>
               </div>
+            </div>
+              {reviewNavigationItems.length > 0 && (
+                <aside className="relative hidden lg:block lg:w-72 lg:flex-shrink-0">
+                  <div className="sticky" style={{ top: navigationStickyOffset }}>
+                    <div className="flex h-full flex-col rounded-2xl border border-gray-200 bg-gray-50 px-3 py-4 shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-hover)]">
+                      {renderNavigationPanel()}
+                    </div>
+                  </div>
+                </aside>
+              )}
             </div>
           ) : (
           <div
