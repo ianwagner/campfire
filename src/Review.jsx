@@ -1509,9 +1509,6 @@ const Review = forwardRef(
     syncFiltersToUrl({ search: '', audiences: [], angles: [], products: [] });
   }, [syncFiltersToUrl]);
 
-  const totalNavigationCount = navigationEntries.length;
-  const visibleNavigationCount = visibleNavigationEntries.length;
-
   useEffect(() => {
     if (filterOptions.angles.length === 0 && selectedAngles.size > 0) {
       setSelectedAngles(new Set());
@@ -5625,12 +5622,12 @@ useEffect(() => {
               />
             </div>
           ) : reviewVersion === 2 ? (
-            <div className="w-full xl:max-w-[1180px] xl:flex xl:items-start xl:justify-start xl:gap-4">
+            <div className="w-full xl:max-w-[1016px] xl:flex xl:items-start xl:justify-start xl:gap-4">
               <div className="flex w-full justify-center xl:justify-start">
                 <div
                   className={combineClasses(
                     'relative w-full max-w-[712px] pt-2 sm:px-0',
-                    statusBarPinned ? 'px-4' : 'px-2',
+                    statusBarPinned ? 'px-4 xl:px-0' : 'px-2 xl:px-0',
                   )}
                 >
               <div
@@ -7134,9 +7131,6 @@ useEffect(() => {
                           View all
                         </Button>
                       </div>
-                      <p className="mt-1 text-xs text-gray-500 dark:text-gray-300">
-                        Showing {visibleNavigationCount} of {totalNavigationCount} ads
-                      </p>
                     </div>
                     <div className="flex-1 space-y-6 overflow-y-auto px-4 py-4">
                       <div>
@@ -7167,16 +7161,6 @@ useEffect(() => {
                           {renderFilterGroup('product', 'Product', filterOptions.products, selectedProducts)}
                         </div>
                       ) : null}
-                      <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 px-3 py-3 text-xs text-gray-600 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-hover)] dark:text-gray-300">
-                        <p className="font-semibold text-gray-700 dark:text-[var(--dark-text)]">
-                          {visibleNavigationCount} of {totalNavigationCount} ads match your search and filters.
-                        </p>
-                        <p className="mt-1">
-                          {visibleNavigationEntries.length === 0
-                            ? 'Adjust your search or filters to see ads in the review list.'
-                            : 'Scroll the review list to view the matching ads.'}
-                        </p>
-                      </div>
                     </div>
                   </div>
                 </div>
