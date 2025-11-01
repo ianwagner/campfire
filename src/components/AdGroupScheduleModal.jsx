@@ -10,6 +10,7 @@ import {
 } from 'firebase/firestore';
 import ScrollModal from './ScrollModal.jsx';
 import CloseButton from './CloseButton.jsx';
+import Button from './Button.jsx';
 import { db } from '../firebase/config';
 import useAgencies from '../useAgencies';
 
@@ -296,12 +297,12 @@ const AdGroupScheduleModal = ({
     const matchesCurrent = selectedDayKey === key;
 
     const baseClasses =
-      'flex flex-col gap-2 rounded-lg border p-3 text-left transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500';
+      'flex h-full flex-col gap-3 rounded-xl border border-gray-200 bg-white p-4 text-left shadow-sm transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-color)] dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)]';
     const stateClass = matchesCurrent
-      ? 'border-blue-500 bg-blue-50 dark:border-blue-400 dark:bg-blue-900/40'
+      ? 'border-[var(--accent-color)] bg-[var(--accent-color-10)] shadow-md dark:border-[var(--accent-color)] dark:bg-[var(--accent-color-10)]/40'
       : overCapacity
-        ? 'border-red-300 bg-red-50 dark:border-red-500 dark:bg-red-900/40'
-        : 'border-gray-200 bg-white dark:border-[var(--dark-sidebar-hover)] dark:bg-[var(--dark-sidebar-bg)]';
+        ? 'border-red-300 bg-red-50 shadow-sm dark:border-red-500 dark:bg-red-900/40'
+        : 'hover:border-gray-300 hover:shadow-md dark:border-[var(--dark-sidebar-hover)]';
 
     return (
       <button
@@ -310,18 +311,35 @@ const AdGroupScheduleModal = ({
         onClick={() => handleSelect(day)}
         className={`${baseClasses} ${stateClass}`}
       >
-        <div className="text-sm font-semibold text-gray-800 dark:text-gray-100">
-          {formatDayLabel(day)}
-        </div>
-        <div className="text-xs text-gray-600 dark:text-gray-300">
-          {formatRecipesLabel(entry.totalRecipes)}
-        </div>
-        {dailyCapacity != null && (
-          <div className="text-xs text-gray-600 dark:text-gray-300">
-            Capacity: {entry.totalRecipes}/{dailyCapacity}
+        <div className="flex items-baseline justify-between gap-2">
+          <div className="text-sm font-semibold text-gray-800 dark:text-gray-100">
+            {formatDayLabel(day)}
           </div>
-        )}
-        <div className="space-y-1">
+          {matchesCurrent ? (
+            <span className="inline-flex items-center rounded-full bg-[var(--accent-color)]/10 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-[var(--accent-color)] dark:bg-[var(--accent-color)]/20">
+              Scheduled
+            </span>
+          ) : overCapacity ? (
+            <span className="inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-red-700 dark:bg-red-900/60 dark:text-red-200">
+              Over capacity
+            </span>
+          ) : null}
+        </div>
+        <div className="flex items-center justify-between gap-2 text-xs text-gray-600 dark:text-gray-300">
+          <span>{formatRecipesLabel(entry.totalRecipes)}</span>
+          {dailyCapacity != null && (
+            <span
+              className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium ${
+                overCapacity
+                  ? 'bg-red-100 text-red-700 dark:bg-red-900/60 dark:text-red-200'
+                  : 'bg-gray-100 text-gray-700 dark:bg-[var(--dark-sidebar-hover)] dark:text-gray-200'
+              }`}
+            >
+              {entry.totalRecipes}/{dailyCapacity}
+            </span>
+          )}
+        </div>
+        <div className="space-y-1 border-t border-dashed border-gray-200 pt-2 text-xs dark:border-[var(--dark-sidebar-hover)]">
           {entry.groups.slice(0, 3).map((group) => (
             <div
               key={group.id}
@@ -382,49 +400,103 @@ const AdGroupScheduleModal = ({
       }
     >
       <div className="space-y-4 p-4">
+        <div className="grid gap-3 lg:grid-cols-3">
+          <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)]">
+            <div className="flex items-start justify-between gap-2">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                  Scheduled due date
+                </p>
+                <p className="mt-1 text-sm font-semibold text-gray-900 dark:text-gray-100">
+                  {currentDate
+                    ? currentDate.toLocaleDateString(undefined, {
+                        month: 'long',
+                        day: 'numeric',
+                        year: 'numeric',
+                      })
+                    : 'Not scheduled'}
+                </p>
+                {currentDate && (
+                  <p className="mt-1 text-xs text-gray-600 dark:text-gray-300">
+                    {formatRecipesLabel(
+                      daysByKey[selectedDayKey]?.totalRecipes ?? 0,
+                    )}
+                    {dailyCapacity != null && (
+                      <>
+                        {' '}
+                        • {(daysByKey[selectedDayKey]?.totalRecipes ?? 0)}/
+                        {dailyCapacity} recipes
+                      </>
+                    )}
+                  </p>
+                )}
+              </div>
+              {canClear && (
+                <Button
+                  type="button"
+                  variant="neutral"
+                  size="sm"
+                  onClick={handleClear}
+                  disabled={!canClear}
+                >
+                  Clear
+                </Button>
+              )}
+            </div>
+          </div>
+          <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)]">
+            <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+              Agency
+            </p>
+            <p className="mt-1 text-sm font-semibold text-gray-900 dark:text-gray-100">
+              {agencyInfo?.name || agencyId}
+            </p>
+            <p className="mt-1 text-xs text-gray-600 dark:text-gray-300">
+              Keep your team aligned by sharing this schedule with the agency.
+            </p>
+          </div>
+          <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)]">
+            <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+              Daily capacity
+            </p>
+            <p className="mt-1 text-sm font-semibold text-gray-900 dark:text-gray-100">
+              {dailyCapacity != null ? `${dailyCapacity} recipes/day` : 'Not set'}
+            </p>
+            <p className="mt-1 text-xs text-gray-600 dark:text-gray-300">
+              Use the calendar to align due dates with available agency capacity.
+            </p>
+          </div>
+        </div>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
-            <button
+            <Button
               type="button"
-              className="btn-secondary px-3 py-1"
+              variant="neutral"
+              size="sm"
               onClick={() => handleShiftWeek(-1)}
             >
-              Previous Week
-            </button>
-            <button
+              Previous week
+            </Button>
+            <Button
               type="button"
-              className="btn-secondary px-3 py-1"
+              variant="neutral"
+              size="sm"
               onClick={() => handleShiftWeek(1)}
             >
-              Next Week
-            </button>
+              Next week
+            </Button>
           </div>
           <div className="text-sm text-gray-700 dark:text-gray-200">
-            {agencyInfo?.name || agencyId}
-          </div>
-          <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
-            {dailyCapacity != null ? (
-              <span>Daily capacity: {dailyCapacity}</span>
-            ) : (
-              <span>Daily capacity not set</span>
-            )}
-            <button
-              type="button"
-              className="btn-tertiary"
-              onClick={handleClear}
-              disabled={!canClear}
-            >
-              Clear due date
-            </button>
+            Viewing weeks for {agencyInfo?.name || agencyId}
           </div>
         </div>
         {loading && (
-          <div className="text-sm text-gray-500 dark:text-gray-400">
+          <div className="rounded-xl border border-dashed border-gray-300 bg-white/60 p-3 text-sm text-gray-600 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)]/60 dark:text-gray-300">
             Loading capacity data…
           </div>
         )}
         {error && (
-          <div className="rounded border border-red-300 bg-red-50 p-3 text-sm text-red-700 dark:border-red-700 dark:bg-red-900/40 dark:text-red-200">
+          <div className="rounded-xl border border-red-300 bg-red-50 p-3 text-sm text-red-700 shadow-sm dark:border-red-700 dark:bg-red-900/40 dark:text-red-200">
             {error}
           </div>
         )}
@@ -435,7 +507,7 @@ const AdGroupScheduleModal = ({
             return (
               <div
                 key={weekKey}
-                className="rounded-lg border border-gray-200 bg-gray-50 p-3 dark:border-[var(--dark-sidebar-hover)] dark:bg-[var(--dark-sidebar-bg)]"
+                className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)]"
               >
                 <div className="border-b border-gray-200 pb-2 text-sm font-semibold text-gray-700 dark:border-[var(--dark-sidebar-hover)] dark:text-gray-200">
                   {formatWeekTitle(weekStart)}

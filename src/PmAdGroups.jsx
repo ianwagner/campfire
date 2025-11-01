@@ -9,6 +9,7 @@ import Modal from './components/Modal.jsx';
 import CopyRecipePreview from './CopyRecipePreview.jsx';
 import IconButton from './components/IconButton.jsx';
 import useAdGroups from './useAdGroups';
+import { normalizeReviewVersion } from './utils/reviewVersion';
 
 const PmAdGroups = () => {
   const location = useLocation();
@@ -32,7 +33,15 @@ const PmAdGroups = () => {
   const [designerFilter, setDesignerFilter] = useState('');
   const [editorFilter, setEditorFilter] = useState('');
   const [monthFilter, setMonthFilter] = useState('');
-  const [reviewFilter, setReviewFilter] = useState('2');
+  const [reviewFilter, setReviewFilter] = useState(() => {
+    const search =
+      typeof window !== 'undefined' && window.location?.search
+        ? window.location.search
+        : location.search;
+    const params = new URLSearchParams(search || '');
+    const reviewParam = params.get('reviewType') || params.get('reviewVersion');
+    return reviewParam ? normalizeReviewVersion(reviewParam) : '2';
+  });
 
   const user = auth.currentUser;
   const { agencyId, brandCodes: roleCodes, role } = useUserRole(user?.uid);
@@ -71,6 +80,14 @@ const PmAdGroups = () => {
     } else {
       setFilter((prev) => (prev === '' ? prev : ''));
     }
+  }, [location.search]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const reviewParam = params.get('reviewType') || params.get('reviewVersion');
+    if (!reviewParam) return;
+    const normalized = normalizeReviewVersion(reviewParam);
+    setReviewFilter((prev) => (prev === normalized ? prev : normalized));
   }, [location.search]);
 
   useEffect(() => {

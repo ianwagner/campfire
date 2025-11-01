@@ -6,7 +6,6 @@ import {
   getDocs,
   query,
   where,
-  getCountFromServer,
   doc,
   getDoc,
   Timestamp,
@@ -153,10 +152,100 @@ const getDefaultOverviewRange = () => {
   return { start, end };
 };
 
+const normalizeFieldKey = (key = '') =>
+  String(key)
+    .trim()
+    .replace(/[\s._-]+/g, '')
+    .toLowerCase();
+
+const coerceRecipeFieldValue = (value) => {
+  if (value == null) return value;
+  if (typeof value === 'object') {
+    if ('value' in value && value.value != null && value.value !== '') {
+      return value.value;
+    }
+    if ('label' in value && value.label != null && value.label !== '') {
+      return value.label;
+    }
+  }
+  return value;
+};
+
+const hasMeaningfulRecipeFieldValue = (value) => {
+  if (value == null) return false;
+  if (typeof value === 'string') {
+    return value.trim() !== '';
+  }
+  return true;
+};
+
+const extractRecipeField = (obj, key) => {
+  if (!obj || typeof obj !== 'object') return undefined;
+  if (key in obj) {
+    return coerceRecipeFieldValue(obj[key]);
+  }
+  const normalizedKey = normalizeFieldKey(key);
+  for (const [candidateKey, candidateValue] of Object.entries(obj)) {
+    if (normalizeFieldKey(candidateKey) === normalizedKey) {
+      return coerceRecipeFieldValue(candidateValue);
+    }
+  }
+  return undefined;
+};
+
+const pickRecipeField = (fieldName, ...sources) => {
+  for (const source of sources) {
+    const value = extractRecipeField(source, fieldName);
+    if (hasMeaningfulRecipeFieldValue(value)) {
+      return value;
+    }
+  }
+  return '';
+};
+
+const normalizeFormatBucket = (input) => {
+  if (input == null) return '';
+  const value = String(input).trim().toLowerCase();
+  if (!value) return '';
+  if (value.includes('video')) return 'videos';
+  if (value.includes('carousel')) return 'carousels';
+  if (value.includes('static') || value.includes('image') || value.includes('still')) {
+    return 'statics';
+  }
+  return '';
+};
+
+const tallyRecipeFormats = (recipeSnapshot) => {
+  const counts = { videos: 0, statics: 0, carousels: 0 };
+  if (!recipeSnapshot) {
+    return counts;
+  }
+  recipeSnapshot.forEach((recipeDoc) => {
+    const data = recipeDoc?.data?.() || {};
+    const formatValue =
+      pickRecipeField('Format - Name', data.metadata, data, data.components) ||
+      pickRecipeField('Format', data.metadata, data, data.components);
+    const bucket = normalizeFormatBucket(formatValue);
+    if (bucket && Object.prototype.hasOwnProperty.call(counts, bucket)) {
+      counts[bucket] += 1;
+    }
+  });
+  return counts;
+};
+
+const createEmptyFormatSummary = () => ({
+  videos: { total: 0, hasData: false, hasUnknown: false },
+  statics: { total: 0, hasData: false, hasUnknown: false },
+  carousels: { total: 0, hasData: false, hasUnknown: false },
+});
+
 function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = {}) {
   const thisMonth = getMonthString();
   const [month, setMonth] = useState(thisMonth);
   const [rows, setRows] = useState([]);
+  const [formatSummaryTotals, setFormatSummaryTotals] = useState(() =>
+    createEmptyFormatSummary(),
+  );
   const [loading, setLoading] = useState(true);
   const [briefOnly, setBriefOnly] = useState(false);
   const [activeTab, setActiveTab] = useState('brands');
@@ -369,6 +458,42 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
           : 'Assets that cleared review this month.',
         accent: 'from-blue-500 to-cyan-500',
       });
+
+      const formatTotals = formatSummaryTotals;
+
+      const formatCardConfig = [
+        {
+          key: 'videos',
+          label: 'Videos',
+          accent: 'from-rose-500 to-pink-500',
+          fallbackDescription: 'Video formats this month.',
+        },
+        {
+          key: 'statics',
+          label: 'Statics',
+          accent: 'from-slate-500 to-slate-600',
+          fallbackDescription: 'Static formats this month.',
+        },
+        {
+          key: 'carousels',
+          label: 'Carousels',
+          accent: 'from-fuchsia-500 to-purple-500',
+          fallbackDescription: 'Carousel formats this month.',
+        },
+      ];
+
+      formatCardConfig.forEach(({ key, label, accent, fallbackDescription }) => {
+        const stat = formatTotals[key] || { total: 0, hasData: false, hasUnknown: false };
+        cards.push({
+          key,
+          label,
+          value: formatSummaryValue(stat),
+          description: stat.hasUnknown
+            ? 'Some recipes are missing format details.'
+            : fallbackDescription,
+          accent,
+        });
+      });
     }
 
     return cards;
@@ -378,6 +503,7 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
     requireFilters,
     monthDisplay,
     briefOnly,
+    formatSummaryTotals,
   ]);
 
   const overviewMetricLabels = useMemo(
@@ -495,6 +621,7 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
       let inRevisions = 0;
       let approved = 0;
       let rejected = 0;
+      const formatCounts = { videos: 0, statics: 0, carousels: 0 };
       let publicDashboardSlug =
         typeof brand.publicDashboardSlug === 'string'
           ? brand.publicDashboardSlug.trim()
@@ -590,8 +717,8 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
             const isBriefGroup = normalizedReview === '3';
             if (briefFilter && !isBriefGroup) continue;
             if (!briefFilter && isBriefGroup) continue;
-            const [rSnap, aSnap] = await Promise.all([
-              getCountFromServer(collection(db, 'adGroups', g.id, 'recipes')),
+            const [recipesSnap, aSnap] = await Promise.all([
+              getDocs(collection(db, 'adGroups', g.id, 'recipes')),
               getDocs(
                 query(
                   collection(db, 'adGroups', g.id, 'assets'),
@@ -605,7 +732,11 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
                 ),
               ),
             ]);
-            const recipeCount = rSnap.data().count || 0;
+            const recipeCount = recipesSnap.size || 0;
+            const recipeFormats = tallyRecipeFormats(recipesSnap);
+            formatCounts.videos += recipeFormats.videos;
+            formatCounts.statics += recipeFormats.statics;
+            formatCounts.carousels += recipeFormats.carousels;
             briefed += recipeCount;
             const deliveredSet = new Set();
             const revisionSet = new Set();
@@ -653,32 +784,38 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
         const noteKey = noteKeyRaw ? String(noteKeyRaw) : '';
 
         return {
-          id: brandId || brand.code || brand.id,
-          code: brandCode,
-          name: brandName,
-          contracted,
-          briefed,
-          delivered,
-          inRevisions: briefFilter ? '-' : inRevisions,
-          approved: briefFilter ? '-' : approved,
-          rejected: briefFilter ? '-' : rejected,
-          noteKey,
-          publicDashboardSlug,
+          metrics: {
+            id: brandId || brand.code || brand.id,
+            code: brandCode,
+            name: brandName,
+            contracted,
+            briefed,
+            delivered,
+            inRevisions: briefFilter ? '-' : inRevisions,
+            approved: briefFilter ? '-' : approved,
+            rejected: briefFilter ? '-' : rejected,
+            noteKey,
+            publicDashboardSlug,
+          },
+          formats: formatCounts,
         };
       } catch (err) {
         console.error('Failed to compute counts', err);
         return {
-          id: brand.id || brand.code,
-          code: brand.code,
-          name: brand.name,
-          contracted: '?',
-          briefed: '?',
-          delivered: '?',
-          inRevisions: briefFilter ? '-' : '?',
-          approved: briefFilter ? '-' : '?',
-          rejected: briefFilter ? '-' : '?',
-          noteKey: brand.code || brand.id || '',
-          publicDashboardSlug,
+          metrics: {
+            id: brand.id || brand.code,
+            code: brand.code,
+            name: brand.name,
+            contracted: '?',
+            briefed: '?',
+            delivered: '?',
+            inRevisions: briefFilter ? '-' : '?',
+            approved: briefFilter ? '-' : '?',
+            rejected: briefFilter ? '-' : '?',
+            noteKey: brand.code || brand.id || '',
+            publicDashboardSlug,
+          },
+          formats: null,
         };
       }
     },
@@ -785,9 +922,11 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
     let active = true;
     const fetchData = async () => {
       setLoading(true);
+      setFormatSummaryTotals(createEmptyFormatSummary());
       if (requireFilters && brandCodes.length === 0 && !agencyId) {
         if (active) {
           setRows([]);
+          setFormatSummaryTotals(createEmptyFormatSummary());
           setBrandSources([]);
           setNotes({});
           setNoteDrafts({});
@@ -882,22 +1021,48 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
         });
 
         const brandEntries = Array.from(brandEntryMap.values());
-        const computedResults = (
-          await Promise.all(
-            brandEntries.map((brand) =>
-              computeBrandCounts({
-                brand,
-                targetMonth: month,
-                briefFilter: briefOnly,
-              })
-            )
-          )
-        ).filter(Boolean);
-        computedResults.sort((a, b) =>
+        const rawResults = await Promise.all(
+          brandEntries.map((brand) =>
+            computeBrandCounts({
+              brand,
+              targetMonth: month,
+              briefFilter: briefOnly,
+            }),
+          ),
+        );
+
+        const aggregatedFormats = createEmptyFormatSummary();
+        const computedRows = [];
+
+        rawResults.forEach((result) => {
+          if (!result) return;
+          const { metrics, formats } = result;
+          if (metrics) {
+            computedRows.push(metrics);
+          }
+          if (!formats) {
+            ['videos', 'statics', 'carousels'].forEach((key) => {
+              aggregatedFormats[key].hasUnknown = true;
+            });
+            return;
+          }
+          ['videos', 'statics', 'carousels'].forEach((key) => {
+            const value = Number(formats[key]);
+            if (Number.isFinite(value)) {
+              aggregatedFormats[key].total += value;
+              aggregatedFormats[key].hasData = true;
+            } else if (formats[key] != null) {
+              aggregatedFormats[key].hasUnknown = true;
+            }
+          });
+        });
+
+        computedRows.sort((a, b) =>
           (a.name || a.code || '').localeCompare(b.name || b.code || '')
         );
         if (active) {
-          setRows(computedResults);
+          setRows(computedRows);
+          setFormatSummaryTotals(aggregatedFormats);
           setBrandSources(brandEntries);
         }
 
@@ -906,7 +1071,7 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
         const fallbackSourceMap = {};
         const scopedToBaseKey = new Map();
         const uniqueScopedKeys = [];
-        computedResults.forEach((row) => {
+        computedRows.forEach((row) => {
           const baseKey = getBaseNoteKey(row);
           const scopedKey = getScopedNoteKey(baseKey);
           if (!scopedKey) return;
@@ -1002,6 +1167,7 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
         console.error('Failed to fetch dashboard data', err);
         if (active) {
           setRows([]);
+          setFormatSummaryTotals(createEmptyFormatSummary());
           setBrandSources([]);
           setNotes({});
           setNoteDrafts({});
@@ -1072,6 +1238,7 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
             metrics[key] = { total: 0, hasData: false, hasUnknown: false };
           });
           results
+            .map((result) => result?.metrics)
             .filter(Boolean)
             .forEach((row) => {
               metricKeys.forEach((key) => {
@@ -1389,6 +1556,14 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
                       );
                     };
 
+                    const brandLinkParams = new URLSearchParams({
+                      brandCode: r.code || '',
+                    });
+                    if (briefOnly) {
+                      brandLinkParams.set('reviewType', 'brief');
+                    }
+                    const brandLink = `${adGroupListPath}?${brandLinkParams.toString()}`;
+
                     return (
                       <tr key={r.id}>
                         <td data-label="Brand" className="align-middle">
@@ -1414,7 +1589,7 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
                             )}
                             {r.code ? (
                               <Link
-                                to={`${adGroupListPath}?brandCode=${encodeURIComponent(r.code)}`}
+                                to={brandLink}
                                 className="inline-flex flex-wrap items-center gap-2 font-semibold text-gray-900 transition hover:text-[var(--accent-color)] dark:text-gray-100 dark:hover:text-[var(--accent-color)]"
                               >
                                 <span>{r.name || r.code}</span>

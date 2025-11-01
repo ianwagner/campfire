@@ -171,11 +171,107 @@ const INTEGRATION_TONE_STYLES = {
 };
 
 const INTEGRATION_TONE_PRIORITY = {
-  error: 3,
-  duplicate: 2.5,
-  manual: 2,
-  info: 2,
-  success: 1,
+  error: 5,
+  manual: 4,
+  info: 3,
+  success: 2,
+  duplicate: 1,
+};
+
+const normalizeFingerprintPart = (value) => {
+  if (value === null || value === undefined) {
+    return "";
+  }
+  if (typeof value === "string") {
+    return value.trim().toLowerCase();
+  }
+  if (typeof value === "number" || typeof value === "boolean") {
+    return String(value).trim().toLowerCase();
+  }
+  return "";
+};
+
+const parseRequestPayload = (payload) => {
+  if (!payload) {
+    return null;
+  }
+  if (typeof payload === "object") {
+    return payload;
+  }
+  if (typeof payload === "string") {
+    const trimmed = payload.trim();
+    if (!trimmed) {
+      return null;
+    }
+    try {
+      const parsed = JSON.parse(trimmed);
+      return parsed && typeof parsed === "object" ? parsed : null;
+    } catch (err) {
+      return null;
+    }
+  }
+  return null;
+};
+
+const buildIntegrationRequestFingerprint = (entry) => {
+  if (!entry || typeof entry !== "object") {
+    return "";
+  }
+
+  const payload = parseRequestPayload(entry.requestPayload);
+  if (!payload || typeof payload !== "object") {
+    return "";
+  }
+
+  const integrationPart = normalizeFingerprintPart(
+    payload.integrationId || entry.integrationId,
+  );
+  const recipePart = normalizeFingerprintPart(
+    payload.recipeIdentifier || payload.recipeCode,
+  );
+  const primaryPart = normalizeFingerprintPart(
+    payload.approvedAssetId || payload.approvedAdId,
+  );
+  const approvedAssetIds = Array.isArray(payload.approvedAssetIds)
+    ? payload.approvedAssetIds
+        .map((id) => normalizeFingerprintPart(id))
+        .filter(Boolean)
+    : [];
+  const approvedAssets = Array.isArray(payload.approvedAssets)
+    ? payload.approvedAssets
+        .map((asset) => normalizeFingerprintPart(asset && asset.id))
+        .filter(Boolean)
+    : [];
+  const combinedAssetIds = Array.from(
+    new Set([...approvedAssetIds, ...approvedAssets]),
+  )
+    .filter(Boolean)
+    .sort();
+
+  const attemptPart =
+    typeof payload.attempt === "number" && Number.isFinite(payload.attempt)
+      ? `attempt:${payload.attempt}`
+      : "";
+
+  if (
+    !integrationPart &&
+    !recipePart &&
+    !primaryPart &&
+    combinedAssetIds.length === 0 &&
+    !attemptPart
+  ) {
+    return "";
+  }
+
+  return [
+    integrationPart,
+    recipePart,
+    primaryPart,
+    combinedAssetIds.join("|"),
+    attemptPart,
+  ]
+    .filter(Boolean)
+    .join("::");
 };
 
 const resolveDate = (value) => {
@@ -251,6 +347,56 @@ const getIntegrationBadgeUpdatedAt = (badge) => {
 
   const resolved = resolveDate(raw);
   return resolved ? resolved.getTime() : 0;
+};
+
+const shouldPromoteRequestBadge = (currentBadge, candidateBadge) => {
+  if (!currentBadge) {
+    return true;
+  }
+  if (!candidateBadge) {
+    return false;
+  }
+
+  const currentState = currentBadge.state || "";
+  const candidateState = candidateBadge.state || "";
+
+  if (currentState === "duplicate" && candidateState !== "duplicate") {
+    return true;
+  }
+  if (currentState !== "duplicate" && candidateState === "duplicate") {
+    return false;
+  }
+
+  const currentPriority = getIntegrationBadgePriority(currentBadge);
+  const candidatePriority = getIntegrationBadgePriority(candidateBadge);
+  if (candidatePriority !== currentPriority) {
+    return candidatePriority > currentPriority;
+  }
+
+  const currentUpdatedAt = getIntegrationBadgeUpdatedAt(currentBadge);
+  const candidateUpdatedAt = getIntegrationBadgeUpdatedAt(candidateBadge);
+  if (candidateUpdatedAt !== currentUpdatedAt) {
+    return candidateUpdatedAt > currentUpdatedAt;
+  }
+
+  return false;
+};
+
+const getAssetKey = (asset) => {
+  if (!asset || typeof asset !== "object") {
+    return "";
+  }
+  const docId = getAssetDocumentId(asset);
+  if (docId) {
+    return String(docId);
+  }
+  if (asset.id) {
+    return String(asset.id);
+  }
+  if (asset.filename) {
+    return String(asset.filename);
+  }
+  return "";
 };
 
 const formatDateOnly = (value) => {
@@ -1163,6 +1309,11 @@ const AdGroupDetail = () => {
         normalizedEntry.responseHeaders = statusEntry.responseHeaders;
       }
 
+      const requestFingerprint = buildIntegrationRequestFingerprint(
+        normalizedEntry,
+      );
+      normalizedEntry.requestFingerprint = requestFingerprint;
+
       return {
         text,
         className,
@@ -1171,6 +1322,7 @@ const AdGroupDetail = () => {
         state,
         integrationDisplayName,
         statusEntry: normalizedEntry,
+        requestFingerprint,
       };
     },
     [assignedIntegrationId, assignedIntegrationName],
@@ -1179,6 +1331,30 @@ const AdGroupDetail = () => {
     () => getIntegrationBadgeDetails(previewAsset),
     [getIntegrationBadgeDetails, previewAsset],
   );
+  const integrationRequestLeads = useMemo(() => {
+    if (!inspectRecipe || !Array.isArray(inspectRecipe.assets)) {
+      return new Map();
+    }
+
+    const leads = new Map();
+    inspectRecipe.assets.forEach((asset) => {
+      const badge = getIntegrationBadgeDetails(asset);
+      if (!badge || !badge.requestFingerprint) {
+        return;
+      }
+      const assetKey = getAssetKey(asset);
+      if (!assetKey) {
+        return;
+      }
+
+      const existing = leads.get(badge.requestFingerprint);
+      if (!existing || shouldPromoteRequestBadge(existing.badge, badge)) {
+        leads.set(badge.requestFingerprint, { badge, assetKey });
+      }
+    });
+
+    return leads;
+  }, [getIntegrationBadgeDetails, inspectRecipe]);
   const integrationDetailBadge = integrationDetail?.badge || null;
   const integrationDetailStatus = integrationDetailBadge?.statusEntry || null;
   const integrationDetailAsset = integrationDetail?.asset || null;
@@ -6739,12 +6915,23 @@ const AdGroupDetail = () => {
                     a.firebaseUrl || a.thumbnailUrl || a.cdnUrl,
                   );
                   const badge = getIntegrationBadgeDetails(a);
+                  const fingerprint = badge?.requestFingerprint || "";
+                  const assetKey = getAssetKey(a);
+                  const leadEntry = fingerprint
+                    ? integrationRequestLeads.get(fingerprint)
+                    : null;
+                  const shouldShowBadge =
+                    badge &&
+                    (!fingerprint ||
+                      !leadEntry ||
+                      !leadEntry.assetKey ||
+                      leadEntry.assetKey === assetKey);
                   return (
                     <tr key={a.id}>
                       <td className="break-all">
                         <div className="flex flex-col items-start gap-1">
                           <span>{a.filename}</span>
-                          {badge?.text && (
+                          {shouldShowBadge && badge?.text && (
                             <button
                               type="button"
                               onClick={() => setIntegrationDetail({ asset: a, badge })}

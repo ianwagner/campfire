@@ -1369,6 +1369,18 @@ const RecipePreview = forwardRef(({
     showColumnButton,
   ]);
 
+  const tableColumnCount = useMemo(() => {
+    let count = 0;
+    if (visibleColumns.recipeNo) count += 1;
+    if (visibleColumns.copy) count += 1;
+    count += columnMeta.reduce(
+      (total, col) => (visibleColumns[col.key] ? total + 1 : total),
+      0,
+    );
+    if (!hideActions) count += 1;
+    return count || 1;
+  }, [visibleColumns, columnMeta, hideActions]);
+
   useEffect(() => {
     setVisibleColumns((prev) => {
       const availableKeys = ['recipeNo', ...columnMeta.map((c) => c.key), 'copy'];
@@ -2008,6 +2020,20 @@ const RecipePreview = forwardRef(({
                   )}
                 </tr>
               ))}
+              {canEditRecipes && !hideActions && (
+                <tr>
+                  <td colSpan={tableColumnCount} className="px-2 py-3 text-center">
+                    <button
+                      type="button"
+                      className="btn-secondary inline-flex items-center gap-2"
+                      onClick={addRecipeRow}
+                    >
+                      <FiPlus />
+                      Add Recipe Row
+                    </button>
+                  </td>
+                </tr>
+              )}
             </tbody>
             </Table>
           ) : (
