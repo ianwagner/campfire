@@ -99,7 +99,7 @@ const flattenMeta = (obj, prefix = '', res = {}) => {
   return res;
 };
 
-const AdminDistribution = () => {
+const AdminOpsData = () => {
   const [months, setMonths] = useState([]);
   const [dueMonths, setDueMonths] = useState([]);
   const [brands, setBrands] = useState([]);
@@ -115,6 +115,7 @@ const AdminDistribution = () => {
     baseColumnDefs.map((c) => c.key),
   );
   const [showColMenu, setShowColMenu] = useState(false);
+  const columnMenuId = 'ops-data-column-menu';
   const assetKeySet = new Set(assetCols.map((c) => c.key));
 
   // Keep selected columns limited to those that exist but do not
@@ -466,7 +467,7 @@ const AdminDistribution = () => {
 
   return (
     <div className="min-h-screen p-4">
-      <h1 className="text-2xl mb-4">Distribution</h1>
+      <h1 className="text-2xl mb-4">Ops Data</h1>
       <div className="flex items-center justify-between mb-4">
         <div className="flex space-x-4">
           <select
@@ -507,15 +508,24 @@ const AdminDistribution = () => {
           </select>
         </div>
         <div className="flex items-center gap-2 relative">
-          <IconButton
+          <Button
+            type="button"
+            variant="neutral"
+            size="sm"
             onClick={() => setShowColMenu((p) => !p)}
-            aria-label="Select Columns"
-            className="text-xl"
+            aria-haspopup="true"
+            aria-expanded={showColMenu}
+            aria-controls={columnMenuId}
+            className="whitespace-nowrap"
           >
-            <FiColumns />
-          </IconButton>
+            <FiColumns aria-hidden="true" />
+            Columns
+          </Button>
           {showColMenu && (
-            <div className="absolute right-0 top-full mt-2 bg-white border rounded shadow p-2 z-10 space-y-1 max-h-96 overflow-y-auto w-max max-w-[300px]">
+            <div
+              id={columnMenuId}
+              className="absolute right-0 top-full mt-2 bg-white border rounded shadow p-2 z-10 space-y-1 max-h-96 overflow-y-auto w-max max-w-[300px]"
+            >
               {allColumnDefs.map((c) => (
                 <label key={c.key} className="flex items-center gap-2">
                   <input
@@ -624,4 +634,4 @@ const AdminDistribution = () => {
   );
 };
 
-export default AdminDistribution;
+export default AdminOpsData;

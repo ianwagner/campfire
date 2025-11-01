@@ -78,7 +78,7 @@ import { DEFAULT_LOGO_URL } from "./constants";
 import useFcmToken from "./useFcmToken";
 import useTaggerJobWatcher from "./useTaggerJobWatcher";
 import AdminClaimDebug from "./AdminClaimDebug";
-import AdminDistribution from "./AdminDistribution";
+import AdminOpsData from "./AdminOpsData";
 import AdminCapacityPlanner from "./AdminCapacityPlanner";
 import AdminIntegrations from "./AdminIntegrations";
 import AdminInvoices from "./AdminInvoices";
@@ -611,7 +611,7 @@ const App = () => {
               }
             />
             <Route
-              path="/admin/distribution"
+              path="/admin/ops-data"
               element={
                 user ? (
                   <RoleGuard
@@ -619,7 +619,7 @@ const App = () => {
                     userRole={role} isAdmin={isAdmin}
                     loading={roleLoading}
                   >
-                    <AdminDistribution />
+                    <AdminOpsData />
                   </RoleGuard>
                 ) : (
                   <Navigate to="/login" replace />

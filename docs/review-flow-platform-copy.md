@@ -2,14 +2,14 @@
 
 ## Objectives
 - Surface platform copy inline with 1x1 units during the Review 2.0 flow so reviewers can see messaging context while approving square creatives.
-- Pull copy variants per product (matching the Data/Distribution tab behaviour) so each ad is paired with the correct messaging card.
+- Pull copy variants per product (matching the Ops Data tab behaviour) so each ad is paired with the correct messaging card.
 - Allow reviewers to edit copy directly in the flow and save changes back to the `copyCards` subcollection ("data sheet").
 
 ## Data plumbing
 1. **Reuse the existing copy card subscription.** The Review screen already subscribes to `adGroups/{groupId}/copyCards` and stores the result in `copyCards`. 【F:src/Review.jsx†L586-L607】【F:src/Review.jsx†L1220-L1293】
-2. **Group copy by product.** Build a `useMemo` that normalizes `copyCards` into a `{ productKey: CopyCard[] }` map (trim, lowercase) so lookups mirror `AdminDistribution`. That component batches cards per product before matching them to recipe rows. 【F:src/AdminDistribution.jsx†L200-L284】
+2. **Group copy by product.** Build a `useMemo` that normalizes `copyCards` into a `{ productKey: CopyCard[] }` map (trim, lowercase) so lookups mirror `AdminOpsData`. That component batches cards per product before matching them to recipe rows. 【F:src/AdminOpsData.jsx†L200-L284】
 3. **Fetch recipe metadata for Review 2.0.** Recipes (and their product names) are only loaded when `reviewVersion === 3` today. Extend the existing fetch to also hydrate `recipes` for version 2 so we can map each ad's `recipeCode` to the product name stored on the recipe document. 【F:src/Review.jsx†L580-L581】【F:src/Review.jsx†L1485-L1511】
-4. **Map recipes to products.** Once recipes are always available, derive a dictionary that can resolve a product name by any of: recipe document ID, `recipeNo`, or the `recipeCode` embedded in filenames (strip leading zeros to mirror `AdminDistribution`).
+4. **Map recipes to products.** Once recipes are always available, derive a dictionary that can resolve a product name by any of: recipe document ID, `recipeNo`, or the `recipeCode` embedded in filenames (strip leading zeros to mirror `AdminOpsData`).
 
 ## Rendering inline copy
 1. **Attach product metadata to each card.** While constructing `recipeGroups`/`versionGroupsByAd`, annotate the group with the resolved product name so each asset set knows which copy cards apply.
