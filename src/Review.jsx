@@ -1509,19 +1509,6 @@ const Review = forwardRef(
     syncFiltersToUrl({ search: '', audiences: [], angles: [], products: [] });
   }, [syncFiltersToUrl]);
 
-  const handleNavigateToAd = useCallback((cardKey) => {
-    if (!cardKey || typeof document === 'undefined') return;
-    const target = document.getElementById(`ad-card-${cardKey}`);
-    if (!target) return;
-    const rect = target.getBoundingClientRect();
-    const scrollY = window.scrollY || window.pageYOffset || 0;
-    const offset = Number.isFinite(effectiveToolbarOffsetRef.current)
-      ? Math.max(0, effectiveToolbarOffsetRef.current)
-      : 0;
-    const destination = Math.max(0, rect.top + scrollY - offset - 24);
-    window.scrollTo({ top: destination, behavior: 'smooth' });
-  }, []);
-
   const totalNavigationCount = navigationEntries.length;
   const visibleNavigationCount = visibleNavigationEntries.length;
 
@@ -5638,8 +5625,8 @@ useEffect(() => {
               />
             </div>
           ) : reviewVersion === 2 ? (
-            <div className="w-full xl:max-w-[1180px] xl:flex xl:items-start xl:justify-center xl:gap-6">
-              <div className="flex w-full justify-center">
+            <div className="w-full xl:max-w-[1180px] xl:flex xl:items-start xl:justify-start xl:gap-4">
+              <div className="flex w-full justify-center xl:justify-start">
                 <div
                   className={combineClasses(
                     'relative w-full max-w-[712px] pt-2 sm:px-0',
@@ -7180,73 +7167,15 @@ useEffect(() => {
                           {renderFilterGroup('product', 'Product', filterOptions.products, selectedProducts)}
                         </div>
                       ) : null}
-                      <div>
-                        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                          Ads
+                      <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 px-3 py-3 text-xs text-gray-600 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-hover)] dark:text-gray-300">
+                        <p className="font-semibold text-gray-700 dark:text-[var(--dark-text)]">
+                          {visibleNavigationCount} of {totalNavigationCount} ads match your search and filters.
                         </p>
-                        <div className="mt-2 space-y-2">
-                          {visibleNavigationEntries.length === 0 ? (
-                            <p className="text-xs text-gray-500 dark:text-gray-300">
-                              No ads match your search or filters.
-                            </p>
-                          ) : (
-                            visibleNavigationEntries.map((entry) => (
-                              <button
-                                key={entry.cardKey}
-                                type="button"
-                                onClick={() => handleNavigateToAd(entry.cardKey)}
-                                className="w-full rounded-lg border border-transparent bg-white/80 px-3 py-2 text-left text-sm shadow-sm transition hover:border-[var(--accent-color)] hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-color)] dark:border-transparent dark:bg-[var(--dark-sidebar-bg)] dark:hover:bg-[var(--dark-sidebar-bg)]/80"
-                              >
-                                <div className="flex flex-col gap-1">
-                                  <div className="flex items-start justify-between gap-2">
-                                    <span className="font-semibold text-gray-800 dark:text-[var(--dark-text)]">
-                                      {entry.title}
-                                    </span>
-                                    {entry.recipeLabel && entry.recipeLabel !== entry.title ? (
-                                      <span className="text-[11px] text-gray-400 dark:text-gray-500">
-                                        {entry.recipeLabel}
-                                      </span>
-                                    ) : null}
-                                  </div>
-                                  {entry.subtitle && (
-                                    <p className="text-xs text-gray-500 dark:text-gray-300">{entry.subtitle}</p>
-                                  )}
-                                  <div className="flex flex-wrap gap-1 text-[11px] text-gray-500 dark:text-gray-400">
-                                    {entry.productValues.map((value) => (
-                                      <span
-                                        key={`product-${entry.cardKey}-${value.normalized}`}
-                                        className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-600 dark:bg-[var(--dark-sidebar-hover)] dark:text-gray-300"
-                                      >
-                                        {value.label}
-                                      </span>
-                                    ))}
-                                    {entry.audienceValues.map((value) => (
-                                      <span
-                                        key={`aud-${entry.cardKey}-${value.normalized}`}
-                                        className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-600 dark:bg-[var(--dark-sidebar-hover)] dark:text-gray-300"
-                                      >
-                                        {value.label}
-                                      </span>
-                                    ))}
-                                    {entry.angleValues.map((value) => (
-                                      <span
-                                        key={`angle-${entry.cardKey}-${value.normalized}`}
-                                        className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-600 dark:bg-[var(--dark-sidebar-hover)] dark:text-gray-300"
-                                      >
-                                        {value.label}
-                                      </span>
-                                    ))}
-                                  </div>
-                                  {entry.copyPreview && (
-                                    <p className="line-clamp-2 text-xs text-gray-500 dark:text-gray-300">
-                                      {entry.copyPreview}
-                                    </p>
-                                  )}
-                                </div>
-                              </button>
-                            ))
-                          )}
-                        </div>
+                        <p className="mt-1">
+                          {visibleNavigationEntries.length === 0
+                            ? 'Adjust your search or filters to see ads in the review list.'
+                            : 'Scroll the review list to view the matching ads.'}
+                        </p>
                       </div>
                     </div>
                   </div>
