@@ -81,24 +81,14 @@ test('navigates to brands page when Brands clicked', () => {
   expect(mockNavigate).toHaveBeenCalledWith('/admin/brands');
 });
 
-test('navigates to distribution page when Distribution clicked', () => {
+test('navigates to ops data page when Ops Data clicked', () => {
   render(
     <MemoryRouter>
       <AdminSidebar />
     </MemoryRouter>
   );
-  fireEvent.click(screen.getByText('Distribution'));
-  expect(mockNavigate).toHaveBeenCalledWith('/admin/distribution');
-});
-
-test('navigates to client projects page when Client Projects clicked', () => {
-  render(
-    <MemoryRouter>
-      <AdminSidebar />
-    </MemoryRouter>
-  );
-  fireEvent.click(screen.getByText('Client Projects'));
-  expect(mockNavigate).toHaveBeenCalledWith('/ops/projects');
+  fireEvent.click(screen.getByText('Ops Data'));
+  expect(mockNavigate).toHaveBeenCalledWith('/admin/ops-data');
 });
 
 test('navigates to ad recipes page when Ad Recipes clicked', () => {
