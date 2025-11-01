@@ -1,19 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { collection, doc, getDocs, query, updateDoc, where } from 'firebase/firestore';
 import { db } from './firebase/config';
-
-const getUserDisplayName = (user) => {
-  if (!user) return '';
-  const name = typeof user.name === 'string' ? user.name.trim() : '';
-  if (name) return name;
-  const displayName = typeof user.displayName === 'string' ? user.displayName.trim() : '';
-  if (displayName) return displayName;
-  const email = typeof user.email === 'string' ? user.email.trim() : '';
-  if (email) return email;
-  const phoneNumber = typeof user.phoneNumber === 'string' ? user.phoneNumber.trim() : '';
-  if (phoneNumber) return phoneNumber;
-  return user.id || '';
-};
+import getUserDisplayName from './utils/getUserDisplayName.js';
 
 const BrandStaffAssignment = ({ brandId, brand = null, onBrandUpdate = null }) => {
   const [designerId, setDesignerId] = useState('');
@@ -139,7 +127,7 @@ const BrandStaffAssignment = ({ brandId, brand = null, onBrandUpdate = null }) =
         <label className="flex flex-col gap-2 text-sm text-gray-700 dark:text-gray-200">
           <span className="font-medium">Default designer</span>
           <select
-            className="w-full rounded-lg border border-gray-300 bg-white p-2 text-sm text-gray-900 shadow-sm transition focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 disabled:cursor-not-allowed disabled:bg-gray-100 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-bg)] dark:text-gray-100"
+            className="w-full rounded-lg border border-gray-300 bg-white p-2 text-sm text-gray-900 shadow-sm transition focus:border-[var(--accent-color)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)]/20 disabled:cursor-not-allowed disabled:bg-gray-100 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-bg)] dark:text-gray-100"
             value={normalizedDesignerId}
             onChange={(event) => {
               setDesignerId(event.target.value);
@@ -159,7 +147,7 @@ const BrandStaffAssignment = ({ brandId, brand = null, onBrandUpdate = null }) =
         <label className="flex flex-col gap-2 text-sm text-gray-700 dark:text-gray-200">
           <span className="font-medium">Default editor</span>
           <select
-            className="w-full rounded-lg border border-gray-300 bg-white p-2 text-sm text-gray-900 shadow-sm transition focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 disabled:cursor-not-allowed disabled:bg-gray-100 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-bg)] dark:text-gray-100"
+            className="w-full rounded-lg border border-gray-300 bg-white p-2 text-sm text-gray-900 shadow-sm transition focus:border-[var(--accent-color)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)]/20 disabled:cursor-not-allowed disabled:bg-gray-100 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-bg)] dark:text-gray-100"
             value={normalizedEditorId}
             onChange={(event) => {
               setEditorId(event.target.value);
@@ -181,7 +169,7 @@ const BrandStaffAssignment = ({ brandId, brand = null, onBrandUpdate = null }) =
         {loadingStaff ? <span>Loading available staff…</span> : <span>Select “Unassigned” to clear an assignment.</span>}
         <button
           type="button"
-          className="inline-flex items-center rounded-lg bg-indigo-600 px-4 py-2 font-medium text-white shadow-sm transition hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:bg-indigo-300"
+          className="inline-flex items-center rounded-lg bg-[var(--accent-color)] px-4 py-2 font-medium text-white shadow-sm transition hover:brightness-95 focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)] focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 dark:focus:ring-offset-[var(--dark-sidebar)]"
           onClick={handleSave}
           disabled={saving || loadingStaff || !hasChanges}
         >
