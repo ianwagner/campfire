@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { FiAlertCircle, FiClock, FiBarChart2, FiTable, FiHome } from 'react-icons/fi';
+import { FiAlertCircle, FiClock, FiBarChart2, FiTable, FiHome, FiUsers } from 'react-icons/fi';
 import {
   collection,
   getDocs,
@@ -20,6 +20,7 @@ import MonthSelector from './components/MonthSelector.jsx';
 import TabButton from './components/TabButton.jsx';
 import DashboardTotalsChart from './components/charts/DashboardTotalsChart.jsx';
 import getMonthString from './utils/getMonthString.js';
+import getUserName from './utils/getUserName.js';
 import { normalizeReviewVersion } from './utils/reviewVersion';
 import useUserRole from './useUserRole';
 
@@ -258,6 +259,8 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
   const [noteDrafts, setNoteDrafts] = useState({});
   const [savingNotes, setSavingNotes] = useState({});
   const [noteErrors, setNoteErrors] = useState({});
+  const [staffRows, setStaffRows] = useState([]);
+  const [staffSummary, setStaffSummary] = useState(null);
   const fallbackSourceRef = useRef({});
 
   const user = auth.currentUser;
@@ -506,6 +509,61 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
     formatSummaryTotals,
   ]);
 
+  const staffCards = useMemo(() => {
+    if (!staffSummary) {
+      return [];
+    }
+
+    const baseDescription = requireFilters
+      ? 'Based on your assigned brands.'
+      : monthDisplay
+      ? `Assignments for ${monthDisplay}.`
+      : 'Assignments for this month.';
+
+    const cards = [
+      {
+        key: 'staff-count',
+        label: 'Staff in view',
+        value: staffSummary.totalStaff.toLocaleString(),
+        description: baseDescription,
+        accent: 'from-indigo-500 to-purple-500',
+      },
+      {
+        key: 'projects',
+        label: 'Active projects',
+        value: staffSummary.totalProjects.toLocaleString(),
+        description: 'Ad groups with an assigned teammate.',
+        accent: 'from-sky-500 to-cyan-500',
+      },
+      {
+        key: 'assigned',
+        label: 'Assigned units',
+        value: staffSummary.totalAssigned.toLocaleString(),
+        description: 'Recipes briefed to the team this month.',
+        accent: 'from-amber-500 to-orange-500',
+      },
+      {
+        key: 'open-load',
+        label: 'Open load',
+        value: staffSummary.openLoad.toLocaleString(),
+        description: 'Units still awaiting approval.',
+        accent: 'from-rose-500 to-pink-500',
+      },
+    ];
+
+    if (!briefOnly && staffSummary.weightedApproval !== null) {
+      cards.push({
+        key: 'approval-rate',
+        label: 'Approval rate',
+        value: `${staffSummary.weightedApproval}%`,
+        description: 'Weighted by delivered assets.',
+        accent: 'from-emerald-500 to-teal-500',
+      });
+    }
+
+    return cards;
+  }, [staffSummary, requireFilters, monthDisplay, briefOnly]);
+
   const overviewMetricLabels = useMemo(
     () => ({
       contracted: briefOnly ? 'Contracted briefs' : 'Contracted units',
@@ -626,6 +684,7 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
         typeof brand.publicDashboardSlug === 'string'
           ? brand.publicDashboardSlug.trim()
           : '';
+      const staffMap = new Map();
 
       try {
         let brandId = brand.id;
@@ -709,6 +768,36 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
             return !data.month;
           });
           const adDocs = [...monthSnap.docs, ...dueDocs];
+
+          const recordStaffContribution = (role, rawId, contribution) => {
+            const normalizedId = typeof rawId === 'string' ? rawId.trim() : '';
+            const key = `${role}:${normalizedId || '__unassigned__'}`;
+            if (!staffMap.has(key)) {
+              staffMap.set(key, {
+                key,
+                id: normalizedId,
+                role,
+                adGroups: 0,
+                briefed: 0,
+                delivered: 0,
+                approved: 0,
+                rejected: 0,
+                inRevisions: 0,
+                brandCodes: new Set(),
+              });
+            }
+            const entry = staffMap.get(key);
+            entry.adGroups += 1;
+            entry.briefed += Number(contribution.briefed) || 0;
+            entry.delivered += Number(contribution.delivered) || 0;
+            entry.approved += Number(contribution.approved) || 0;
+            entry.rejected += Number(contribution.rejected) || 0;
+            entry.inRevisions += Number(contribution.inRevisions) || 0;
+            if (brandCode) {
+              entry.brandCodes.add(brandCode);
+            }
+          };
+
           for (const g of adDocs) {
             const gData = g.data() || {};
             const normalizedReview = normalizeReviewVersion(
@@ -766,6 +855,16 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
               approved += approvedSet.size;
               rejected += rejectedSet.size;
             }
+
+            const staffContribution = {
+              briefed: recipeCount,
+              delivered: deliveredCount,
+              approved: approvedSet.size,
+              rejected: rejectedSet.size,
+              inRevisions: revisionSet.size,
+            };
+            recordStaffContribution('designer', gData.designerId, staffContribution);
+            recordStaffContribution('editor', gData.editorId, staffContribution);
           }
         }
 
@@ -798,6 +897,10 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
             publicDashboardSlug,
           },
           formats: formatCounts,
+          staff: Array.from(staffMap.values()).map((entry) => ({
+            ...entry,
+            brandCodes: Array.from(entry.brandCodes),
+          })),
         };
       } catch (err) {
         console.error('Failed to compute counts', err);
@@ -816,6 +919,7 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
             publicDashboardSlug,
           },
           formats: null,
+          staff: null,
         };
       }
     },
@@ -928,6 +1032,8 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
           setRows([]);
           setFormatSummaryTotals(createEmptyFormatSummary());
           setBrandSources([]);
+          setStaffRows([]);
+          setStaffSummary(null);
           setNotes({});
           setNoteDrafts({});
           setSavingNotes({});
@@ -1033,12 +1139,47 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
 
         const aggregatedFormats = createEmptyFormatSummary();
         const computedRows = [];
+        const staffAggregateMap = new Map();
 
         rawResults.forEach((result) => {
           if (!result) return;
-          const { metrics, formats } = result;
+          const { metrics, formats, staff } = result;
           if (metrics) {
             computedRows.push(metrics);
+          }
+          if (Array.isArray(staff)) {
+            staff.forEach((entry) => {
+              const role = entry?.role === 'editor' ? 'editor' : 'designer';
+              const normalizedId =
+                typeof entry?.id === 'string' ? entry.id.trim() : '';
+              const staffKey = `${role}:${normalizedId || '__unassigned__'}`;
+              if (!staffAggregateMap.has(staffKey)) {
+                staffAggregateMap.set(staffKey, {
+                  key: staffKey,
+                  id: normalizedId,
+                  role,
+                  adGroups: 0,
+                  briefed: 0,
+                  delivered: 0,
+                  approved: 0,
+                  rejected: 0,
+                  inRevisions: 0,
+                  brandCodes: new Set(),
+                });
+              }
+              const target = staffAggregateMap.get(staffKey);
+              target.adGroups += Number(entry.adGroups) || 0;
+              target.briefed += Number(entry.briefed) || 0;
+              target.delivered += Number(entry.delivered) || 0;
+              target.approved += Number(entry.approved) || 0;
+              target.rejected += Number(entry.rejected) || 0;
+              target.inRevisions += Number(entry.inRevisions) || 0;
+              (entry.brandCodes || []).forEach((code) => {
+                if (typeof code === 'string' && code) {
+                  target.brandCodes.add(code);
+                }
+              });
+            });
           }
           if (!formats) {
             ['videos', 'statics', 'carousels'].forEach((key) => {
@@ -1060,10 +1201,113 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
         computedRows.sort((a, b) =>
           (a.name || a.code || '').localeCompare(b.name || b.code || '')
         );
+
+        let staffEntries = [];
+        let staffSummaryValue = null;
+        if (role === 'admin') {
+          const rawStaffList = Array.from(staffAggregateMap.values()).map((entry) => ({
+            ...entry,
+            brandCodes: Array.from(entry.brandCodes),
+          }));
+          if (rawStaffList.length > 0) {
+            const uniqueStaffIds = Array.from(
+              new Set(
+                rawStaffList
+                  .map((entry) => entry.id)
+                  .filter((id) => typeof id === 'string' && id)
+              )
+            );
+            const namePairs = await Promise.all(
+              uniqueStaffIds.map(async (id) => {
+                try {
+                  const name = await getUserName(id);
+                  return [id, name];
+                } catch (nameErr) {
+                  console.error('Failed to load staff name', nameErr);
+                  return [id, id];
+                }
+              })
+            );
+            const nameMap = new Map(namePairs);
+            const prepared = rawStaffList.map((entry) => {
+              const brandCodesList = entry.brandCodes
+                .filter((code) => typeof code === 'string' && code)
+                .sort((a, b) => a.localeCompare(b));
+              const openLoad = Math.max(entry.briefed - entry.approved, 0);
+              const approvalRate =
+                entry.delivered > 0
+                  ? Math.round((entry.approved / entry.delivered) * 100)
+                  : null;
+              const name = entry.id
+                ? nameMap.get(entry.id) || entry.id
+                : entry.role === 'editor'
+                ? 'Unassigned editor'
+                : 'Unassigned designer';
+              return {
+                ...entry,
+                name,
+                brandCodes: brandCodesList,
+                brandCount: brandCodesList.length,
+                openLoad,
+                approvalRate,
+              };
+            });
+            prepared.sort((a, b) => {
+              if (b.openLoad !== a.openLoad) return b.openLoad - a.openLoad;
+              if (b.briefed !== a.briefed) return b.briefed - a.briefed;
+              return a.name.localeCompare(b.name);
+            });
+            if (prepared.length > 0) {
+              const totalStaff = prepared.length;
+              const totalProjects = prepared.reduce(
+                (sum, entry) => sum + (Number(entry.adGroups) || 0),
+                0
+              );
+              const totalAssigned = prepared.reduce(
+                (sum, entry) => sum + (Number(entry.briefed) || 0),
+                0
+              );
+              const totalDelivered = prepared.reduce(
+                (sum, entry) => sum + (Number(entry.delivered) || 0),
+                0
+              );
+              const totalApproved = prepared.reduce(
+                (sum, entry) => sum + (Number(entry.approved) || 0),
+                0
+              );
+              const totalOpenLoad = prepared.reduce(
+                (sum, entry) => sum + (Number(entry.openLoad) || 0),
+                0
+              );
+              const totalInRevisions = prepared.reduce(
+                (sum, entry) => sum + (Number(entry.inRevisions) || 0),
+                0
+              );
+              const weightedApproval =
+                totalDelivered > 0
+                  ? Math.round((totalApproved / totalDelivered) * 100)
+                  : null;
+              staffEntries = prepared;
+              staffSummaryValue = {
+                totalStaff,
+                totalProjects,
+                totalAssigned,
+                openLoad: totalOpenLoad,
+                weightedApproval,
+                totalDelivered,
+                totalApproved,
+                totalInRevisions,
+              };
+            }
+          }
+        }
+
         if (active) {
           setRows(computedRows);
           setFormatSummaryTotals(aggregatedFormats);
           setBrandSources(brandEntries);
+          setStaffRows(staffEntries);
+          setStaffSummary(staffSummaryValue);
         }
 
         const noteEntries = {};
@@ -1169,6 +1413,8 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
           setRows([]);
           setFormatSummaryTotals(createEmptyFormatSummary());
           setBrandSources([]);
+          setStaffRows([]);
+          setStaffSummary(null);
           setNotes({});
           setNoteDrafts({});
           setSavingNotes({});
@@ -1183,7 +1429,7 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
     return () => {
       active = false;
     };
-  }, [month, agencyId, brandCodes, briefOnly, computeBrandCounts]);
+  }, [month, agencyId, brandCodes, briefOnly, computeBrandCounts, role]);
 
   useEffect(() => {
     if (activeTab !== 'overview') {
@@ -1303,6 +1549,12 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
     agencyId,
   ]);
 
+  useEffect(() => {
+    if (activeTab === 'staff' && role !== 'admin') {
+      setActiveTab('brands');
+    }
+  }, [activeTab, role]);
+
   const columnWidths = useMemo(
     () =>
       briefOnly
@@ -1310,6 +1562,18 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
         : ['auto', '7.5rem', '7.5rem', '7.5rem', '7.5rem', '7.5rem', 'auto'],
     [briefOnly]
   );
+
+  const staffColumnWidths = useMemo(() => {
+    const widths = ['auto', '6.5rem', '6.5rem', '7.5rem', '7.5rem'];
+    if (!briefOnly) {
+      widths.push('7rem');
+      widths.push('7rem');
+      widths.push('8rem');
+      widths.push('7rem');
+      widths.push('7rem');
+    }
+    return widths;
+  }, [briefOnly]);
 
   const ToggleButton = ({ active, children, onClick }) => (
     <button
@@ -1340,21 +1604,7 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
               )}
             </div>
             <div className="flex flex-wrap items-end gap-4">
-              {activeTab === 'brands' ? (
-                <div>
-                  <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-gray-500 dark:text-gray-300">
-                    Month
-                  </span>
-                  <div className="mt-2">
-                    <MonthSelector
-                      value={month}
-                      onChange={setMonth}
-                      inputClassName="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm transition focus:border-[var(--accent-color)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)]/20 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar)] dark:text-[var(--dark-text)] dark:focus:border-[var(--accent-color)] dark:focus:ring-[var(--accent-color)]/30"
-                      inputProps={{ 'aria-label': 'Select month' }}
-                    />
-                  </div>
-                </div>
-              ) : (
+              {activeTab === 'overview' ? (
                 <div className="flex flex-wrap gap-4">
                   <div>
                     <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-gray-500 dark:text-gray-300">
@@ -1391,6 +1641,20 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
                     </div>
                   </div>
                 </div>
+              ) : (
+                <div>
+                  <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-gray-500 dark:text-gray-300">
+                    Month
+                  </span>
+                  <div className="mt-2">
+                    <MonthSelector
+                      value={month}
+                      onChange={setMonth}
+                      inputClassName="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm transition focus:border-[var(--accent-color)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)]/20 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar)] dark:text-[var(--dark-text)] dark:focus:border-[var(--accent-color)] dark:focus:ring-[var(--accent-color)]/30"
+                      inputProps={{ 'aria-label': 'Select month' }}
+                    />
+                  </div>
+                </div>
               )}
               <div>
                 <div
@@ -1423,6 +1687,21 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
               <FiTable className="h-4 w-4" aria-hidden="true" />
               <span>Brand metrics</span>
             </TabButton>
+            {role === 'admin' && (
+              <TabButton
+                type="button"
+                active={activeTab === 'staff'}
+                onClick={() => setActiveTab('staff')}
+                className={`rounded-full px-4 py-2 text-sm font-medium transition ${
+                  activeTab === 'staff'
+                    ? 'shadow-sm'
+                    : 'border-transparent text-gray-600 hover:bg-[var(--accent-color-10)]/50 dark:text-gray-300'
+                }`}
+              >
+                <FiUsers className="h-4 w-4" aria-hidden="true" />
+                <span>Staff metrics</span>
+              </TabButton>
+            )}
             <TabButton
               type="button"
               active={activeTab === 'overview'}
@@ -1439,7 +1718,7 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
           </div>
         </div>
 
-        {activeTab === 'brands' ? (
+        {activeTab === 'brands' && (
           <>
             {!loading && summaryCards.length > 0 && (
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -1657,7 +1936,178 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
               </Table>
             )}
           </>
-        ) : (
+        )}
+
+        {activeTab === 'staff' && (
+          <>
+            {!loading && staffCards.length > 0 && (
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                {staffCards.map((card) => (
+                  <div
+                    key={card.key}
+                    className="relative overflow-hidden rounded-2xl border border-gray-200 bg-white p-5 shadow-sm transition hover:shadow-md dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar)]"
+                  >
+                    <div
+                      className={`absolute inset-x-0 top-0 h-1 bg-gradient-to-r ${card.accent}`}
+                      aria-hidden="true"
+                    />
+                    <div className="flex flex-col gap-1">
+                      <span className="text-xs font-semibold uppercase tracking-[0.12em] text-gray-500 dark:text-gray-300">
+                        {card.label}
+                      </span>
+                      <span className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
+                        {card.value}
+                      </span>
+                      {card.description && (
+                        <p className="text-xs leading-relaxed text-gray-600 dark:text-gray-300">
+                          {card.description}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {loading ? (
+              <div className="rounded-2xl border border-gray-200 bg-white p-8 text-center shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar)]">
+                <div className="inline-flex items-center gap-2 text-sm font-medium text-gray-600 dark:text-gray-300">
+                  <span className="h-2 w-2 animate-pulse rounded-full bg-[var(--accent-color)]" aria-hidden="true" />
+                  Loading staff metrics…
+                </div>
+              </div>
+            ) : staffRows.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-10 text-center shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar)]">
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                  No staff insights for {monthDisplay || 'this selection'}
+                </h2>
+                <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
+                  {requireFilters
+                    ? 'Try a different month or request access to additional brands to view staff load.'
+                    : 'Adjust the month or ensure ad groups have assigned teammates to surface metrics here.'}
+                </p>
+              </div>
+            ) : (
+              <Table className="dashboard-table" columns={staffColumnWidths}>
+                <thead className="sticky top-0 z-10 bg-white shadow-sm dark:bg-[var(--dark-sidebar-bg)]">
+                  <tr>
+                    <th>Staff member</th>
+                    <th className="metric-col">Active brands</th>
+                    <th className="metric-col">Projects</th>
+                    <th className="metric-col">Assigned units</th>
+                    <th className="metric-col">Open load</th>
+                    {!briefOnly && <th className="metric-col">Delivered</th>}
+                    {!briefOnly && <th className="metric-col">Approved</th>}
+                    {!briefOnly && <th className="metric-col">Approval rate</th>}
+                    {!briefOnly && <th className="metric-col">In revisions</th>}
+                    {!briefOnly && <th className="metric-col">Rejected</th>}
+                  </tr>
+                </thead>
+                <tbody>
+                  {staffRows.map((row) => {
+                    const roleLabel = row.role === 'editor' ? 'Editor' : 'Designer';
+                    const brands = Array.isArray(row.brandCodes) ? row.brandCodes : [];
+                    const displayedBrands = brands.slice(0, 3);
+                    const extraBrands = brands.length - displayedBrands.length;
+                    const approvalRateDisplay =
+                      row.approvalRate !== null ? `${row.approvalRate}%` : '—';
+                    const openLoadClass =
+                      row.openLoad > 25
+                        ? 'text-rose-600 dark:text-rose-400'
+                        : row.openLoad > 10
+                        ? 'text-amber-600 dark:text-amber-400'
+                        : 'text-emerald-600 dark:text-emerald-400';
+                    const staffKey = row.key || `${row.role}:${row.id || 'unassigned'}`;
+                    return (
+                      <tr key={staffKey}>
+                        <td data-label="Staff member" className="align-middle">
+                          <div className="flex flex-col gap-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="font-semibold text-gray-900 dark:text-gray-100">
+                                {row.name}
+                              </span>
+                              {!row.id && (
+                                <span className="inline-flex items-center rounded-full border border-dashed border-amber-400 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-amber-700 dark:border-amber-500/60 dark:bg-amber-500/10 dark:text-amber-200">
+                                  Unassigned
+                                </span>
+                              )}
+                            </div>
+                            <span className="text-xs font-semibold uppercase tracking-[0.12em] text-gray-500 dark:text-gray-300">
+                              {roleLabel}
+                            </span>
+                            {brands.length > 0 && (
+                              <div className="flex flex-wrap gap-1 pt-1">
+                                {displayedBrands.map((code) => (
+                                  <span
+                                    key={code}
+                                    className="inline-flex items-center rounded-full border border-gray-300 bg-gray-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-gray-600 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-hover)] dark:text-[var(--dark-text)]"
+                                  >
+                                    {code}
+                                  </span>
+                                ))}
+                                {extraBrands > 0 && (
+                                  <span className="inline-flex items-center rounded-full border border-gray-200 bg-gray-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-gray-500 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-hover)] dark:text-gray-300">
+                                    +{extraBrands}
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </td>
+                        <td
+                          className="metric-col align-middle text-center"
+                          data-label="Active brands"
+                          title={brands.join(', ')}
+                        >
+                          {row.brandCount ? row.brandCount.toLocaleString() : '—'}
+                        </td>
+                        <td className="metric-col align-middle text-center" data-label="Projects">
+                          {row.adGroups.toLocaleString()}
+                        </td>
+                        <td className="metric-col align-middle text-center" data-label="Assigned units">
+                          {row.briefed.toLocaleString()}
+                        </td>
+                        <td
+                          className={`metric-col align-middle text-center font-semibold ${openLoadClass}`.trim()}
+                          data-label="Open load"
+                        >
+                          {row.openLoad.toLocaleString()}
+                        </td>
+                        {!briefOnly && (
+                          <td className="metric-col align-middle text-center" data-label="Delivered">
+                            {row.delivered.toLocaleString()}
+                          </td>
+                        )}
+                        {!briefOnly && (
+                          <td className="metric-col align-middle text-center" data-label="Approved">
+                            {row.approved.toLocaleString()}
+                          </td>
+                        )}
+                        {!briefOnly && (
+                          <td className="metric-col align-middle text-center" data-label="Approval rate">
+                            {approvalRateDisplay}
+                          </td>
+                        )}
+                        {!briefOnly && (
+                          <td className="metric-col align-middle text-center" data-label="In revisions">
+                            {row.inRevisions.toLocaleString()}
+                          </td>
+                        )}
+                        {!briefOnly && (
+                          <td className="metric-col align-middle text-center" data-label="Rejected">
+                            {row.rejected.toLocaleString()}
+                          </td>
+                        )}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </Table>
+            )}
+          </>
+        )}
+
+        {activeTab === 'overview' && (
           <div className="flex flex-col gap-6">
             {overviewError && (
               <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700 dark:border-rose-500/40 dark:bg-rose-500/10 dark:text-rose-100">
