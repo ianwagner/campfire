@@ -1,5 +1,16 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { collection, getDocs, addDoc, writeBatch, doc, serverTimestamp, setDoc } from 'firebase/firestore';
+import {
+  collection,
+  getDocs,
+  addDoc,
+  writeBatch,
+  doc,
+  serverTimestamp,
+  setDoc,
+  Timestamp,
+  query,
+  where,
+} from 'firebase/firestore';
 import { FiLayers, FiPlus, FiX } from 'react-icons/fi';
 import BriefStepSelect from './BriefStepSelect.jsx';
 import useComponentTypes from '../useComponentTypes.js';
@@ -69,6 +80,17 @@ const normalizeProductValues = (product) => {
     description: normalizeTextList(source.description),
     benefits: normalizeTextList(source.benefits),
   };
+};
+
+const ensureAssetLibrary = (library) => {
+  if (!library || typeof library !== 'object') {
+    return { rows: [], map: {} };
+  }
+
+  const rows = Array.isArray(library.rows) ? library.rows : [];
+  const map = library.map && typeof library.map === 'object' ? library.map : {};
+
+  return { rows, map };
 };
 
 const similarityScore = (a, b) => {
@@ -701,6 +723,10 @@ const BatchCreateAdGroupModal = ({ onClose, onCreated }) => {
   const [savingProduct, setSavingProduct] = useState(false);
   const [attributeModal, setAttributeModal] = useState(null);
   const [instanceModal, setInstanceModal] = useState(null);
+  const [brandAssetLibraries, setBrandAssetLibraries] = useState({});
+  const [loadingBrandAssets, setLoadingBrandAssets] = useState(false);
+  const [month, setMonth] = useState('');
+  const [dueDate, setDueDate] = useState('');
 
   const components = useComponentTypes();
   const assetUsageCacheRef = useRef(new Map());
@@ -761,6 +787,10 @@ const BatchCreateAdGroupModal = ({ onClose, onCreated }) => {
   }, []);
 
   useEffect(() => {
+    assetUsageCacheRef.current = new Map();
+  }, [selectedRecipeTypeId, brandAssetLibraries, brandCodes]);
+
+  useEffect(() => {
     let active = true;
     const loadInstances = async () => {
       setLoadingInstances(true);
@@ -800,6 +830,96 @@ const BatchCreateAdGroupModal = ({ onClose, onCreated }) => {
     () => recipeTypes.find((type) => type.id === selectedRecipeTypeId) || null,
     [recipeTypes, selectedRecipeTypeId],
   );
+
+  useEffect(() => {
+    const normalizedCodes = Array.from(
+      new Set(
+        brandCodes
+          .map((code) => (typeof code === 'string' ? code.trim() : ''))
+          .filter((code) => code.length > 0),
+      ),
+    );
+
+    if (normalizedCodes.length === 0) {
+      setBrandAssetLibraries((prev) => (Object.keys(prev).length === 0 ? prev : {}));
+      setLoadingBrandAssets(false);
+      return;
+    }
+
+    const missingCodes = normalizedCodes.filter((code) => {
+      if (brandAssetLibraries[code]) return false;
+      const brand = brands.find((b) => (b.code || '').toLowerCase() === code.toLowerCase());
+      const existingRows = Array.isArray(brand?.assetLibrary?.rows)
+        ? brand.assetLibrary.rows.filter((asset) => asset && typeof asset === 'object')
+        : [];
+      return existingRows.length === 0;
+    });
+
+    if (missingCodes.length === 0) {
+      setLoadingBrandAssets(false);
+      return;
+    }
+
+    let cancelled = false;
+    const load = async () => {
+      setLoadingBrandAssets(true);
+      try {
+        const results = await Promise.all(
+          missingCodes.map(async (code) => {
+            try {
+              const assetQuery = query(collection(db, 'adAssets'), where('brandCode', '==', code));
+              const snap = await getDocs(assetQuery);
+              const rows = snap.docs.map((docSnap) => {
+                const data = docSnap.data() || {};
+                const adUrl =
+                  data.adUrl ||
+                  data.url ||
+                  data.downloadUrl ||
+                  data.imageUrl ||
+                  data.fileUrl ||
+                  '';
+                const thumbnailUrl =
+                  data.thumbnailUrl ||
+                  data.previewUrl ||
+                  data.imageUrl ||
+                  data.url ||
+                  adUrl;
+                const assetType = data.assetType || data.type || '';
+                return {
+                  id: docSnap.id,
+                  ...data,
+                  adUrl,
+                  thumbnailUrl,
+                  assetType,
+                };
+              });
+              return { code, library: { rows, map: {} } };
+            } catch (err) {
+              console.error(`Failed to load asset library for ${code}`, err);
+              return { code, library: { rows: [], map: {} } };
+            }
+          }),
+        );
+        if (cancelled) return;
+        setBrandAssetLibraries((prev) => {
+          const next = { ...prev };
+          results.forEach(({ code, library }) => {
+            next[code] = library;
+          });
+          return next;
+        });
+      } finally {
+        if (!cancelled) {
+          setLoadingBrandAssets(false);
+        }
+      }
+    };
+
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [brandCodes, brandAssetLibraries, brands]);
 
   const availableBrandCodes = useMemo(
     () =>
@@ -866,6 +986,12 @@ const BatchCreateAdGroupModal = ({ onClose, onCreated }) => {
         return;
       }
       const brandCodeKey = typeof brand.code === 'string' && brand.code.length > 0 ? brand.code : code;
+      const existingAssetLibrary = ensureAssetLibrary(brand.assetLibrary);
+      const stateAssetLibrary = ensureAssetLibrary(brandAssetLibraries[brandCodeKey]);
+      const useStateLibrary =
+        stateAssetLibrary.rows.length > 0 || Object.keys(stateAssetLibrary.map).length > 0;
+      const effectiveAssetLibrary = useStateLibrary ? stateAssetLibrary : existingAssetLibrary;
+      const brandRecord = { ...brand, assetLibrary: effectiveAssetLibrary };
       const brandInstanceSelections = instanceSelections[brandCodeKey] || {};
       const columns = columnDefinitions.map((col) => {
         const overrides = {};
@@ -908,7 +1034,7 @@ const BatchCreateAdGroupModal = ({ onClose, onCreated }) => {
         normalizedInstanceSelections[componentKey] = Array.isArray(ids) ? [...ids] : [];
       });
       rows.push({
-        brand,
+        brand: brandRecord,
         brandCode: brandCodeKey,
         columns,
         componentValues,
@@ -926,6 +1052,8 @@ const BatchCreateAdGroupModal = ({ onClose, onCreated }) => {
     componentInstances,
     productSelections,
     instanceSelections,
+    brandAssetLibraries,
+    selectedRecipeType,
   ]);
 
   useEffect(() => {
@@ -1567,7 +1695,6 @@ const BatchCreateAdGroupModal = ({ onClose, onCreated }) => {
     const sectionKeys = Object.keys(sectionCounts);
 
     const tryAssetLibrarySelection = () => {
-      if (!selectedRecipeType?.enableAssetCsv) return null;
       const assetRows = Array.isArray(row?.brand?.assetLibrary?.rows)
         ? row.brand.assetLibrary.rows.filter((asset) => asset && typeof asset === 'object')
         : [];
@@ -1821,6 +1948,27 @@ const BatchCreateAdGroupModal = ({ onClose, onCreated }) => {
       return;
     }
 
+    if (loadingBrandAssets) {
+      setError('Please wait for brand assets to finish loading.');
+      return;
+    }
+
+    const trimmedMonth = month.trim();
+    if (trimmedMonth && !/^\d{4}-\d{2}$/.test(trimmedMonth)) {
+      setError('Enter the month in YYYY-MM format.');
+      return;
+    }
+
+    let dueDateTimestamp = null;
+    if (dueDate) {
+      const parsedDueDate = new Date(dueDate);
+      if (Number.isNaN(parsedDueDate.getTime())) {
+        setError('Enter a valid due date (YYYY-MM-DD).');
+        return;
+      }
+      dueDateTimestamp = Timestamp.fromDate(parsedDueDate);
+    }
+
     setError('');
     setSuccess('');
     setCreating(true);
@@ -1828,7 +1976,7 @@ const BatchCreateAdGroupModal = ({ onClose, onCreated }) => {
     try {
       for (const row of brandComputation.rows) {
         const brand = row.brand;
-        const groupRef = await addDoc(collection(db, 'adGroups'), {
+        const groupData = {
           name: adGroupName.trim(),
           brandCode: brand.code || '',
           status: 'new',
@@ -1851,7 +1999,16 @@ const BatchCreateAdGroupModal = ({ onClose, onCreated }) => {
             typeof brand.defaultIntegrationName === 'string' ? brand.defaultIntegrationName : '',
           designerId: typeof brand.defaultDesignerId === 'string' ? brand.defaultDesignerId : null,
           editorId: typeof brand.defaultEditorId === 'string' ? brand.defaultEditorId : null,
-        });
+        };
+
+        if (trimmedMonth) {
+          groupData.month = trimmedMonth;
+        }
+        if (dueDateTimestamp) {
+          groupData.dueDate = dueDateTimestamp;
+        }
+
+        const groupRef = await addDoc(collection(db, 'adGroups'), groupData);
 
         const batch = writeBatch(db);
         for (let i = 1; i <= parsedRecipeCount; i += 1) {
@@ -1877,6 +2034,8 @@ const BatchCreateAdGroupModal = ({ onClose, onCreated }) => {
       if (onCreated) onCreated();
       setAdGroupName('');
       setRecipeCount('1');
+      setMonth('');
+      setDueDate('');
     } catch (err) {
       console.error('Failed to batch create ad groups', err);
       setError('Failed to batch create ad groups. Please try again.');
@@ -1989,6 +2148,9 @@ const BatchCreateAdGroupModal = ({ onClose, onCreated }) => {
             </Button>
           </div>
           {(loadingBrands || loadingInstances) && <p>Loading data…</p>}
+          {loadingBrandAssets && (
+            <p className="text-sm text-gray-600 dark:text-gray-400">Loading brand assets…</p>
+          )}
           {brandComputation.rows.length === 0 ? (
             <p>No brands selected.</p>
           ) : (
@@ -2268,7 +2430,7 @@ const BatchCreateAdGroupModal = ({ onClose, onCreated }) => {
               Could not find: {brandComputation.missing.join(', ')}
             </p>
           )}
-          <div className="grid gap-3 md:grid-cols-2">
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
             <label className="block text-sm font-medium">
               <span className="mb-1 block">Ad group name</span>
               <input
@@ -2300,6 +2462,24 @@ const BatchCreateAdGroupModal = ({ onClose, onCreated }) => {
                 className="w-full rounded border border-gray-300 p-2 dark:border-gray-700 dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]"
               />
             </label>
+            <label className="block text-sm font-medium">
+              <span className="mb-1 block">Month</span>
+              <input
+                type="month"
+                value={month}
+                onChange={(e) => setMonth(e.target.value)}
+                className="w-full rounded border border-gray-300 p-2 dark:border-gray-700 dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]"
+              />
+            </label>
+            <label className="block text-sm font-medium">
+              <span className="mb-1 block">Due date</span>
+              <input
+                type="date"
+                value={dueDate}
+                onChange={(e) => setDueDate(e.target.value)}
+                className="w-full rounded border border-gray-300 p-2 dark:border-gray-700 dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]"
+              />
+            </label>
           </div>
           {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
           {success && <p className="text-sm text-green-600 dark:text-green-400">{success}</p>}
@@ -2308,7 +2488,12 @@ const BatchCreateAdGroupModal = ({ onClose, onCreated }) => {
               type="button"
               variant="accent"
               onClick={handleBatchCreate}
-              disabled={creating || brandComputation.rows.length === 0 || !validRecipeCount}
+              disabled={
+                creating ||
+                brandComputation.rows.length === 0 ||
+                !validRecipeCount ||
+                loadingBrandAssets
+              }
             >
               {creating ? 'Creating…' : 'Batch create'}
             </Button>
