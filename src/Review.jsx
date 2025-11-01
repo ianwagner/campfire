@@ -20,8 +20,9 @@ import {
   FiHome,
   FiDownload,
   FiMoreHorizontal,
+  FiSearch,
 } from 'react-icons/fi';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
   collection,
   collectionGroup,
@@ -214,6 +215,105 @@ const normalizeCopyText = (value) => {
   if (value === null || value === undefined) return '';
   if (typeof value === 'string') return value.trim();
   return String(value);
+};
+
+const FILTER_QUERY_KEYS = ['q', 'audience', 'angle', 'product'];
+
+const normalizeFilterToken = (value) => {
+  if (value === null || value === undefined) return '';
+  const normalized =
+    typeof value === 'string' ? value.trim().toLowerCase() : String(value).trim().toLowerCase();
+  return normalized;
+};
+
+const flattenMetaValues = (value) => {
+  const results = [];
+  const visit = (input) => {
+    if (input === null || input === undefined) {
+      return;
+    }
+    if (Array.isArray(input)) {
+      input.forEach(visit);
+      return;
+    }
+    if (typeof input === 'object') {
+      const candidateKeys = ['value', 'label', 'name', 'title', 'text'];
+      candidateKeys.forEach((key) => {
+        if (Object.prototype.hasOwnProperty.call(input, key)) {
+          visit(input[key]);
+        }
+      });
+      return;
+    }
+    const normalized = normalizeKeyPart(input);
+    if (normalized) {
+      results.push(normalized);
+    }
+  };
+  visit(value);
+  return results;
+};
+
+const collectAdMetaValues = (ad, field) => {
+  if (!ad) return [];
+  const values = new Set();
+  const assign = (candidate) => {
+    flattenMetaValues(candidate).forEach((entry) => {
+      const normalized = normalizeKeyPart(entry);
+      if (normalized) {
+        values.add(normalized);
+      }
+    });
+  };
+  const capitalized = field.charAt(0).toUpperCase() + field.slice(1);
+  const sources = [
+    ad[field],
+    ad[`${field}Name`],
+    ad[`${field}Label`],
+    ad[`${field}Title`],
+    ad.metadata?.[field],
+    ad.metadata?.[`${field}Name`],
+    ad.metadata?.[`${field}Label`],
+    ad.metadata?.[`${field}Title`],
+    ad.metadata?.[capitalized],
+    ad.components?.[field],
+    ad.components?.[`${field}Name`],
+    ad.components?.[`${field}Label`],
+    ad.components?.[`${field}Title`],
+    ad.details?.[field],
+    ad.details?.[`${field}Name`],
+    ad.details?.[`${field}Label`],
+    ad.details?.[`${field}Title`],
+    ad.recipe?.[field],
+    ad.recipe?.metadata?.[field],
+    ad.recipe?.metadata?.[`${field}Name`],
+    ad.recipe?.metadata?.[`${field}Label`],
+    ad.recipe?.metadata?.[`${field}Title`],
+  ];
+  sources.forEach(assign);
+  return Array.from(values);
+};
+
+const areSetsEqual = (first, second) => {
+  if (first.size !== second.size) return false;
+  for (const value of first) {
+    if (!second.has(value)) {
+      return false;
+    }
+  }
+  return true;
+};
+
+const toFilterValueObjects = (values = []) => {
+  const map = new Map();
+  values.forEach((label) => {
+    const normalized = normalizeFilterToken(label);
+    if (!normalized || map.has(normalized)) {
+      return;
+    }
+    map.set(normalized, { label, normalized });
+  });
+  return Array.from(map.values());
 };
 
 const normalizeRecipeCode = (value) => {
@@ -777,6 +877,58 @@ const Review = forwardRef(
   const [finalizeProcessing, setFinalizeProcessing] = useState(false);
   const [timedOut, setTimedOut] = useState(false);
   const [started, setStarted] = useState(false);
+  const [adSearchQuery, setAdSearchQuery] = useState('');
+  const [selectedAudiences, setSelectedAudiences] = useState(new Set());
+  const [selectedAngles, setSelectedAngles] = useState(new Set());
+  const [selectedProducts, setSelectedProducts] = useState(new Set());
+  const parseFiltersFromSearch = useCallback((searchString) => {
+    const params = new URLSearchParams(searchString || '');
+    const searchValue = params.get('q');
+    const normalizedSearch = searchValue ? searchValue.trim() : '';
+    const parseMultiParam = (key) => {
+      const values = params.getAll(key);
+      if (values.length === 0) {
+        const single = params.get(key);
+        if (single) {
+          values.push(single);
+        }
+      }
+      return values
+        .map((value) => normalizeFilterToken(value))
+        .filter(Boolean);
+    };
+    return {
+      search: normalizedSearch,
+      audiences: parseMultiParam('audience'),
+      angles: parseMultiParam('angle'),
+      products: parseMultiParam('product'),
+    };
+  }, []);
+  useEffect(() => {
+    const parsed = parseFiltersFromSearch(location.search);
+    if (parsed.search !== adSearchQuery) {
+      setAdSearchQuery(parsed.search);
+    }
+    const nextAudienceSet = new Set(parsed.audiences);
+    if (!areSetsEqual(selectedAudiences, nextAudienceSet)) {
+      setSelectedAudiences(nextAudienceSet);
+    }
+    const nextAngleSet = new Set(parsed.angles);
+    if (!areSetsEqual(selectedAngles, nextAngleSet)) {
+      setSelectedAngles(nextAngleSet);
+    }
+    const nextProductSet = new Set(parsed.products);
+    if (!areSetsEqual(selectedProducts, nextProductSet)) {
+      setSelectedProducts(nextProductSet);
+    }
+  }, [
+    adSearchQuery,
+    location.search,
+    parseFiltersFromSearch,
+    selectedAngles,
+    selectedAudiences,
+    selectedProducts,
+  ]);
   const [allHeroAds, setAllHeroAds] = useState([]); // hero list for all ads
   const [versionMode, setVersionMode] = useState(false); // reviewing new versions
   const [animating, setAnimating] = useState(null); // 'approve' | 'reject'
@@ -962,6 +1114,457 @@ const Review = forwardRef(
 
     return assignments;
   }, [recipes]);
+
+  const navigationEntries = useMemo(() => {
+    if (!reviewAds || reviewAds.length === 0) {
+      return [];
+    }
+    const entries = [];
+    reviewAds.forEach((ad, index) => {
+      if (!ad) return;
+      const cardKey = getAdKey(ad, index);
+      const info = parseAdFilename(ad.filename || '');
+      const recipeCode = ad.recipeCode || info.recipeCode || '';
+      const productMetaValues = collectAdMetaValues(ad, 'product');
+      const productValueCandidates = [
+        normalizeKeyPart(getProductNameForRecipe(recipeCode) || ''),
+        ...productMetaValues.map((value) => normalizeKeyPart(value)),
+      ].filter(Boolean);
+      const resolvedProductName = productValueCandidates.find((value) => value) || '';
+      const productValues = toFilterValueObjects(productValueCandidates);
+      const audienceValues = toFilterValueObjects(collectAdMetaValues(ad, 'audience'));
+      const angleValues = toFilterValueObjects(collectAdMetaValues(ad, 'angle'));
+
+      const copyTexts = new Set();
+      const addCopyText = (value) => {
+        const normalized = normalizeCopyText(value);
+        if (normalized) {
+          copyTexts.add(normalized);
+        }
+      };
+
+      const normalizedRecipeKey = normalizeRecipeCode(recipeCode);
+      const assignedCopyCardId =
+        normalizedRecipeKey && recipeCopyAssignments[normalizedRecipeKey]
+          ? recipeCopyAssignments[normalizedRecipeKey]
+          : null;
+      const assignedCopyCard =
+        assignedCopyCardId && copyCardById[assignedCopyCardId]
+          ? copyCardById[assignedCopyCardId]
+          : null;
+      const productCopyCards = getCopyCardsForProduct(resolvedProductName);
+      const candidateCopyCards = assignedCopyCard
+        ? [
+            assignedCopyCard,
+            ...productCopyCards.filter(
+              (card) => card && card.id !== assignedCopyCard.id,
+            ),
+          ]
+        : productCopyCards;
+      const fallbackCopyCard = candidateCopyCards.find(
+        (card) => card && (card.primary || card.headline || card.description),
+      );
+      const activeCopyCard = assignedCopyCard || fallbackCopyCard || null;
+      if (activeCopyCard) {
+        addCopyText(activeCopyCard.primary);
+        addCopyText(activeCopyCard.headline);
+        addCopyText(activeCopyCard.description);
+      }
+
+      const copySources = [
+        ad.copy,
+        ad.copyText,
+        ad.copyPrimary,
+        ad.copyHeadline,
+        ad.copyDescription,
+        ad.primaryText,
+        ad.headline,
+        ad.description,
+        ad.metadata?.copy,
+        ad.metadata?.copyText,
+        ad.metadata?.primary,
+        ad.metadata?.headline,
+        ad.metadata?.description,
+        ad.components?.copy,
+        ad.components?.copyText,
+        ad.components?.primary,
+        ad.components?.headline,
+        ad.components?.description,
+        ad.platformCopy?.primary,
+        ad.platformCopy?.headline,
+        ad.platformCopy?.description,
+        ad.platformCopyOverride?.primary,
+        ad.platformCopyOverride?.headline,
+        ad.platformCopyOverride?.description,
+        ad.copyOverride?.primary,
+        ad.copyOverride?.headline,
+        ad.copyOverride?.description,
+      ];
+      copySources.forEach((source) => {
+        flattenMetaValues(source).forEach(addCopyText);
+      });
+
+      const copyArray = Array.from(copyTexts);
+      const recipeLabelCandidate =
+        normalizeKeyPart(ad.recipeName) ||
+        normalizeKeyPart(ad.metadata?.recipeName) ||
+        normalizeKeyPart(recipeCode || info.recipeCode || '');
+      const recipeLabel = recipeLabelCandidate || `Ad ${index + 1}`;
+      const title = resolvedProductName || recipeLabel || `Ad ${index + 1}`;
+      const subtitleParts = [];
+      if (recipeLabel && recipeLabel !== title) {
+        subtitleParts.push(recipeLabel);
+      }
+      if (ad.groupName && ad.groupName !== title && ad.groupName !== recipeLabel) {
+        subtitleParts.push(ad.groupName);
+      }
+      const subtitle = subtitleParts.join(' • ');
+      const searchParts = [
+        cardKey,
+        title,
+        subtitle,
+        resolvedProductName,
+        ad.groupName,
+        ad.filename,
+        ...productValues.map((value) => value.label),
+        ...audienceValues.map((value) => value.label),
+        ...angleValues.map((value) => value.label),
+        ...copyArray,
+      ];
+      const searchText = searchParts
+        .filter((part) => typeof part === 'string' && part.trim())
+        .map((part) => part.toLowerCase())
+        .join(' ');
+
+      entries.push({
+        cardKey,
+        order: index,
+        title,
+        subtitle,
+        productName: resolvedProductName,
+        recipeLabel,
+        audienceValues,
+        angleValues,
+        productValues,
+        copyPreview: copyArray.slice(0, 3).join(' • '),
+        searchText,
+      });
+    });
+    return entries;
+  }, [
+    copyCardById,
+    getCopyCardsForProduct,
+    getProductNameForRecipe,
+    recipeCopyAssignments,
+    reviewAds,
+  ]);
+
+  const filterOptions = useMemo(() => {
+    const buildOptions = (entries, accessor) => {
+      const counts = new Map();
+      entries.forEach((entry) => {
+        accessor(entry).forEach((value) => {
+          const key = value.normalized;
+          if (!key) return;
+          if (!counts.has(key)) {
+            counts.set(key, { label: value.label, normalized: key, count: 0 });
+          }
+          counts.get(key).count += 1;
+        });
+      });
+      return Array.from(counts.values()).sort((a, b) =>
+        a.label.localeCompare(b.label, undefined, { sensitivity: 'base' }),
+      );
+    };
+    return {
+      audiences: buildOptions(navigationEntries, (entry) => entry.audienceValues),
+      angles: buildOptions(navigationEntries, (entry) => entry.angleValues),
+      products: buildOptions(navigationEntries, (entry) => entry.productValues),
+    };
+  }, [navigationEntries]);
+
+  const filterLabelMaps = useMemo(
+    () => ({
+      audiences: new Map(
+        filterOptions.audiences.map((option) => [option.normalized, option.label]),
+      ),
+      angles: new Map(
+        filterOptions.angles.map((option) => [option.normalized, option.label]),
+      ),
+      products: new Map(
+        filterOptions.products.map((option) => [option.normalized, option.label]),
+      ),
+    }),
+    [filterOptions],
+  );
+
+  const visibleNavigationEntries = useMemo(() => {
+    if (!navigationEntries || navigationEntries.length === 0) {
+      return [];
+    }
+    const query = adSearchQuery.trim().toLowerCase();
+    const hasAudienceFilter = selectedAudiences.size > 0;
+    const hasAngleFilter = selectedAngles.size > 0;
+    const hasProductFilter = selectedProducts.size > 0;
+    return navigationEntries.filter((entry) => {
+      if (hasAudienceFilter) {
+        const matchesAudience = entry.audienceValues.some((value) =>
+          selectedAudiences.has(value.normalized),
+        );
+        if (!matchesAudience) {
+          return false;
+        }
+      }
+      if (hasAngleFilter) {
+        const matchesAngle = entry.angleValues.some((value) =>
+          selectedAngles.has(value.normalized),
+        );
+        if (!matchesAngle) {
+          return false;
+        }
+      }
+      if (hasProductFilter) {
+        const matchesProduct = entry.productValues.some((value) =>
+          selectedProducts.has(value.normalized),
+        );
+        if (!matchesProduct) {
+          return false;
+        }
+      }
+      if (query) {
+        return entry.searchText.includes(query);
+      }
+      return true;
+    });
+  }, [
+    adSearchQuery,
+    navigationEntries,
+    selectedAngles,
+    selectedAudiences,
+    selectedProducts,
+  ]);
+
+  const visibleCardKeySet = useMemo(
+    () => new Set(visibleNavigationEntries.map((entry) => entry.cardKey)),
+    [visibleNavigationEntries],
+  );
+
+  const hasActiveFilters = useMemo(
+    () =>
+      Boolean(adSearchQuery.trim()) ||
+      selectedAudiences.size > 0 ||
+      selectedAngles.size > 0 ||
+      selectedProducts.size > 0,
+    [adSearchQuery, selectedAngles, selectedAudiences, selectedProducts],
+  );
+
+  const stickyNavOffset = useMemo(() => {
+    const offset = Number.isFinite(effectiveToolbarOffset)
+      ? Math.max(0, effectiveToolbarOffset)
+      : 0;
+    return offset + 16;
+  }, [effectiveToolbarOffset]);
+
+  const navMaxHeight = useMemo(
+    () => `calc(100vh - ${Math.max(0, stickyNavOffset) + 32}px)`,
+    [stickyNavOffset],
+  );
+
+  const syncFiltersToUrl = useCallback(
+    (overrides = {}, options = {}) => {
+      const currentParams = new URLSearchParams(location.search || '');
+      const params = new URLSearchParams(currentParams);
+      FILTER_QUERY_KEYS.forEach((key) => params.delete(key));
+
+      const toArray = (value, fallbackSet) => {
+        if (Array.isArray(value)) {
+          return value;
+        }
+        if (value instanceof Set) {
+          return Array.from(value);
+        }
+        if (value !== undefined) {
+          return [value];
+        }
+        return Array.from(fallbackSet);
+      };
+
+      const nextSearch =
+        overrides.search !== undefined ? overrides.search : adSearchQuery;
+      const nextAudiences = toArray(
+        overrides.audiences,
+        selectedAudiences,
+      );
+      const nextAngles = toArray(overrides.angles, selectedAngles);
+      const nextProducts = toArray(overrides.products, selectedProducts);
+
+      const trimmedSearch = (nextSearch || '').trim();
+      if (trimmedSearch) {
+        params.set('q', trimmedSearch);
+      }
+
+      const appendValues = (key, values, labelMap) => {
+        if (!values || values.length === 0) {
+          return;
+        }
+        const seen = new Set();
+        values.forEach((value) => {
+          const token = normalizeFilterToken(value);
+          if (!token || seen.has(token)) {
+            return;
+          }
+          seen.add(token);
+          const label = labelMap.get(token) || value;
+          if (label) {
+            params.append(key, label);
+          }
+        });
+      };
+
+      appendValues('audience', nextAudiences, filterLabelMaps.audiences);
+      appendValues('angle', nextAngles, filterLabelMaps.angles);
+      appendValues('product', nextProducts, filterLabelMaps.products);
+
+      const nextSearchString = params.toString();
+      const currentSearchString = currentParams.toString();
+      if (nextSearchString === currentSearchString) {
+        return;
+      }
+
+      navigate(
+        {
+          pathname: location.pathname,
+          search: nextSearchString ? `?${nextSearchString}` : '',
+        },
+        { replace: options.replace ?? false },
+      );
+    },
+    [
+      adSearchQuery,
+      filterLabelMaps,
+      location.pathname,
+      location.search,
+      navigate,
+      selectedAngles,
+      selectedAudiences,
+      selectedProducts,
+    ],
+  );
+
+  const handleSearchChange = useCallback(
+    (event) => {
+      const value = event?.target?.value ?? '';
+      setAdSearchQuery(value);
+      syncFiltersToUrl({ search: value }, { replace: true });
+    },
+    [syncFiltersToUrl],
+  );
+
+  const handleToggleFilter = useCallback(
+    (type, normalizedValue) => {
+      if (!normalizedValue) return;
+      if (type === 'audience') {
+        const next = new Set(selectedAudiences);
+        if (next.has(normalizedValue)) {
+          next.delete(normalizedValue);
+        } else {
+          next.add(normalizedValue);
+        }
+        setSelectedAudiences(next);
+        syncFiltersToUrl({ audiences: Array.from(next) });
+        return;
+      }
+      if (type === 'angle') {
+        const next = new Set(selectedAngles);
+        if (next.has(normalizedValue)) {
+          next.delete(normalizedValue);
+        } else {
+          next.add(normalizedValue);
+        }
+        setSelectedAngles(next);
+        syncFiltersToUrl({ angles: Array.from(next) });
+        return;
+      }
+      if (type === 'product') {
+        const next = new Set(selectedProducts);
+        if (next.has(normalizedValue)) {
+          next.delete(normalizedValue);
+        } else {
+          next.add(normalizedValue);
+        }
+        setSelectedProducts(next);
+        syncFiltersToUrl({ products: Array.from(next) });
+      }
+    },
+    [selectedAngles, selectedAudiences, selectedProducts, syncFiltersToUrl],
+  );
+
+  const handleClearFilters = useCallback(() => {
+    setAdSearchQuery('');
+    setSelectedAudiences(new Set());
+    setSelectedAngles(new Set());
+    setSelectedProducts(new Set());
+    syncFiltersToUrl({ search: '', audiences: [], angles: [], products: [] });
+  }, [syncFiltersToUrl]);
+
+  const handleNavigateToAd = useCallback((cardKey) => {
+    if (!cardKey || typeof document === 'undefined') return;
+    const target = document.getElementById(`ad-card-${cardKey}`);
+    if (!target) return;
+    const rect = target.getBoundingClientRect();
+    const scrollY = window.scrollY || window.pageYOffset || 0;
+    const offset = Number.isFinite(effectiveToolbarOffsetRef.current)
+      ? Math.max(0, effectiveToolbarOffsetRef.current)
+      : 0;
+    const destination = Math.max(0, rect.top + scrollY - offset - 24);
+    window.scrollTo({ top: destination, behavior: 'smooth' });
+  }, []);
+
+  const totalNavigationCount = navigationEntries.length;
+  const visibleNavigationCount = visibleNavigationEntries.length;
+
+  useEffect(() => {
+    if (filterOptions.angles.length === 0 && selectedAngles.size > 0) {
+      setSelectedAngles(new Set());
+      syncFiltersToUrl({ angles: [] }, { replace: true });
+    }
+  }, [filterOptions.angles, selectedAngles, syncFiltersToUrl]);
+
+  const renderFilterGroup = (type, label, options, selectedSet) => {
+    if (!options || options.length === 0) {
+      return null;
+    }
+    return (
+      <div key={type} className="space-y-2">
+        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+          {label}
+        </p>
+        <div className="flex flex-wrap gap-2">
+          {options.map((option) => {
+            const isActive = selectedSet.has(option.normalized);
+            return (
+              <button
+                key={option.normalized}
+                type="button"
+                onClick={() => handleToggleFilter(type, option.normalized)}
+                className={combineClasses(
+                  'inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-medium transition',
+                  isActive
+                    ? 'border-[var(--accent-color)] bg-[var(--accent-color-10)] text-[var(--accent-color)] dark:border-[var(--accent-color)] dark:bg-[var(--accent-color-10)]'
+                    : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)] dark:text-gray-300 dark:hover:border-[var(--accent-color-20)]',
+                )}
+              >
+                <span>{option.label}</span>
+                <span className="text-[10px] text-gray-400 dark:text-gray-500">
+                  {option.count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
 
   const resolvedReviewerName = useMemo(() => {
     if (typeof reviewerName === 'string' && reviewerName.trim()) {
@@ -1493,6 +2096,7 @@ const Review = forwardRef(
     };
   }, [groupId]);
 
+  const location = useLocation();
   const navigate = useNavigate();
   const handleExitReview = useCallback(() => {
     releaseLock();
@@ -5034,12 +5638,14 @@ useEffect(() => {
               />
             </div>
           ) : reviewVersion === 2 ? (
-            <div
-              className={combineClasses(
-                'relative w-full max-w-[712px] pt-2 sm:px-0',
-                statusBarPinned ? 'px-4' : 'px-2',
-              )}
-            >
+            <div className="w-full xl:max-w-[1180px] xl:flex xl:items-start xl:justify-center xl:gap-6">
+              <div className="flex w-full justify-center">
+                <div
+                  className={combineClasses(
+                    'relative w-full max-w-[712px] pt-2 sm:px-0',
+                    statusBarPinned ? 'px-4' : 'px-2',
+                  )}
+                >
               <div
                 ref={statusBarSentinelRef}
                 aria-hidden="true"
@@ -5141,6 +5747,10 @@ useEffect(() => {
                   <div className="rounded-2xl border border-dashed border-gray-300 dark:border-[var(--border-color-default)] bg-white dark:bg-[var(--dark-sidebar-bg)] p-8 text-center text-gray-500 dark:text-gray-300">
                     No ads to review yet.
                   </div>
+                ) : visibleCardKeySet.size === 0 ? (
+                  <div className="rounded-2xl border border-dashed border-gray-300 dark:border-[var(--border-color-default)] bg-white dark:bg-[var(--dark-sidebar-bg)] p-8 text-center text-gray-500 dark:text-gray-300">
+                    No ads match your search or filters.
+                  </div>
                 ) : (
                   reviewAds.map((ad, index) => {
                   const {
@@ -5150,6 +5760,10 @@ useEffect(() => {
                     statusAssets,
                     statusValue,
                   } = buildStatusMeta(ad, index);
+                  if (!visibleCardKeySet.has(cardKey)) {
+                    return null;
+                  }
+                  const cardAnchorId = `ad-card-${cardKey}`;
                   const fallbackAssets =
                     latestAssets && latestAssets.length > 0
                       ? latestAssets
@@ -5931,6 +6545,7 @@ useEffect(() => {
                       return (
                         <div
                           key={cardKey}
+                          id={cardAnchorId}
                           className="w-full overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)]"
                         >
                           <div className="flex flex-col gap-4 p-4">
@@ -5980,6 +6595,7 @@ useEffect(() => {
                     return (
                       <div
                         key={cardKey}
+                        id={cardAnchorId}
                         className="w-full overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)]"
                       >
                         <div className="flex flex-col gap-4 p-4">
@@ -6219,6 +6835,7 @@ useEffect(() => {
                     return (
                       <div
                         key={cardKey}
+                        id={cardAnchorId}
                         className="mx-auto w-full max-w-[712px] rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)]"
                       >
                         <div className="flex flex-col gap-4 p-5">
@@ -6269,6 +6886,7 @@ useEffect(() => {
                   return (
                     <div
                       key={cardKey}
+                      id={cardAnchorId}
                       className="mx-auto w-full max-w-[712px] rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)]"
                     >
                       <div className="flex flex-col gap-4 p-5">
@@ -6506,6 +7124,134 @@ useEffect(() => {
                   When you are all set, just click Finalize Review so we can keep things moving.
                 </p>
               </div>
+            </div>
+              </div>
+              <aside className="hidden xl:block w-72 flex-shrink-0">
+                <div
+                  className="sticky"
+                  style={{ top: stickyNavOffset, maxHeight: navMaxHeight }}
+                >
+                  <div className="flex h-full max-h-full flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)]">
+                    <div className="border-b border-gray-200 px-4 py-3 dark:border-[var(--border-color-default)]">
+                      <div className="flex items-center justify-between gap-2">
+                        <h3 className="text-sm font-semibold text-gray-800 dark:text-[var(--dark-text)]">
+                          Ad navigation
+                        </h3>
+                        <Button
+                          type="button"
+                          variant="accent"
+                          size="sm"
+                          onClick={handleClearFilters}
+                          disabled={!hasActiveFilters}
+                        >
+                          View all
+                        </Button>
+                      </div>
+                      <p className="mt-1 text-xs text-gray-500 dark:text-gray-300">
+                        Showing {visibleNavigationCount} of {totalNavigationCount} ads
+                      </p>
+                    </div>
+                    <div className="flex-1 space-y-6 overflow-y-auto px-4 py-4">
+                      <div>
+                        <label
+                          htmlFor="adNavigationSearch"
+                          className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400"
+                        >
+                          Search ads
+                        </label>
+                        <div className="relative mt-2">
+                          <FiSearch className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                          <input
+                            id="adNavigationSearch"
+                            type="search"
+                            value={adSearchQuery}
+                            onChange={handleSearchChange}
+                            placeholder="Search audience, angle, copy..."
+                            className="w-full rounded-lg border border-gray-300 bg-white py-2 pl-9 pr-3 text-sm shadow-sm focus:border-[var(--accent-color)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)] dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]"
+                          />
+                        </div>
+                      </div>
+                      {filterOptions.audiences.length > 0 ||
+                      filterOptions.angles.length > 0 ||
+                      filterOptions.products.length > 0 ? (
+                        <div className="space-y-4">
+                          {renderFilterGroup('audience', 'Audience', filterOptions.audiences, selectedAudiences)}
+                          {renderFilterGroup('angle', 'Angle', filterOptions.angles, selectedAngles)}
+                          {renderFilterGroup('product', 'Product', filterOptions.products, selectedProducts)}
+                        </div>
+                      ) : null}
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                          Ads
+                        </p>
+                        <div className="mt-2 space-y-2">
+                          {visibleNavigationEntries.length === 0 ? (
+                            <p className="text-xs text-gray-500 dark:text-gray-300">
+                              No ads match your search or filters.
+                            </p>
+                          ) : (
+                            visibleNavigationEntries.map((entry) => (
+                              <button
+                                key={entry.cardKey}
+                                type="button"
+                                onClick={() => handleNavigateToAd(entry.cardKey)}
+                                className="w-full rounded-lg border border-transparent bg-white/80 px-3 py-2 text-left text-sm shadow-sm transition hover:border-[var(--accent-color)] hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-color)] dark:border-transparent dark:bg-[var(--dark-sidebar-bg)] dark:hover:bg-[var(--dark-sidebar-bg)]/80"
+                              >
+                                <div className="flex flex-col gap-1">
+                                  <div className="flex items-start justify-between gap-2">
+                                    <span className="font-semibold text-gray-800 dark:text-[var(--dark-text)]">
+                                      {entry.title}
+                                    </span>
+                                    {entry.recipeLabel && entry.recipeLabel !== entry.title ? (
+                                      <span className="text-[11px] text-gray-400 dark:text-gray-500">
+                                        {entry.recipeLabel}
+                                      </span>
+                                    ) : null}
+                                  </div>
+                                  {entry.subtitle && (
+                                    <p className="text-xs text-gray-500 dark:text-gray-300">{entry.subtitle}</p>
+                                  )}
+                                  <div className="flex flex-wrap gap-1 text-[11px] text-gray-500 dark:text-gray-400">
+                                    {entry.productValues.map((value) => (
+                                      <span
+                                        key={`product-${entry.cardKey}-${value.normalized}`}
+                                        className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-600 dark:bg-[var(--dark-sidebar-hover)] dark:text-gray-300"
+                                      >
+                                        {value.label}
+                                      </span>
+                                    ))}
+                                    {entry.audienceValues.map((value) => (
+                                      <span
+                                        key={`aud-${entry.cardKey}-${value.normalized}`}
+                                        className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-600 dark:bg-[var(--dark-sidebar-hover)] dark:text-gray-300"
+                                      >
+                                        {value.label}
+                                      </span>
+                                    ))}
+                                    {entry.angleValues.map((value) => (
+                                      <span
+                                        key={`angle-${entry.cardKey}-${value.normalized}`}
+                                        className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-600 dark:bg-[var(--dark-sidebar-hover)] dark:text-gray-300"
+                                      >
+                                        {value.label}
+                                      </span>
+                                    ))}
+                                  </div>
+                                  {entry.copyPreview && (
+                                    <p className="line-clamp-2 text-xs text-gray-500 dark:text-gray-300">
+                                      {entry.copyPreview}
+                                    </p>
+                                  )}
+                                </div>
+                              </button>
+                            ))
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </aside>
             </div>
           ) : (
           <div
